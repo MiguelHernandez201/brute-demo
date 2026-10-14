@@ -847,7 +847,7 @@ export const setupFight: (
           // Demo 1 vs 1: la caída del brute perdedor se remata con una fatality
           if (!isRoyale && !isClanWar && !fatalityDone && isFatalityDeath(fighters, step)) {
             fatalityDone = true;
-            await fatality(app, fighters, step, speed);
+            await fatality(app, spritesheets, fighters, step, speed);
             break;
           }
           // Demo royale: como en las guerras de clanes, los caídos se desvanecen para no llenar la arena
