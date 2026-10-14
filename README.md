@@ -37,9 +37,21 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 
 - **1 vs 1**: dos jugadores con brutes al azar. Tienda lateral para comprar armas, power-ups,
   mascotas y pociones, que entran en el siguiente turno. El ganador sigue (sin curarse) al *Desafiar*.
-  Cuando cae el perdedor, la pelea se remata con una **fatality**: "FINISH HIM!", el ganador corre,
-  le da dos cortes y el tercero lo decapita (la cabeza sale volando y el cuerpo se desploma), y luego
-  el letrero "FATALITY" (con voz del navegador si los efectos de sonido están activos).
+  Cuando cae el perdedor, la pelea se remata con una **fatality**: "FINISH HIM!", el ganador se acerca
+  y lo remata según el arma que lleva, y luego el letrero "FATALITY" (con voz del navegador si los
+  efectos de sonido están activos):
+
+  | Arma del ganador | Fatality |
+  |---|---|
+  | Espada, sable, cimitarra, abanico | Decapitación |
+  | Hacha, hachuela, alabarda | Partido en dos |
+  | Maza, mayal, sartén, hueso, lucero del alba, trombón, teclado, puerro, raqueta, bastón, jarra | Aplastado |
+  | Lanza, tridente, cuchillo, sai | Acribillado |
+  | Látigo | Arrancacabezas |
+  | Sin arma, tazón, piopio, shuriken | Explosión |
+
+  Para ver una en concreto se puede forzar con la URL, por ejemplo `?fatality=aplastado`
+  (`decapitacion`, `partido`, `aplastado`, `acribillado`, `latigo` o `explosion`).
 - **Battle Royale**: de 3 a 10 brutes, todos contra todos, con varios duelos animados a la vez.
 
 ## Estructura (`web/src`)
