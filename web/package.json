@@ -1,0 +1,21 @@
+{
+  "name": "brute-demo-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --open",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@pixi/sound": "^6.0.1",
+    "dayjs": "^1.11.23",
+    "gsap": "^3.15.0",
+    "labrute-fla-parser": "^1.0.13",
+    "labrute-static-fla-parser": "^1.0.6",
+    "pixi-filters": "^6.1.5",
+    "pixi.js": "^8.19.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.21"
+  }
+}

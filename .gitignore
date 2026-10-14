@@ -1,0 +1,8 @@
+# Dependencias y compilados
+node_modules/
+web/dist/
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+*.log
