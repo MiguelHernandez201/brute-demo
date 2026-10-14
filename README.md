@@ -50,6 +50,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   | Látigo | Arrancacabezas |
   | Sin arma, tazón, piopio, shuriken | Explosión |
 
+  La casilla **Celebrar tras la fatality** decide si después el ganador saca músculo y hace su
+  celebración de victoria (pose, fanfarria y pétalos) o se queda quieto.
+
   Para ver una en concreto se puede forzar con la URL, por ejemplo `?fatality=aplastado`
   (`decapitacion`, `partido`, `aplastado`, `acribillado`, `latigo` o `explosion`).
 - **Battle Royale**: de 3 a 10 brutes, todos contra todos, con varios duelos animados a la vez.
