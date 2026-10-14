@@ -928,7 +928,8 @@ const mimicSkill = (
   }
 };
 
-const activateSuper = (
+// Demo: exportada para activar al instante los power-ups comprados en la tienda
+export const activateSuper = (
   chaos: boolean,
   fightData: DetailedFight,
   fighter: DetailedFighter,

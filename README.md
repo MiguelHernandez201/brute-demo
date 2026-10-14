@@ -35,8 +35,11 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 
 ## Modos
 
-- **1 vs 1**: dos jugadores con brutes al azar. Tienda lateral para comprar armas, power-ups,
-  mascotas y pociones, que entran en el siguiente turno. El ganador sigue (sin curarse) al *Desafiar*.
+- **1 vs 1**: dos jugadores con brutes al azar. Tienda lateral para comprar armas, mascotas y pociones,
+  que entran en el siguiente turno, y un botón por cada power-up (Bomba, Red, Rompecuellos, Hipnosis…):
+  el power-up elegido se activa sí o sí al empezar el siguiente turno, sin depender de la probabilidad
+  (si aún no puede usarse, como Ladrón con el rival desarmado, se reintenta hasta 3 turnos).
+  El ganador sigue (sin curarse) al *Desafiar*.
   Cuando cae el perdedor, la pelea se remata con una **fatality**: "FINISH HIM!", el ganador se acerca
   y lo remata según el arma que lleva, y luego el letrero "FATALITY" (con voz del navegador si los
   efectos de sonido están activos):

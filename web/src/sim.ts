@@ -121,6 +121,7 @@ export function createFight(
         }
       });
       if (changed) onGearChange([b1, b2]);
+      session.activatePurchased();
       session.playTurn();
       if (session.finished) {
         fight.winner = session.winner?.name ?? null;

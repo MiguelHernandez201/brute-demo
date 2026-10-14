@@ -968,6 +968,8 @@ export const setupFight: (
             f: number;
             weapons: Partial<Record<number, number>>;
             skills: Partial<Record<number, number>>;
+            // Usos exactos de los power-ups comprados para activar
+            u?: Partial<Record<number, number>>;
           };
           const buyer = fighters.find((f) => f.index === gearStep.f);
           if (!buyer) break;
@@ -981,6 +983,8 @@ export const setupFight: (
             const realUses = skills[SkillById[+skillId as SkillId]].uses?.[(tier ?? 1) - 1];
             const entry = buyer.skills[+skillId as SkillId];
             if (entry && realUses) entry.uses = realUses;
+            const boughtUses = gearStep.u?.[+skillId];
+            if (entry && boughtUses) entry.uses = boughtUses;
           }
           updateSkills(app, spritesheets, buyer);
           void sound.play('sfx', { sprite: 'equip' });
