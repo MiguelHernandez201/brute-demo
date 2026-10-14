@@ -37,6 +37,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 
 - **1 vs 1**: dos jugadores con brutes al azar. Tienda lateral para comprar armas, power-ups,
   mascotas y pociones, que entran en el siguiente turno. El ganador sigue (sin curarse) al *Desafiar*.
+  Cuando cae el perdedor, la pelea se remata con una **fatality**: cámara lenta, sangre y el letrero
+  "FATALITY" (con voz del navegador si los efectos de sonido están activos).
 - **Battle Royale**: de 3 a 10 brutes, todos contra todos, con varios duelos animados a la vez.
 
 ## Estructura (`web/src`)

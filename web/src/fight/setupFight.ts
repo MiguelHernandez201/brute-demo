@@ -20,6 +20,7 @@ import { attemptHit } from './attemptHit';
 import { block } from './block';
 import { bomb } from './bomb';
 import { death } from './death';
+import { fatality, isFatalityDeath } from './fatality';
 import { disarm } from './disarm';
 import { dropShield } from './dropShield';
 import { eat } from './eat';
@@ -714,6 +715,7 @@ export const setupFight: (
     // Loop on steps
     // Demo battle royale (todos contra todos)
     const isRoyale = !!(fight as unknown as { royale?: boolean }).royale;
+    let fatalityDone = false;
     // Royale: sin HUD superior (la vida de todos está en el panel lateral). Se oculta cada fotograma
     // porque los iconos de armas/habilidades se vuelven a crear al cambiar de duelo.
     hudControl.hidden = isRoyale;
@@ -842,6 +844,12 @@ export const setupFight: (
           break;
         }
         case StepType.Death: {
+          // Demo 1 vs 1: la caída del brute perdedor se remata con una fatality
+          if (!isRoyale && !isClanWar && !fatalityDone && isFatalityDeath(fighters, step)) {
+            fatalityDone = true;
+            await fatality(app, fighters, step, speed);
+            break;
+          }
           // Demo royale: como en las guerras de clanes, los caídos se desvanecen para no llenar la arena
           death(fighters, step, speed, isClanWar || isRoyale);
           break;

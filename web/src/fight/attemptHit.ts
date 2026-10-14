@@ -60,6 +60,9 @@ export const attemptHit = async (
   }
 
   animationEnded.then(() => {
+    // Demo: no se espera, así que puede llegar después de que el luchador muera
+    // (contraataque, fatality en cámara lenta): un muerto no vuelve a ponerse de pie
+    if (fighter.dead) return;
     // Set animation to `idle`
     fighter.animation.setAnimation('idle');
   }).catch(console.error);
