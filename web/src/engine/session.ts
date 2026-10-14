@@ -10,10 +10,14 @@ import { DetailedFight, DetailedFighter } from './generateFight';
 import { getFighters } from './getFighters';
 import { applySpy } from './applySpy';
 import {
-  Stats, checkDeaths, fighterArrives, orderFighters, playFighterTurn, saboteur,
+  Stats, activateSuper, checkDeaths, fighterArrives, orderFighters, playFighterTurn, saboteur,
 } from './fightMethods';
 
-export type Purchase = { weapons?: string[]; skills?: string[]; pets?: string[]; potions?: number };
+// `activate`: power-ups que se activan al empezar el siguiente turno (sin depender de la probabilidad)
+export type Purchase = { weapons?: string[]; skills?: string[]; pets?: string[]; potions?: number; activate?: string[] };
+
+// Turnos que se reintenta un power-up que todavía no puede usarse (p. ej. Ladrón si el rival no tiene arma)
+const ACTIVATE_TRIES = 3;
 
 // Cada poción cura este % de la vida máxima (y quita el veneno)
 const POTION_HEAL = 0.5;
@@ -70,6 +74,8 @@ export class FightSession {
   #achievements: AchievementsStore = {};
 
   #brutes: CalculatedBrute[];
+  // Power-ups comprados pendientes de activar, por equipo
+  #toActivate: Record<'L' | 'R', { name: string; tries: number }[]> = { L: [], R: [] };
 
   #turn = 0;
 
@@ -185,6 +191,34 @@ export class FightSession {
     return out;
   }
 
+  // Activa los power-ups comprados al empezar el turno, antes de que actúe nadie
+  activatePurchased() {
+    const fd = this.fightData;
+    const chaos = !!(fd.modifiers as Record<string, unknown>)?.chaos;
+    for (const team of ['L', 'R'] as const) {
+      const queue = this.#toActivate[team];
+      const brute = fd.fighters.find((f) => f.team === team && f.type === 'brute' && !f.master);
+      for (let i = 0; i < queue.length && !this.finished; ) {
+        const entry = queue[i]!;
+        const skill = brute?.skills[entry.name as keyof typeof brute.skills];
+        if (!brute || brute.hp <= 0 || !skill) {
+          queue.splice(i, 1);
+          continue;
+        }
+        if (activateSuper(chaos, fd, brute, skill as never, this.#stats, this.#achievements)) {
+          queue.splice(i, 1);
+          checkDeaths(fd, this.#stats);
+          if (fd.loser && !this.winner) this.#finish();
+          continue;
+        }
+        // Todavía no se puede usar: se reintenta en los próximos turnos
+        entry.tries += 1;
+        if (entry.tries >= ACTIVATE_TRIES) queue.splice(i, 1);
+        else i += 1;
+      }
+    }
+  }
+
   // Juega un turno (o termina la pelea). Devuelve false si ya terminó.
   playTurn() {
     if (this.finished) return false;
@@ -286,8 +320,27 @@ export class FightSession {
       gear.skills[SkillByName[name as keyof typeof SkillByName]] = 1;
     }
 
+    // Power-ups a activar: se le da un uso más (o la habilidad con un solo uso si no la tenía)
+    const extraUses: Partial<Record<SkillId, number>> = {};
+    for (const name of purchase.activate ?? []) {
+      const id = SkillByName[name as keyof typeof SkillByName];
+      const owned = brute.skills[name as keyof typeof brute.skills] as { uses?: number[]; tier: number } | undefined;
+      if (owned?.uses) {
+        owned.uses[owned.tier - 1] = (owned.uses[owned.tier - 1] ?? 0) + 1;
+        extraUses[id] = owned.uses[owned.tier - 1];
+      } else if (!owned) {
+        const skill = { ...structuredClone(skills[name as keyof typeof skills]), tier: 1 } as never as { uses?: number[] };
+        skill.uses = [1, 1, 1];
+        brute.skills[name as keyof typeof brute.skills] = skill as never;
+        extraUses[id] = (extraUses[id] ?? 0) + 1;
+      }
+      // Icono en el HUD (la animación de activación lo necesita)
+      gear.skills[id] = (brute.skills[name as keyof typeof brute.skills] as { tier?: number })?.tier ?? 1;
+      this.#toActivate[team].push({ name, tries: 0 });
+    }
+
     if (Object.keys(gear.weapons).length || Object.keys(gear.skills).length) {
-      this.steps.push({ a: 'demoGear', f: brute.index, ...gear } as never);
+      this.steps.push({ a: 'demoGear', f: brute.index, ...gear, u: extraUses } as never);
     }
 
     // Pociones: el brute bebe en el acto y recupera vida

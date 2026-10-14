@@ -1,4 +1,5 @@
-// Tienda a los lados de la pelea: cada jugador puede "comprar" 5 armas o 5 power-ups al azar.
+// Tienda a los lados de la pelea: cada jugador puede "comprar" 5 armas al azar o un power-up concreto
+// (un botón por power-up, que se activa sí o sí al empezar el siguiente turno).
 // La compra entra en el SIGUIENTE TURNO de la pelea en curso (o al empezar la próxima)
 // y se queda con ese brute mientras siga en juego.
 import labels from './labels-es.json';
@@ -12,10 +13,14 @@ const PICK = 5;
 const WEAPONS = Object.keys(labels.weapons);
 // Solo habilidades activas ("súper" en el juego: Rompecuellos, Bomba, Red, Hipnosis…)
 const SKILLS = Object.keys(labels.skills).filter((k) => coreSkills[k]?.type === 'super');
+// Botones de power-up (Imitador solo copia habilidades del rival: no tiene sentido activarlo a mano)
+const ACTIVABLE = SKILLS.filter((k) => k !== 'mimic');
+// Guion opcional (solo aparece si el nombre no cabe en el botón)
+const SOFT_NAMES = { hammer: 'Rompe\u00adcuellos', vampirism: 'Vampi\u00adrismo' };
 const PETS = { dog1: 'Perro', dog2: 'Perro de caza', dog3: 'Perro guardián', panther: 'Pantera', bear: 'Oso' };
 
 // Compras pendientes para la próxima pelea (null = sin compra)
-const emptyPending = () => ({ weapons: null, skills: null, pets: null, potions: 0 });
+const emptyPending = () => ({ weapons: null, activate: [], pets: null, potions: 0 });
 const pending = { p1: emptyPending(), p2: emptyPending() };
 // Equipo con el que pelea cada jugador ahora mismo
 const current = { p1: null, p2: null };
@@ -25,10 +30,10 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const pickRandom = (list, n) => [...list].sort(() => Math.random() - 0.5).slice(0, n);
 
 // Icono de habilidad recortado del spritesheet del juego (versión HD x3)
-function skillIconStyle(skill) {
+function skillIconStyle(skill, size = ICON) {
   const f = skillsSheet.frames[`tier-1/${skill}.png`]?.frame;
   if (!f) return '';
-  const r = ICON / f.w;
+  const r = size / f.w;
   const { w, h } = skillsSheet.meta.size;
   return `background-image:url(${BASE}images/game/${skillsSheet.meta.image});background-size:${w * r}px ${h * r}px;background-position:-${f.x * r}px -${f.y * r}px`;
 }
@@ -87,11 +92,15 @@ function renderSide(p, i) {
   if (!el) return;
   const cur = current[p];
   const pend = pending[p];
-  const hasPending = pend.weapons || pend.skills || pend.pets || pend.potions;
+  const hasPending = pend.weapons || pend.activate.length || pend.pets || pend.potions;
   el.innerHTML = `
     <div class="shop-name">${esc(names[i])}</div>
     <button type="button" class="shop-btn" data-buy="weapons" data-player="${p}">🗡️ Comprar armas</button>
-    <button type="button" class="shop-btn" data-buy="skills" data-player="${p}">✨ Comprar power-ups</button>
+    <div class="shop-label">✨ Power-ups (se activan en el siguiente turno)</div>
+    <div class="power-grid">${ACTIVABLE.map(
+      (k) =>
+        `<button type="button" class="power-btn" data-activate="${k}" data-player="${p}" title="${esc(labels.skills[k]?.desc ?? '')}"><span class="skill-icon" style="${skillIconStyle(k, 20)}"></span><span>${esc(SOFT_NAMES[k] ?? labels.skills[k]?.name ?? k)}</span></button>`,
+    ).join('')}</div>
     <button type="button" class="shop-btn" data-buy="pets" data-player="${p}">🐾 Comprar mascota</button>
     <button type="button" class="shop-btn" data-buy="potions" data-player="${p}">🧪 Comprar poción</button>
     ${
@@ -100,7 +109,7 @@ function renderSide(p, i) {
       <div class="shop-block pending">
         <div class="shop-label">Entra en el próximo turno</div>
         ${pend.weapons ? `<div class="icons">${icons('weapons', pend.weapons)}</div>` : ''}
-        ${pend.skills ? `<div class="icons">${icons('skills', pend.skills)}</div>` : ''}
+        ${pend.activate.length ? `<div class="icons">${icons('skills', pend.activate)}</div>` : ''}
         ${pend.pets ? `<div class="icons">${icons('pets', pend.pets)}</div>` : ''}
         ${pend.potions ? `<div class="icons">${potionIcons(pend.potions)}</div>` : ''}
       </div>`
@@ -152,10 +161,10 @@ export function setCurrentGear(brutes) {
 // Entrega las compras pendientes (las pide la pelea antes de cada turno) y las vacía
 export function takePurchases() {
   const take = (p) => {
-    const { weapons, skills, pets, potions } = pending[p];
-    if (!weapons && !skills && !pets && !potions) return null;
+    const { weapons, activate, pets, potions } = pending[p];
+    if (!weapons && !activate.length && !pets && !potions) return null;
     pending[p] = emptyPending();
-    return { weapons: weapons ?? [], skills: skills ?? [], pets: pets ?? [], potions };
+    return { weapons: weapons ?? [], activate, pets: pets ?? [], potions };
   };
   const out = { p1: take('p1'), p2: take('p2') };
   if (out.p1 || out.p2) renderShop();
@@ -165,6 +174,13 @@ export function takePurchases() {
 loadWeaponIcons();
 
 document.addEventListener('click', (e) => {
+  // Power-up concreto: cada clic añade una activación para el siguiente turno
+  const power = e.target.closest('[data-activate]');
+  if (power) {
+    pending[power.dataset.player].activate.push(power.dataset.activate);
+    renderShop();
+    return;
+  }
   const btn = e.target.closest('[data-buy]');
   if (!btn) return;
   const { player, buy } = btn.dataset;
@@ -175,8 +191,8 @@ document.addEventListener('click', (e) => {
     // Cada clic compra una mascota al azar (se suman si se pulsa varias veces antes del turno)
     pending[player].pets = [...(pending[player].pets ?? []), pickRandom(Object.keys(PETS), 1)[0]];
   } else {
-    // 5 al azar; si se pulsa otra vez antes del turno, se vuelven a sortear
-    pending[player][buy] = pickRandom(buy === 'weapons' ? WEAPONS : SKILLS, PICK);
+    // 5 armas al azar; si se pulsa otra vez antes del turno, se vuelven a sortear
+    pending[player][buy] = pickRandom(WEAPONS, PICK);
   }
   renderShop();
 });
