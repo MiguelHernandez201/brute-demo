@@ -15,6 +15,24 @@ npx vite --port 3100
 
 y abrir http://localhost:3100/.
 
+También se puede jugar en línea en https://miguelhernandez201.github.io/brute-demo/
+(se publica solo con cada push a `main`).
+
+## Calidad de código
+
+Desde `web/`:
+
+```bash
+npm run lint           # ESLint
+npm run format         # Prettier (corrige el formato)
+npm run format:check   # Prettier (solo verifica)
+npm run build          # compilación de producción en web/dist
+```
+
+El workflow `.github/workflows/ci.yml` corre lint, formato y build en cada push y pull request,
+y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de LaBrute
+(`core/`, `engine/`, `fight/`, `pixi/`) se excluyen de Prettier para conservar su formato original.
+
 ## Modos
 
 - **1 vs 1**: dos jugadores con brutes al azar. Tienda lateral para comprar armas, power-ups,

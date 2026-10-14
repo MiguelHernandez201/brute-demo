@@ -1,15 +1,34 @@
 // Genera brutes aleatorios y peleas en memoria con el motor original de LaBrute (sin base de datos).
 // La pelea se simula turno a turno (engine/session.ts) para que las compras entren en el siguiente turno.
-import { createRandomBruteStats, getBruteToSave, getCalculatedBrute, getLevelUpChoices, getRandomBody, getRandomColors, FIGHTS_PER_DAY, weapons, getBruteHP, pets } from '@labrute/core';
+import {
+  createRandomBruteStats,
+  getBruteToSave,
+  getCalculatedBrute,
+  getLevelUpChoices,
+  getRandomBody,
+  getRandomColors,
+  FIGHTS_PER_DAY,
+  weapons,
+  getBruteHP,
+  pets,
+} from '@labrute/core';
 import { updateBruteData } from './engine/updateBruteData';
 import { FightSession, Purchase } from './engine/session';
 
 function randomBruteData(name: string, level: number) {
   const gender = Math.random() > 0.5 ? 'male' : 'female';
   let data: any = getBruteToSave({
-    id: undefined, name, gender,
-    body: getRandomBody(gender as any), colors: getRandomColors(gender as any),
-    victories: 0, losses: 0, pupilsCount: 0, lastFight: null, fightsFor: 0, fightsLeft: FIGHTS_PER_DAY,
+    id: undefined,
+    name,
+    gender,
+    body: getRandomBody(gender as any),
+    colors: getRandomColors(gender as any),
+    victories: 0,
+    losses: 0,
+    pupilsCount: 0,
+    lastFight: null,
+    fightsFor: 0,
+    fightsLeft: FIGHTS_PER_DAY,
     ...createRandomBruteStats(),
   } as any);
   for (let j = 1; j < level; j++) {
@@ -24,7 +43,9 @@ function randomBruteData(name: string, level: number) {
 function stripPets(data: any) {
   const tiers = new Map<string, number>();
   data.pets.forEach((p: string) => tiers.set(p, (tiers.get(p) ?? 0) + 1));
-  tiers.forEach((tier, p) => { data.hpModifier += (pets as any)[p].hpMalus[tier - 1] ?? 0; });
+  tiers.forEach((tier, p) => {
+    data.hpModifier += (pets as any)[p].hpMalus[tier - 1] ?? 0;
+  });
   data.pets = [];
   data.hpValue = getBruteHP(data);
 }
@@ -33,7 +54,8 @@ export function makeBrute(name: string, id: string) {
   const data: any = randomBruteData(name, 5);
   stripPets(data);
   // Garantiza al menos un arma
-  if (!data.weapons.length) data.weapons = [Object.keys(weapons)[Math.floor(Math.random() * Object.keys(weapons).length)]];
+  if (!data.weapons.length)
+    data.weapons = [Object.keys(weapons)[Math.floor(Math.random() * Object.keys(weapons).length)]];
   return { ...data, id, name, userId: id, eventId: null, ranking: data.ranking ?? 10, deletedAt: null };
 }
 
@@ -86,7 +108,12 @@ export function createFight(
       if (session.finished) return false;
       const bought = takePurchases();
       let changed = false;
-      ([['L', 'p1', b1], ['R', 'p2', b2]] as const).forEach(([team, p, brute]) => {
+      (
+        [
+          ['L', 'p1', b1],
+          ['R', 'p2', b2],
+        ] as const
+      ).forEach(([team, p, brute]) => {
         const purchase = bought[p];
         if (purchase && session.applyPurchase(team, purchase)) {
           recordPurchase(brute, purchase);
@@ -115,8 +142,26 @@ export function createFight(
 // ---------------------------------------------------------------------------
 // Battle royale: N brutes al azar, todos contra todos en la misma arena
 const ROYALE_NAMES = [
-  'Tritón', 'Brasa', 'Colmillo', 'Rayo', 'Mazo', 'Sombra', 'Trueno', 'Pólvora', 'Cuervo', 'Hierro',
-  'Tormenta', 'Garra', 'Chispa', 'Roca', 'Lince', 'Volcán', 'Furia', 'Escarcha', 'Titán', 'Zarpa',
+  'Tritón',
+  'Brasa',
+  'Colmillo',
+  'Rayo',
+  'Mazo',
+  'Sombra',
+  'Trueno',
+  'Pólvora',
+  'Cuervo',
+  'Hierro',
+  'Tormenta',
+  'Garra',
+  'Chispa',
+  'Roca',
+  'Lince',
+  'Volcán',
+  'Furia',
+  'Escarcha',
+  'Titán',
+  'Zarpa',
 ];
 
 export function createRoyale(count: number) {

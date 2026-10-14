@@ -23,7 +23,9 @@ const speed = { current: 1 };
 let app = null;
 let run = 0;
 
-const theme = { palette: { secondary: { main: '#c8a46b' }, hpBar: { main: '#4ade80', dark: '#166534' }, error: { main: '#ef4444' } } };
+const theme = {
+  palette: { secondary: { main: '#c8a46b' }, hpBar: { main: '#4ade80', dark: '#166534' }, error: { main: '#ef4444' } },
+};
 const t = (key, opts) => (key === 'fight.wonTheFight' ? `${opts.brute} ganó la pelea` : key);
 
 const loadSheet = (path, cachePrefix) => Assets.load({ src: path, data: { cachePrefix } });
@@ -31,7 +33,7 @@ const loadSheet = (path, cachePrefix) => Assets.load({ src: path, data: { cacheP
 // Sonido: mismos audios y sprites que la pelea original
 const audio = { sfx: true, music: true };
 function setupSounds() {
-  if (!sound.exists('background')) sound.add('background', '/sfx/background.mp3');
+  if (!sound.exists('background')) sound.add('background', `${import.meta.env.BASE_URL}sfx/background.mp3`);
   if (!sound.exists('sfx')) {
     const sprites = {};
     sounds.forEach((name) => {
@@ -59,10 +61,17 @@ async function destroyApp() {
     // Foto del último fotograma: se queda en pantalla hasta que la siguiente pelea dibuje su escenario
     // (evita el parpadeo negro mientras se simula la nueva pelea y se crea el nuevo lienzo)
     const snapshot = takeSnapshot(app);
-    try { app.ticker?.stop(); app.destroy({ removeView: true }, { children: true, texture: false, textureSource: false, context: true }); } catch (e) { console.warn(e); }
+    try {
+      app.ticker?.stop();
+      app.destroy({ removeView: true }, { children: true, texture: false, textureSource: false, context: true });
+    } catch (e) {
+      console.warn(e);
+    }
     app = null;
     if (snapshot) {
-      $('canvas').querySelectorAll('.snapshot').forEach((el) => el.remove());
+      $('canvas')
+        .querySelectorAll('.snapshot')
+        .forEach((el) => el.remove());
       $('canvas').appendChild(snapshot);
     }
   }
@@ -91,14 +100,18 @@ function revealWhenReady(a, id) {
     const ready = a.stage && a.stage.children.length >= 3;
     if (!ready && performance.now() - started < 4000) return requestAnimationFrame(check);
     // Dos fotogramas más para asegurar que ya se pintó
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (id !== run) return;
-      a.canvas.classList.add('ready');
-      $('canvas').querySelectorAll('.snapshot').forEach((el) => {
-        el.classList.add('fade');
-        setTimeout(() => el.remove(), 250);
-      });
-    }));
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (id !== run) return;
+        a.canvas.classList.add('ready');
+        $('canvas')
+          .querySelectorAll('.snapshot')
+          .forEach((el) => {
+            el.classList.add('fade');
+            setTimeout(() => el.remove(), 250);
+          });
+      }),
+    );
   };
   requestAnimationFrame(check);
 }
@@ -144,22 +157,23 @@ function renderRoster(fight) {
   const state = new Map(fighters.map((f) => [f.index, { name: f.name, out: 0, hp: f.hp, maxHp: f.maxHp }]));
   let fallen = 0;
   let winner;
-  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = (s) =>
+    String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const hpColor = (pct) => (pct > 50 ? '#4ade80' : pct > 25 ? '#facc15' : '#ef4444');
   const draw = () => {
     const rows = [...state.entries()]
       // En pie primero; los eliminados después, del último en caer al primero
       .sort(([, a], [, b]) => (a.out === 0 ? -1 : b.out === 0 ? 1 : b.out - a.out))
       .map(([index, s]) => {
-        const status = index === winner ? '🏆 Ganador'
-          : s.out ? `Eliminado · puesto ${total - s.out + 1}` : '';
+        const status = index === winner ? '🏆 Ganador' : s.out ? `Eliminado · puesto ${total - s.out + 1}` : '';
         const pct = s.out ? 0 : Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100));
         return `<li data-index="${index}" class="${index === winner ? 'win' : s.out ? 'out' : ''}">
           <div class="roster-top"><span>${esc(s.name)}</span><small class="hp-text">${s.out ? '' : `${Math.max(0, Math.round(s.hp))}/${s.maxHp}`}</small></div>
           <div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div>
           ${status ? `<small>${status}</small>` : ''}
         </li>`;
-      }).join('');
+      })
+      .join('');
     $('roster').innerHTML = `<div class="shop-name">Battle Royale</div>
       <div class="shop-label">${total - fallen} de ${total} en pie</div><ol class="roster">${rows}</ol>`;
   };
@@ -189,7 +203,10 @@ function renderRoster(fight) {
       draw();
     } else if (step.a === StepType.End) {
       const w = state.get(step.w);
-      if (w && w.out) { w.out = 0; fallen -= 1; }
+      if (w && w.out) {
+        w.out = 0;
+        fallen -= 1;
+      }
       winner = step.w;
       draw();
     }
@@ -208,24 +225,47 @@ async function playFight(id, fight) {
   const quality = Math.min(4, (window.devicePixelRatio || 1) * (displayWidth / 500));
   renderQuality.value = quality;
   await a.init({ backgroundColor: 0xfbf7c0, width: 500, height: 300, resolution: quality, antialias: true });
-  if (id !== run) { a.destroy({ removeView: true }); return; }
+  if (id !== run) {
+    a.destroy({ removeView: true });
+    return;
+  }
   app = a;
   // El lienzo nuevo entra oculto bajo la foto de la pelea anterior
-  $('canvas').querySelectorAll('canvas:not(.snapshot)').forEach((el) => el.remove());
+  $('canvas')
+    .querySelectorAll('canvas:not(.snapshot)')
+    .forEach((el) => el.remove());
   a.canvas.classList.add('live');
   $('canvas').prepend(a.canvas);
   revealWhenReady(a, id);
   a.ticker.speed = 0.5;
   const spritesheets = {
-    thrownWeapons: await loadSheet('/images/game/thrown-weapons.json', 'fight/thrownWeapons/'),
-    misc: await loadSheet('/images/game/misc.json', 'fight/misc/'),
-    skills: await loadSheet('/images/game/skills.json', 'fight/skills/'),
+    thrownWeapons: await loadSheet(
+      `${import.meta.env.BASE_URL}images/game/thrown-weapons.json`,
+      'fight/thrownWeapons/',
+    ),
+    misc: await loadSheet(`${import.meta.env.BASE_URL}images/game/misc.json`, 'fight/misc/'),
+    skills: await loadSheet(`${import.meta.env.BASE_URL}images/game/skills.json`, 'fight/skills/'),
   };
   if (id !== run) return;
   setupSounds();
   // La fuente del juego debe estar cargada antes de crear los textos de Pixi
-  try { await document.fonts.load('20px GameFont'); } catch { /* usa la fuente por defecto */ }
-  await setupFight(theme, fight, a, speed, t, () => {}, renderer, spritesheets, false, () => id !== run);
+  try {
+    await document.fonts.load('20px GameFont');
+  } catch {
+    /* usa la fuente por defecto */
+  }
+  await setupFight(
+    theme,
+    fight,
+    a,
+    speed,
+    t,
+    () => {},
+    renderer,
+    spritesheets,
+    false,
+    () => id !== run,
+  );
   if (id === run) {
     $('again').disabled = false;
     scheduleAutoChallenge(id);
@@ -252,14 +292,20 @@ function scheduleAutoChallenge(id) {
     if (id !== run || !autoChallenge) return cancelAutoChallenge();
     if (app && !app.ticker.started) return;
     left -= 1;
-    if (left > 0) { $('again').textContent = `${againLabel()} (${left})`; return; }
+    if (left > 0) {
+      $('again').textContent = `${againLabel()} (${left})`;
+      return;
+    }
     cancelAutoChallenge();
     $('again').click();
   }, 1000);
 }
 
 let names = ['', ''];
-const showError = (e) => { console.error(e); $('status').textContent = 'Error: ' + e.message; };
+const showError = (e) => {
+  console.error(e);
+  $('status').textContent = 'Error: ' + e.message;
+};
 const begin = (keep) => startFight(...names, keep).catch(showError);
 const beginRoyale = () => startRoyale(royaleCount).catch(showError);
 function enterArena(newMode) {
@@ -269,7 +315,8 @@ function enterArena(newMode) {
   $('again').textContent = $('again').dataset.label;
   $('autoLabel').textContent = mode === 'royale' ? 'Rondas continuas' : 'Desafiar continuamente';
   $('back').textContent = mode === 'royale' ? 'Volver al menú' : 'Cambiar nombres';
-  $('setup').style.display = 'none'; $('arena').style.display = 'block';
+  $('setup').style.display = 'none';
+  $('arena').style.display = 'block';
 }
 $('go').onclick = () => {
   names = [$('n1').value.trim() || 'Jugador 1', $('n2').value.trim() || 'Jugador 2'];
@@ -279,12 +326,22 @@ $('go').onclick = () => {
 };
 $('royaleGo').onclick = () => {
   royaleCount = Math.max(3, Math.min(10, +$('royaleCount').value || 6));
-  try { localStorage.setItem('brute-demo-royale-count', String(royaleCount)); } catch { /* sin storage */ }
+  try {
+    localStorage.setItem('brute-demo-royale-count', String(royaleCount));
+  } catch {
+    /* sin storage */
+  }
   enterArena('royale');
   beginRoyale();
 };
-try { $('royaleCount').value = localStorage.getItem('brute-demo-royale-count') || '6'; } catch { /* sin storage */ }
-$('royaleCount').oninput = (e) => { $('royaleCountValue').textContent = e.target.value; };
+try {
+  $('royaleCount').value = localStorage.getItem('brute-demo-royale-count') || '6';
+} catch {
+  /* sin storage */
+}
+$('royaleCount').oninput = (e) => {
+  $('royaleCountValue').textContent = e.target.value;
+};
 $('royaleCountValue').textContent = $('royaleCount').value;
 // Desafiar: el ganador conserva su brute; solo el perdedor recibe uno nuevo.
 // En el royale: nueva ronda con brutes nuevos.
@@ -295,26 +352,72 @@ $('again').onclick = () => {
   const [b1, b2] = last.brutes;
   begin(last.fight.winnerId === b1.id ? { b1 } : { b2 });
 };
-try { autoChallenge = localStorage.getItem('brute-demo-auto') === 'true'; } catch { /* sin storage */ }
+try {
+  autoChallenge = localStorage.getItem('brute-demo-auto') === 'true';
+} catch {
+  /* sin storage */
+}
 $('auto').checked = autoChallenge;
 $('auto').onchange = (e) => {
   autoChallenge = e.target.checked;
-  try { localStorage.setItem('brute-demo-auto', String(autoChallenge)); } catch { /* sin storage */ }
+  try {
+    localStorage.setItem('brute-demo-auto', String(autoChallenge));
+  } catch {
+    /* sin storage */
+  }
   // Si se activa con una pelea ya terminada, arranca la cuenta atrás
-  if (autoChallenge && !$('again').disabled) scheduleAutoChallenge(run); else if (!autoChallenge) cancelAutoChallenge();
+  if (autoChallenge && !$('again').disabled) scheduleAutoChallenge(run);
+  else if (!autoChallenge) cancelAutoChallenge();
 };
-$('back').onclick = async () => { cancelAutoChallenge(); rosterFight = null; run++; await destroyApp(); $('canvas').innerHTML = ''; $('arena').style.display = 'none'; $('setup').style.display = 'flex'; };
-$('speed').onclick = () => { speed.current = speed.current === 1 ? 2 : 1; $('speed').textContent = `Velocidad x${speed.current}`; };
+$('back').onclick = async () => {
+  cancelAutoChallenge();
+  rosterFight = null;
+  run++;
+  await destroyApp();
+  $('canvas').innerHTML = '';
+  $('arena').style.display = 'none';
+  $('setup').style.display = 'flex';
+};
+$('speed').onclick = () => {
+  speed.current = speed.current === 1 ? 2 : 1;
+  $('speed').textContent = `Velocidad x${speed.current}`;
+};
 $('pause').onclick = () => {
   if (!app) return;
-  if (app.ticker.started) { app.ticker.stop(); sound.pauseAll(); $('pause').textContent = '▶ Reanudar'; } else { app.ticker.start(); sound.resumeAll(); $('pause').textContent = '⏸ Pausa'; }
+  if (app.ticker.started) {
+    app.ticker.stop();
+    sound.pauseAll();
+    $('pause').textContent = '▶ Reanudar';
+  } else {
+    app.ticker.start();
+    sound.resumeAll();
+    $('pause').textContent = '⏸ Pausa';
+  }
 };
 
 // Preferencias de sonido (se recuerdan en este navegador)
-try { Object.assign(audio, JSON.parse(localStorage.getItem('brute-demo-audio') || '{}')); } catch { /* sin storage */ }
-const saveAudio = () => { try { localStorage.setItem('brute-demo-audio', JSON.stringify(audio)); } catch { /* sin storage */ } };
-$('sfx').onclick = () => { audio.sfx = !audio.sfx; saveAudio(); applyVolumes(); };
-$('music').onclick = () => { audio.music = !audio.music; saveAudio(); applyVolumes(); };
+try {
+  Object.assign(audio, JSON.parse(localStorage.getItem('brute-demo-audio') || '{}'));
+} catch {
+  /* sin storage */
+}
+const saveAudio = () => {
+  try {
+    localStorage.setItem('brute-demo-audio', JSON.stringify(audio));
+  } catch {
+    /* sin storage */
+  }
+};
+$('sfx').onclick = () => {
+  audio.sfx = !audio.sfx;
+  saveAudio();
+  applyVolumes();
+};
+$('music').onclick = () => {
+  audio.music = !audio.music;
+  saveAudio();
+  applyVolumes();
+};
 applyVolumes();
 
 // Acercamiento: cuánto se acercan las posiciones de cada bando al centro.
@@ -324,20 +427,32 @@ const setApproach = (v) => {
   $('approach').value = v;
   $('approachValue').textContent = `${v}%`;
 };
-try { setApproach(localStorage.getItem('brute-demo-approach') ?? 0); } catch { setApproach(0); }
+try {
+  setApproach(localStorage.getItem('brute-demo-approach') ?? 0);
+} catch {
+  setApproach(0);
+}
 $('approach').oninput = (e) => {
   setApproach(e.target.value);
-  try { localStorage.setItem('brute-demo-approach', e.target.value); } catch { /* sin storage */ }
+  try {
+    localStorage.setItem('brute-demo-approach', e.target.value);
+  } catch {
+    /* sin storage */
+  }
 };
 
 renderShop();
 
 const royaleParam = new URLSearchParams(location.search).get('royale');
-if (royaleParam) { $('royaleCount').value = royaleParam; $('royaleGo').click(); }
+if (royaleParam) {
+  $('royaleCount').value = royaleParam;
+  $('royaleGo').click();
+}
 
 const auto = new URLSearchParams(location.search).get('auto');
 if (auto) {
   const [x, y] = auto.split(',');
-  $('n1').value = x || ''; $('n2').value = y || '';
+  $('n1').value = x || '';
+  $('n2').value = y || '';
   $('go').click();
 }

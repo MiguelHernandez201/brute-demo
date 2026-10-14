@@ -1,7 +1,7 @@
 import sfxJson from './assets/sfx.json';
 
 export const sfx = {
-  resources: sfxJson.resources.map((s: string) => `/sfx/${s}`),
+  resources: sfxJson.resources.map((s: string) => `${import.meta.env.BASE_URL}sfx/${s}`),
   spritemap: sfxJson.spritemap as Record<string, { start: number; end: number; loop: boolean }>,
 };
 
@@ -86,5 +86,5 @@ export const sounds = [
   'tamer2',
   'thief',
   'tragicPotion',
-  'vampirism'
+  'vampirism',
 ];

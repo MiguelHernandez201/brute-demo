@@ -1,240 +1,240 @@
 {
- "skills": {
-  "herculeanStrength": {
-   "name": "Fuerza de Hércules",
-   "desc": "¡Eres capaz de desplazar montañas con tu fuerza! Pero de momento nada de eso... ¡tienes un adversario que destrozar!"
+  "skills": {
+    "herculeanStrength": {
+      "name": "Fuerza de Hércules",
+      "desc": "¡Eres capaz de desplazar montañas con tu fuerza! Pero de momento nada de eso... ¡tienes un adversario que destrozar!"
+    },
+    "felineAgility": {
+      "name": "Agilidad felina",
+      "desc": "No tienes una bola de lana para entretenerte, pero siempre puedes ir a dar golpecitos al Bruto de enfrente."
+    },
+    "lightningBolt": {
+      "name": "Golpe del rayo",
+      "desc": "Eres más rápido que tu propia sombra para dar golpes y muerdes más rápido que tu adversario."
+    },
+    "vitality": {
+      "name": "Vitalidad",
+      "desc": "¡Tu esperanza de vida ha aumentado! Ahora podrás resistir más tiempo en pie frente a tu adversario."
+    },
+    "immortality": {
+      "name": "Inmortalidad",
+      "desc": "¡Tu salud ha aumentado drásticamente! ¡Haces que sea realmente difícil para tus oponentes matarte!"
+    },
+    "reconnaissance": {
+      "name": "Reconocimiento",
+      "desc": "Te tomas tu tiempo para analizar las debilidades de tu oponente, por lo que una vez que comienzas a combatir, nada te detendrá."
+    },
+    "weaponsMaster": {
+      "name": "Maestro de Armas",
+      "desc": "Te has vuelto un individuo muy peligroso gracias a tu maestría en el arma blanca."
+    },
+    "martialArts": {
+      "name": "Artes Marciales",
+      "desc": "¡Las clases de Chuck Norris han dado sus frutos! Ya puedes poner los pies donde quieras... y a menudo en la cara."
+    },
+    "sixthSense": {
+      "name": "6º sentido",
+      "desc": "¡Tu vigilancia de águila te permite anticipar las triquiñuelas de tu adversario y golpear antes que él!"
+    },
+    "hostility": {
+      "name": "Pugnaz",
+      "desc": "Después de todo, no eres tan ingrato en la arena... ¡Cuando te golpean respondes enseguida y sin costo alguno!"
+    },
+    "fistsOfFury": {
+      "name": "Tornado de golpes",
+      "desc": "... y golpeas, golpeas, golpeas. Simplemente eres así, ¡no es sino tu forma de amar! Despierta en ti un auténtico tornado de amor incomprendido."
+    },
+    "shield": {
+      "name": "Escudo",
+      "desc": "Un escudo. Para parar los golpes... a veces."
+    },
+    "armor": {
+      "name": "Armadura",
+      "desc": "Esto es una armadura. Es una cosa que te pones encima de la camiseta para no mancharla. También sirve para resitir los ataques."
+    },
+    "toughenedSkin": {
+      "name": "Piel reforzada",
+      "desc": "A base de recibir golpes uno acaba evolucionando. Tu Bruto posee ahora una piel más resistente."
+    },
+    "untouchable": {
+      "name": "Intocable",
+      "desc": "Evitas los golpes fácilmente. Es muy molesto. Sobre todo para tu enemigo."
+    },
+    "sabotage": {
+      "name": "Vandalismo",
+      "desc": "Algunos Brutos vandalizan las calles, pero tú prefieres vandalizar a tus adversarios. Cada golpe puede destruir una de sus armas."
+    },
+    "shock": {
+      "name": "Choque",
+      "desc": "Tu ataque pilla por sorpresa a tu oponente y hace que se le caiga el arma. ¡Ahora puedes enseñársela a tus amigos!"
+    },
+    "bodybuilder": {
+      "name": "Culturista",
+      "desc": "Manipulas las armas pesadas más fácilmente gracias a tus brazos de gimnasio. Eres el Conan de la maza."
+    },
+    "relentless": {
+      "name": "Implacable",
+      "desc": "Cuando repartes tortas, éstas siempre llegan a su destino y nadie puede pararlas. ¡Ya puede ir preparándose tu enemigo!"
+    },
+    "survival": {
+      "name": "Supervivencia",
+      "desc": "Los años de lucha te han vuelto casi invencible. Los golpes mortales te dejan en 1 punto de vida en lugar de dejarte KO."
+    },
+    "leadSkeleton": {
+      "name": "Esqueleto de plomo",
+      "desc": "Aunque es extremadamente pesado, un esqueleto de plomo es indispensable para reducir considerablemente el daño recibido, especialmente el de armas contundentes."
+    },
+    "balletShoes": {
+      "name": "Bailarín",
+      "desc": "¡Has dominado el baile del cisne para que tu oponente no te pueda alcanzar, a menos que lo haya dominado también!"
+    },
+    "determination": {
+      "name": "Determinación",
+      "desc": "¡Nada puede pararte! Cada derrota te hace más fuerte, si uno de tus golpes falla, ¡golpeas inmediatamente de nuevo!"
+    },
+    "firstStrike": {
+      "name": "Sangre caliente",
+      "desc": "Tus oponentes parece que entran lentos a la arena, pero ese no es tu estilo. Al comienzo de un combate, ¡siempre atacas primero!"
+    },
+    "resistant": {
+      "name": "Resistente",
+      "desc": "Tus oponentes necesitan una infinidad de golpes para noquearte. Se necesitan al menos 5 golpes antes de sentir algo."
+    },
+    "counterAttack": {
+      "name": "Contra-ataque",
+      "desc": "¿Intentaron golpearte? ¡Eso no se puede quedar así! Por cada golpe evitado, respondes al instante."
+    },
+    "ironHead": {
+      "name": "Cabeza de acero",
+      "desc": "Tu cabeza es más dura que tu armadura, ¡tanto que quizás tu oponente pierda su arma si te alcanza!"
+    },
+    "thief": {
+      "name": "Ladrón",
+      "desc": "Esta habilidad te permite robar discretamente el arma de tu oponente y usarla contra él."
+    },
+    "fierceBrute": {
+      "name": "Bruto Feroz",
+      "desc": "Ahora eres un auténtico Bruto. ¡Incluso más que antes! Tus descargas son aún más violentas durante el combate."
+    },
+    "tragicPotion": {
+      "name": "Poción trágica",
+      "desc": "Beber un poquito puede ponerte mecedora. Bueno, depende de tu constitución... este zumo de melocotón restaura parte de tu energía."
+    },
+    "net": {
+      "name": "Red",
+      "desc": "Una red clásica. No es tan guay como la de Spiderman, pero es suficientemente buena para tu oponente... Tu enemigo será inmovilizado hasta que vuelvas a golpearlo."
+    },
+    "bomb": {
+      "name": "Bomba",
+      "desc": "Es como un globito de agua, pero con más mala idea."
+    },
+    "hammer": {
+      "name": "Rompecuellos",
+      "desc": "Una técnica de agarre que consiste en levantar por los aires a tu oponente y luego aplastarlo."
+    },
+    "cryOfTheDamned": {
+      "name": "Grito-maldito",
+      "desc": "¿Bestias feroces? ¡Ja, ja, ja! Pégales un grito bien agudo y saldrán pitando..."
+    },
+    "hypnosis": {
+      "name": "Hipnosis",
+      "desc": "No hay nadie como tú cuando se trata de controlar animales domésticos (o incluso a sus dueños). Te seguirán como un pollito a su mamá."
+    },
+    "flashFlood": {
+      "name": "Diluvio",
+      "desc": "Pasearse por la calle con 100 kilos de armas es un lastre (sobre todo por la imagen pública). Has encontrado un modo eficaz para aligerar tu carga."
+    },
+    "tamer": {
+      "name": "Carroñero",
+      "desc": "¡Hay que reciclar! Engulles todos los cadáveres de la arena."
+    },
+    "regeneration": {
+      "name": "Vendaje",
+      "desc": "Gracias a tu extraordinaria habilidad para curarte a ti mismo, ¡nunca pierdes un combate!"
+    },
+    "chef": {
+      "name": "Chef",
+      "desc": "Todos los Brutos lo saben, el combate empieza antes de entrar a la arena. Y terminan... en la cantina."
+    },
+    "spy": {
+      "name": "Espía",
+      "desc": "Te has convertido en un maestro en el arte del despiste. Tus oponentes nunca sabrán \"qué\" les golpeó."
+    },
+    "saboteur": {
+      "name": "Saboteador",
+      "desc": "Desde pequeño ya les sacabas la lengua a tus amigos, hoy eres un verdadero carnicero."
+    },
+    "hideaway": {
+      "name": "Escondite",
+      "desc": "Hoy no quieres salir de casa. Es mejor quedarse lejos y lanzarle todo tu arsenal a tu oponente a la cara."
+    },
+    "monk": {
+      "name": "Monje",
+      "desc": "Puedes visualizar los golpes antes de que tu oponente pueda siquiera pensar en ellos... si te quedas perfectamente quieto."
+    },
+    "vampirism": {
+      "name": "Vampirismo",
+      "desc": "Drácula puede descansar tranquilo, porque en su ausencia, ¡eres tú quien toma el relevo!"
+    },
+    "chaining": {
+      "name": "Encadenamiento",
+      "desc": "¿Tu pasatiempo es hacer sonar campanas? ¡Ese combo es para ti!"
+    },
+    "haste": {
+      "name": "Prisa",
+      "desc": "¿Siempre has soñado con moverte tan rápido como un ninja? ¡Es el momento!"
+    },
+    "treat": {
+      "name": "Golosina",
+      "desc": "Los combates pasan factura. ¡Por eso, siempre traigo una golosina para reanimar a mis mascotas!"
+    },
+    "repulse": {
+      "name": "Rechazo",
+      "desc": "¿Unas estrellas ninja se dirigen a tu cabeza? ¡No hay problema! Canaliza tu héroe de artes marciales interior y rechaza las armas arrojadas como si fueran moscas."
+    },
+    "fastMetabolism": {
+      "name": "Metabolismo rápido",
+      "desc": "Tus células trabajan a la velocidad de la luz. Tu oponente te hace daño, pero puedes regenerarte más rápido... Quizás."
+    },
+    "mimic": {
+      "name": "Imitador",
+      "desc": "Es una buena habilidad lo que tienes allí. Es una pena si alguien lo ha aprendido al instante."
+    },
+    "stickyHands": {
+      "name": "Manos pegajosas",
+      "desc": "Tu arma parece extrañamente comprometida con la relación. Le cuesta mucho dejar tu mano, ¡pero también le cuesta mucho dejar la cara de tu oponente!"
+    },
+    "deity": {
+      "name": "Deidad",
+      "desc": "Potencia ilimitada. Capacidad limitada."
+    }
   },
-  "felineAgility": {
-   "name": "Agilidad felina",
-   "desc": "No tienes una bola de lana para entretenerte, pero siempre puedes ir a dar golpecitos al Bruto de enfrente."
-  },
-  "lightningBolt": {
-   "name": "Golpe del rayo",
-   "desc": "Eres más rápido que tu propia sombra para dar golpes y muerdes más rápido que tu adversario."
-  },
-  "vitality": {
-   "name": "Vitalidad",
-   "desc": "¡Tu esperanza de vida ha aumentado! Ahora podrás resistir más tiempo en pie frente a tu adversario."
-  },
-  "immortality": {
-   "name": "Inmortalidad",
-   "desc": "¡Tu salud ha aumentado drásticamente! ¡Haces que sea realmente difícil para tus oponentes matarte!"
-  },
-  "reconnaissance": {
-   "name": "Reconocimiento",
-   "desc": "Te tomas tu tiempo para analizar las debilidades de tu oponente, por lo que una vez que comienzas a combatir, nada te detendrá."
-  },
-  "weaponsMaster": {
-   "name": "Maestro de Armas",
-   "desc": "Te has vuelto un individuo muy peligroso gracias a tu maestría en el arma blanca."
-  },
-  "martialArts": {
-   "name": "Artes Marciales",
-   "desc": "¡Las clases de Chuck Norris han dado sus frutos! Ya puedes poner los pies donde quieras... y a menudo en la cara."
-  },
-  "sixthSense": {
-   "name": "6º sentido",
-   "desc": "¡Tu vigilancia de águila te permite anticipar las triquiñuelas de tu adversario y golpear antes que él!"
-  },
-  "hostility": {
-   "name": "Pugnaz",
-   "desc": "Después de todo, no eres tan ingrato en la arena... ¡Cuando te golpean respondes enseguida y sin costo alguno!"
-  },
-  "fistsOfFury": {
-   "name": "Tornado de golpes",
-   "desc": "... y golpeas, golpeas, golpeas. Simplemente eres así, ¡no es sino tu forma de amar! Despierta en ti un auténtico tornado de amor incomprendido."
-  },
-  "shield": {
-   "name": "Escudo",
-   "desc": "Un escudo. Para parar los golpes... a veces."
-  },
-  "armor": {
-   "name": "Armadura",
-   "desc": "Esto es una armadura. Es una cosa que te pones encima de la camiseta para no mancharla. También sirve para resitir los ataques."
-  },
-  "toughenedSkin": {
-   "name": "Piel reforzada",
-   "desc": "A base de recibir golpes uno acaba evolucionando. Tu Bruto posee ahora una piel más resistente."
-  },
-  "untouchable": {
-   "name": "Intocable",
-   "desc": "Evitas los golpes fácilmente. Es muy molesto. Sobre todo para tu enemigo."
-  },
-  "sabotage": {
-   "name": "Vandalismo",
-   "desc": "Algunos Brutos vandalizan las calles, pero tú prefieres vandalizar a tus adversarios. Cada golpe puede destruir una de sus armas."
-  },
-  "shock": {
-   "name": "Choque",
-   "desc": "Tu ataque pilla por sorpresa a tu oponente y hace que se le caiga el arma. ¡Ahora puedes enseñársela a tus amigos!"
-  },
-  "bodybuilder": {
-   "name": "Culturista",
-   "desc": "Manipulas las armas pesadas más fácilmente gracias a tus brazos de gimnasio. Eres el Conan de la maza."
-  },
-  "relentless": {
-   "name": "Implacable",
-   "desc": "Cuando repartes tortas, éstas siempre llegan a su destino y nadie puede pararlas. ¡Ya puede ir preparándose tu enemigo!"
-  },
-  "survival": {
-   "name": "Supervivencia",
-   "desc": "Los años de lucha te han vuelto casi invencible. Los golpes mortales te dejan en 1 punto de vida en lugar de dejarte KO."
-  },
-  "leadSkeleton": {
-   "name": "Esqueleto de plomo",
-   "desc": "Aunque es extremadamente pesado, un esqueleto de plomo es indispensable para reducir considerablemente el daño recibido, especialmente el de armas contundentes."
-  },
-  "balletShoes": {
-   "name": "Bailarín",
-   "desc": "¡Has dominado el baile del cisne para que tu oponente no te pueda alcanzar, a menos que lo haya dominado también!"
-  },
-  "determination": {
-   "name": "Determinación",
-   "desc": "¡Nada puede pararte! Cada derrota te hace más fuerte, si uno de tus golpes falla, ¡golpeas inmediatamente de nuevo!"
-  },
-  "firstStrike": {
-   "name": "Sangre caliente",
-   "desc": "Tus oponentes parece que entran lentos a la arena, pero ese no es tu estilo. Al comienzo de un combate, ¡siempre atacas primero!"
-  },
-  "resistant": {
-   "name": "Resistente",
-   "desc": "Tus oponentes necesitan una infinidad de golpes para noquearte. Se necesitan al menos 5 golpes antes de sentir algo."
-  },
-  "counterAttack": {
-   "name": "Contra-ataque",
-   "desc": "¿Intentaron golpearte? ¡Eso no se puede quedar así! Por cada golpe evitado, respondes al instante."
-  },
-  "ironHead": {
-   "name": "Cabeza de acero",
-   "desc": "Tu cabeza es más dura que tu armadura, ¡tanto que quizás tu oponente pierda su arma si te alcanza!"
-  },
-  "thief": {
-   "name": "Ladrón",
-   "desc": "Esta habilidad te permite robar discretamente el arma de tu oponente y usarla contra él."
-  },
-  "fierceBrute": {
-   "name": "Bruto Feroz",
-   "desc": "Ahora eres un auténtico Bruto. ¡Incluso más que antes! Tus descargas son aún más violentas durante el combate."
-  },
-  "tragicPotion": {
-   "name": "Poción trágica",
-   "desc": "Beber un poquito puede ponerte mecedora. Bueno, depende de tu constitución... este zumo de melocotón restaura parte de tu energía."
-  },
-  "net": {
-   "name": "Red",
-   "desc": "Una red clásica. No es tan guay como la de Spiderman, pero es suficientemente buena para tu oponente... Tu enemigo será inmovilizado hasta que vuelvas a golpearlo."
-  },
-  "bomb": {
-   "name": "Bomba",
-   "desc": "Es como un globito de agua, pero con más mala idea."
-  },
-  "hammer": {
-   "name": "Rompecuellos",
-   "desc": "Una técnica de agarre que consiste en levantar por los aires a tu oponente y luego aplastarlo."
-  },
-  "cryOfTheDamned": {
-   "name": "Grito-maldito",
-   "desc": "¿Bestias feroces? ¡Ja, ja, ja! Pégales un grito bien agudo y saldrán pitando..."
-  },
-  "hypnosis": {
-   "name": "Hipnosis",
-   "desc": "No hay nadie como tú cuando se trata de controlar animales domésticos (o incluso a sus dueños). Te seguirán como un pollito a su mamá."
-  },
-  "flashFlood": {
-   "name": "Diluvio",
-   "desc": "Pasearse por la calle con 100 kilos de armas es un lastre (sobre todo por la imagen pública). Has encontrado un modo eficaz para aligerar tu carga."
-  },
-  "tamer": {
-   "name": "Carroñero",
-   "desc": "¡Hay que reciclar! Engulles todos los cadáveres de la arena."
-  },
-  "regeneration": {
-   "name": "Vendaje",
-   "desc": "Gracias a tu extraordinaria habilidad para curarte a ti mismo, ¡nunca pierdes un combate!"
-  },
-  "chef": {
-   "name": "Chef",
-   "desc": "Todos los Brutos lo saben, el combate empieza antes de entrar a la arena. Y terminan... en la cantina."
-  },
-  "spy": {
-   "name": "Espía",
-   "desc": "Te has convertido en un maestro en el arte del despiste. Tus oponentes nunca sabrán \"qué\" les golpeó."
-  },
-  "saboteur": {
-   "name": "Saboteador",
-   "desc": "Desde pequeño ya les sacabas la lengua a tus amigos, hoy eres un verdadero carnicero."
-  },
-  "hideaway": {
-   "name": "Escondite",
-   "desc": "Hoy no quieres salir de casa. Es mejor quedarse lejos y lanzarle todo tu arsenal a tu oponente a la cara."
-  },
-  "monk": {
-   "name": "Monje",
-   "desc": "Puedes visualizar los golpes antes de que tu oponente pueda siquiera pensar en ellos... si te quedas perfectamente quieto."
-  },
-  "vampirism": {
-   "name": "Vampirismo",
-   "desc": "Drácula puede descansar tranquilo, porque en su ausencia, ¡eres tú quien toma el relevo!"
-  },
-  "chaining": {
-   "name": "Encadenamiento",
-   "desc": "¿Tu pasatiempo es hacer sonar campanas? ¡Ese combo es para ti!"
-  },
-  "haste": {
-   "name": "Prisa",
-   "desc": "¿Siempre has soñado con moverte tan rápido como un ninja? ¡Es el momento!"
-  },
-  "treat": {
-   "name": "Golosina",
-   "desc": "Los combates pasan factura. ¡Por eso, siempre traigo una golosina para reanimar a mis mascotas!"
-  },
-  "repulse": {
-   "name": "Rechazo",
-   "desc": "¿Unas estrellas ninja se dirigen a tu cabeza? ¡No hay problema! Canaliza tu héroe de artes marciales interior y rechaza las armas arrojadas como si fueran moscas."
-  },
-  "fastMetabolism": {
-   "name": "Metabolismo rápido",
-   "desc": "Tus células trabajan a la velocidad de la luz. Tu oponente te hace daño, pero puedes regenerarte más rápido... Quizás."
-  },
-  "mimic": {
-   "name": "Imitador",
-   "desc": "Es una buena habilidad lo que tienes allí. Es una pena si alguien lo ha aprendido al instante."
-  },
-  "stickyHands": {
-   "name": "Manos pegajosas",
-   "desc": "Tu arma parece extrañamente comprometida con la relación. Le cuesta mucho dejar tu mano, ¡pero también le cuesta mucho dejar la cara de tu oponente!"
-  },
-  "deity": {
-   "name": "Deidad",
-   "desc": "Potencia ilimitada. Capacidad limitada."
+  "weapons": {
+    "fan": "Abanico",
+    "keyboard": "Teclado",
+    "knife": "Cuchillo",
+    "leek": "Puerro",
+    "mug": "Taza",
+    "sai": "Sai",
+    "racquet": "Raqueta",
+    "axe": "Martillo",
+    "bumps": "Maza",
+    "flail": "Mangual",
+    "fryingPan": "Sartén",
+    "hatchet": "Hacha",
+    "mammothBone": "Hueso de Mamut",
+    "morningStar": "Lucero del alba",
+    "trombone": "Trombón",
+    "baton": "Bastón",
+    "halbard": "Alabarda",
+    "lance": "Lanza",
+    "trident": "Tridente",
+    "whip": "Látigo",
+    "noodleBowl": "Cuenco de fideos",
+    "piopio": "Pajarito",
+    "shuriken": "Shuriken",
+    "broadsword": "Espada corta",
+    "scimitar": "Cimitarra",
+    "sword": "Espada"
   }
- },
- "weapons": {
-  "fan": "Abanico",
-  "keyboard": "Teclado",
-  "knife": "Cuchillo",
-  "leek": "Puerro",
-  "mug": "Taza",
-  "sai": "Sai",
-  "racquet": "Raqueta",
-  "axe": "Martillo",
-  "bumps": "Maza",
-  "flail": "Mangual",
-  "fryingPan": "Sartén",
-  "hatchet": "Hacha",
-  "mammothBone": "Hueso de Mamut",
-  "morningStar": "Lucero del alba",
-  "trombone": "Trombón",
-  "baton": "Bastón",
-  "halbard": "Alabarda",
-  "lance": "Lanza",
-  "trident": "Tridente",
-  "whip": "Látigo",
-  "noodleBowl": "Cuenco de fideos",
-  "piopio": "Pajarito",
-  "shuriken": "Shuriken",
-  "broadsword": "Espada corta",
-  "scimitar": "Cimitarra",
-  "sword": "Espada"
- }
 }

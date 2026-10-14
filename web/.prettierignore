@@ -1,0 +1,12 @@
+dist/
+node_modules/
+public/
+originales/
+package-lock.json
+# Código copiado de LaBrute: se mantiene con el formato original
+src/core/
+src/engine/
+src/fight/
+src/pixi/
+src/BruteDisplay.ts
+src/StatColor.ts

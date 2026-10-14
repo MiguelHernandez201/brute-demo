@@ -1,111 +1,427 @@
 <!doctype html>
 <html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LaBrute Demo</title>
-<style>
-  @font-face { font-family: GameFont; src: url(/fonts/Movavi_Grotesque_Black.woff) format("woff"), url(/fonts/Movavi_Grotesque_Black.ttf) format("truetype"); }
-  :root { --bg:#1b1410; --panel:#2a201a; --ink:#f3e6d0; --a:#4cc9f0; --b:#f72585; --gold:#ffd166; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:radial-gradient(circle at 50% 0,#3a2a1e,var(--bg)); color:var(--ink); font-family:system-ui,sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:16px; }
-  h1 { color:var(--gold); letter-spacing:2px; margin:8px 0 16px; text-align:center; }
-  .panel { background:var(--panel); border-radius:12px; padding:16px; width:100%; max-width:860px; }
-  #setup { display:flex; flex-direction:column; gap:12px; max-width:420px; }
-  input { width:100%; margin-top:4px; padding:10px; border-radius:8px; border:2px solid #5a4636; background:#150f0b; color:var(--ink); font-size:16px; }
-  button { padding:12px; border:0; border-radius:8px; background:var(--gold); color:#2a1a08; font-weight:700; font-size:16px; cursor:pointer; }
-  button:hover { filter:brightness(1.1); }
-  button:disabled { opacity:.45; cursor:default; filter:none; }
-  #arena { display:none; }
-  /* El hueco del lienzo mantiene siempre su tamaño (500x300) para que la página no salte entre peleas */
-  #canvas { position:relative; width:100%; max-width:800px; aspect-ratio:5/3; margin:0 auto; border-radius:8px; overflow:hidden; background:#fbf7c0; }
-  #canvas canvas { position:absolute; inset:0; width:100%!important; height:100%!important; border-radius:8px; }
-  #canvas canvas.live { opacity:0; } #canvas canvas.live.ready { opacity:1; }
-  #canvas canvas.snapshot { z-index:1; transition:opacity .25s; } #canvas canvas.snapshot.fade { opacity:0; }
-  #status { text-align:center; min-height:24px; margin:8px 0; opacity:.8; }
-  .toggle { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; user-select:none; }
-  .toggle input { width:16px; height:16px; margin:0; padding:0; accent-color:var(--gold); cursor:pointer; }
-  .auto-toggle { flex:0 0 auto; background:#150f0b; border-radius:8px; padding:0 14px; font-size:14px; font-weight:700; }
-  /* Pelea al centro y tienda de cada jugador a los lados */
-  #arena.panel { max-width:1180px; }
-  .stage { display:grid; grid-template-columns:170px minmax(0,800px) 170px; gap:12px; justify-content:center; align-items:start; }
-  .shop { display:flex; flex-direction:column; gap:8px; background:#150f0b; border-radius:10px; padding:10px; border:2px solid var(--a); }
-  .shop.p2 { border-color:var(--b); }
-  .shop-name { font-weight:800; font-size:16px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .shop-btn { font-size:14px; padding:10px 8px; }
-  .shop-block { border-top:1px solid #3a2d22; padding-top:8px; display:flex; flex-direction:column; gap:4px; }
-  .shop-block.pending { border:1px dashed var(--gold); border-radius:8px; padding:6px; background:#2a1f12; }
-  .shop-label { font-size:12px; opacity:.7; }
-  .icons { display:flex; flex-wrap:wrap; gap:3px; min-height:28px; align-items:center; }
-  .icons .icon { width:28px; height:28px; object-fit:contain; display:block; filter:drop-shadow(1px 1px 1px #000); }
-  .icons .skill-icon { background-repeat:no-repeat; filter:none; border-radius:4px; }
-  .icons .none { opacity:.5; font-size:13px; }
-  .hp-line { font-weight:800; font-variant-numeric:tabular-nums; } .hp-line .hurt { color:#ff8a8a; font-weight:600; font-size:12px; }
-  @media (max-width:1100px) {
-    .stage { grid-template-columns:1fr 1fr; }
-    .stage #canvas { grid-column:1 / -1; grid-row:1; }
-  }
-  /* Battle royale: lista de participantes en lugar de las tiendas */
-  #roster { display:none; border-color:var(--gold); }
-  #arena.royale #shop-p1, #arena.royale #shop-p2 { display:none; }
-  #arena.royale #roster { display:flex; grid-column:1; grid-row:1; }
-  #arena.royale #canvas { grid-column:2; grid-row:1; }
-  ol.roster { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
-  ol.roster li { display:flex; flex-direction:column; padding:5px 8px; border-radius:6px; background:#2a201a; }
-  ol.roster li span { font-weight:700; } ol.roster li small { font-size:11px; opacity:.75; }
-  .roster-top { display:flex; justify-content:space-between; align-items:baseline; gap:6px; }
-  .roster-top span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .hp-text { font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .roster-bar { height:8px; background:#000; border-radius:4px; overflow:hidden; margin-top:4px; }
-  .roster-bar > div { height:100%; transition:width .3s, background .3s; }
-  ol.roster li.out { opacity:.45; } ol.roster li.out span { text-decoration:line-through; }
-  ol.roster li.win { background:#4a3820; border:1px solid var(--gold); }
-  .divider { display:flex; align-items:center; gap:10px; opacity:.6; font-size:13px; }
-  .divider::before, .divider::after { content:''; flex:1; height:1px; background:#5a4636; }
-  input.range { padding:0; border:0; accent-color:var(--gold); background:transparent; }
-  .royale-btn { background:linear-gradient(180deg,#ffd166,#f4a93b); }
-  @media (max-width:1100px) { #arena.royale #roster { grid-column:1 / -1; grid-row:2; } #arena.royale #canvas { grid-column:1 / -1; } }
-  .approach { display:flex; align-items:center; gap:12px; margin-top:12px; background:#150f0b; border-radius:8px; padding:10px 14px; }
-  .approach label { font-weight:700; white-space:nowrap; }
-  .approach input { flex:1; margin:0; padding:0; border:0; accent-color:var(--gold); background:transparent; }
-  .approach span { min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
-  .row { display:flex; gap:8px; margin-top:12px; } .row button { flex:1; }
-</style>
-</head>
-<body>
-<h1>⚔️ LA BRUTE · DEMO</h1>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LaBrute Demo</title>
+    <style>
+      @font-face {
+        font-family: GameFont;
+        src:
+          url(/fonts/Movavi_Grotesque_Black.woff) format('woff'),
+          url(/fonts/Movavi_Grotesque_Black.ttf) format('truetype');
+      }
+      :root {
+        --bg: #1b1410;
+        --panel: #2a201a;
+        --ink: #f3e6d0;
+        --a: #4cc9f0;
+        --b: #f72585;
+        --gold: #ffd166;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at 50% 0, #3a2a1e, var(--bg));
+        color: var(--ink);
+        font-family: system-ui, sans-serif;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 16px;
+      }
+      h1 {
+        color: var(--gold);
+        letter-spacing: 2px;
+        margin: 8px 0 16px;
+        text-align: center;
+      }
+      .panel {
+        background: var(--panel);
+        border-radius: 12px;
+        padding: 16px;
+        width: 100%;
+        max-width: 860px;
+      }
+      #setup {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-width: 420px;
+      }
+      input {
+        width: 100%;
+        margin-top: 4px;
+        padding: 10px;
+        border-radius: 8px;
+        border: 2px solid #5a4636;
+        background: #150f0b;
+        color: var(--ink);
+        font-size: 16px;
+      }
+      button {
+        padding: 12px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--gold);
+        color: #2a1a08;
+        font-weight: 700;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      button:hover {
+        filter: brightness(1.1);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+        filter: none;
+      }
+      #arena {
+        display: none;
+      }
+      /* El hueco del lienzo mantiene siempre su tamaño (500x300) para que la página no salte entre peleas */
+      #canvas {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        aspect-ratio: 5/3;
+        margin: 0 auto;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fbf7c0;
+      }
+      #canvas canvas {
+        position: absolute;
+        inset: 0;
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 8px;
+      }
+      #canvas canvas.live {
+        opacity: 0;
+      }
+      #canvas canvas.live.ready {
+        opacity: 1;
+      }
+      #canvas canvas.snapshot {
+        z-index: 1;
+        transition: opacity 0.25s;
+      }
+      #canvas canvas.snapshot.fade {
+        opacity: 0;
+      }
+      #status {
+        text-align: center;
+        min-height: 24px;
+        margin: 8px 0;
+        opacity: 0.8;
+      }
+      .toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .toggle input {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        padding: 0;
+        accent-color: var(--gold);
+        cursor: pointer;
+      }
+      .auto-toggle {
+        flex: 0 0 auto;
+        background: #150f0b;
+        border-radius: 8px;
+        padding: 0 14px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      /* Pelea al centro y tienda de cada jugador a los lados */
+      #arena.panel {
+        max-width: 1180px;
+      }
+      .stage {
+        display: grid;
+        grid-template-columns: 170px minmax(0, 800px) 170px;
+        gap: 12px;
+        justify-content: center;
+        align-items: start;
+      }
+      .shop {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: #150f0b;
+        border-radius: 10px;
+        padding: 10px;
+        border: 2px solid var(--a);
+      }
+      .shop.p2 {
+        border-color: var(--b);
+      }
+      .shop-name {
+        font-weight: 800;
+        font-size: 16px;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .shop-btn {
+        font-size: 14px;
+        padding: 10px 8px;
+      }
+      .shop-block {
+        border-top: 1px solid #3a2d22;
+        padding-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .shop-block.pending {
+        border: 1px dashed var(--gold);
+        border-radius: 8px;
+        padding: 6px;
+        background: #2a1f12;
+      }
+      .shop-label {
+        font-size: 12px;
+        opacity: 0.7;
+      }
+      .icons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        min-height: 28px;
+        align-items: center;
+      }
+      .icons .icon {
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+        display: block;
+        filter: drop-shadow(1px 1px 1px #000);
+      }
+      .icons .skill-icon {
+        background-repeat: no-repeat;
+        filter: none;
+        border-radius: 4px;
+      }
+      .icons .none {
+        opacity: 0.5;
+        font-size: 13px;
+      }
+      .hp-line {
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+      .hp-line .hurt {
+        color: #ff8a8a;
+        font-weight: 600;
+        font-size: 12px;
+      }
+      @media (max-width: 1100px) {
+        .stage {
+          grid-template-columns: 1fr 1fr;
+        }
+        .stage #canvas {
+          grid-column: 1 / -1;
+          grid-row: 1;
+        }
+      }
+      /* Battle royale: lista de participantes en lugar de las tiendas */
+      #roster {
+        display: none;
+        border-color: var(--gold);
+      }
+      #arena.royale #shop-p1,
+      #arena.royale #shop-p2 {
+        display: none;
+      }
+      #arena.royale #roster {
+        display: flex;
+        grid-column: 1;
+        grid-row: 1;
+      }
+      #arena.royale #canvas {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      ol.roster {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      ol.roster li {
+        display: flex;
+        flex-direction: column;
+        padding: 5px 8px;
+        border-radius: 6px;
+        background: #2a201a;
+      }
+      ol.roster li span {
+        font-weight: 700;
+      }
+      ol.roster li small {
+        font-size: 11px;
+        opacity: 0.75;
+      }
+      .roster-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 6px;
+      }
+      .roster-top span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .hp-text {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .roster-bar {
+        height: 8px;
+        background: #000;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 4px;
+      }
+      .roster-bar > div {
+        height: 100%;
+        transition:
+          width 0.3s,
+          background 0.3s;
+      }
+      ol.roster li.out {
+        opacity: 0.45;
+      }
+      ol.roster li.out span {
+        text-decoration: line-through;
+      }
+      ol.roster li.win {
+        background: #4a3820;
+        border: 1px solid var(--gold);
+      }
+      .divider {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        opacity: 0.6;
+        font-size: 13px;
+      }
+      .divider::before,
+      .divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #5a4636;
+      }
+      input.range {
+        padding: 0;
+        border: 0;
+        accent-color: var(--gold);
+        background: transparent;
+      }
+      .royale-btn {
+        background: linear-gradient(180deg, #ffd166, #f4a93b);
+      }
+      @media (max-width: 1100px) {
+        #arena.royale #roster {
+          grid-column: 1 / -1;
+          grid-row: 2;
+        }
+        #arena.royale #canvas {
+          grid-column: 1 / -1;
+        }
+      }
+      .approach {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 12px;
+        background: #150f0b;
+        border-radius: 8px;
+        padding: 10px 14px;
+      }
+      .approach label {
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .approach input {
+        flex: 1;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        accent-color: var(--gold);
+        background: transparent;
+      }
+      .approach span {
+        min-width: 44px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .row button {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>⚔️ LA BRUTE · DEMO</h1>
 
-<div class="panel" id="setup">
-  <label>Jugador 1<input id="n1" placeholder="Nombre del jugador 1" maxlength="16"></label>
-  <label>Jugador 2<input id="n2" placeholder="Nombre del jugador 2" maxlength="16"></label>
-  <button id="go">¡Elegir brutes y pelear!</button>
-  <div class="divider"><span>o</span></div>
-  <label for="royaleCount">Battle Royale: <b id="royaleCountValue">6</b> brutes, todos contra todos</label>
-  <input type="range" id="royaleCount" min="3" max="10" step="1" value="6" class="range">
-  <button id="royaleGo" class="royale-btn">👑 Battle Royale</button>
-</div>
+    <div class="panel" id="setup">
+      <label>Jugador 1<input id="n1" placeholder="Nombre del jugador 1" maxlength="16" /></label>
+      <label>Jugador 2<input id="n2" placeholder="Nombre del jugador 2" maxlength="16" /></label>
+      <button id="go">¡Elegir brutes y pelear!</button>
+      <div class="divider"><span>o</span></div>
+      <label for="royaleCount">Battle Royale: <b id="royaleCountValue">6</b> brutes, todos contra todos</label>
+      <input type="range" id="royaleCount" min="3" max="10" step="1" value="6" class="range" />
+      <button id="royaleGo" class="royale-btn">👑 Battle Royale</button>
+    </div>
 
-<div class="panel" id="arena">
-  <div id="status"></div>
-  <div class="stage">
-    <div class="shop p1" id="shop-p1"></div>
-    <div class="shop roster-panel" id="roster"></div>
-    <div id="canvas"></div>
-    <div class="shop p2" id="shop-p2"></div>
-  </div>
-  <div class="row"><button id="pause">⏸ Pausa</button><button id="speed">Velocidad x1</button><button id="sfx">🔊 Efectos</button><button id="music">🎵 Música</button></div>
-  <div class="approach">
-    <label for="approach">Acercamiento</label>
-    <input type="range" id="approach" min="0" max="100" step="5" value="0">
-    <span id="approachValue">0%</span>
-  </div>
-  <div class="row">
-    <button id="again">⚔️ Desafiar</button>
-    <label class="toggle auto-toggle"><input type="checkbox" id="auto"><span id="autoLabel">Desafiar continuamente</span></label>
-    <button id="back">Cambiar nombres</button>
-  </div>
-</div>
+    <div class="panel" id="arena">
+      <div id="status"></div>
+      <div class="stage">
+        <div class="shop p1" id="shop-p1"></div>
+        <div class="shop roster-panel" id="roster"></div>
+        <div id="canvas"></div>
+        <div class="shop p2" id="shop-p2"></div>
+      </div>
+      <div class="row">
+        <button id="pause">⏸ Pausa</button><button id="speed">Velocidad x1</button><button id="sfx">🔊 Efectos</button
+        ><button id="music">🎵 Música</button>
+      </div>
+      <div class="approach">
+        <label for="approach">Acercamiento</label>
+        <input type="range" id="approach" min="0" max="100" step="5" value="0" />
+        <span id="approachValue">0%</span>
+      </div>
+      <div class="row">
+        <button id="again">⚔️ Desafiar</button>
+        <label class="toggle auto-toggle"
+          ><input type="checkbox" id="auto" /><span id="autoLabel">Desafiar continuamente</span></label
+        >
+        <button id="back">Cambiar nombres</button>
+      </div>
+    </div>
 
-<script type="module" src="/src/main.js"></script>
-</body>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>
