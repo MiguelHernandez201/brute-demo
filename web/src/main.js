@@ -10,6 +10,7 @@ import { createFight, createRoyale } from './sim.ts';
 import { StepType } from '@labrute/core';
 import { createRenderer } from './renderer.ts';
 import { setupFight } from './fight/setupFight.ts';
+import { fatalityOptions } from './fight/fatality.ts';
 import { setFightDisposing } from './fight/utils/lifecycle.ts';
 import { renderQuality } from './fight/FighterHolder.ts';
 import { fightApproach } from './fight/utils/fightPositions.ts';
@@ -364,6 +365,21 @@ try {
   /* sin storage */
 }
 $('auto').checked = autoChallenge;
+// Celebración del ganador tras la fatality (se recuerda en este navegador)
+try {
+  fatalityOptions.celebrate = localStorage.getItem('brute-demo-celebrate') !== 'false';
+} catch {
+  /* sin storage */
+}
+$('celebrate').checked = fatalityOptions.celebrate;
+$('celebrate').onchange = (e) => {
+  fatalityOptions.celebrate = e.target.checked;
+  try {
+    localStorage.setItem('brute-demo-celebrate', String(fatalityOptions.celebrate));
+  } catch {
+    /* sin storage */
+  }
+};
 $('auto').onchange = (e) => {
   autoChallenge = e.target.checked;
   try {

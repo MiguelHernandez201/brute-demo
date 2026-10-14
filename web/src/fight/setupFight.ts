@@ -20,7 +20,7 @@ import { attemptHit } from './attemptHit';
 import { block } from './block';
 import { bomb } from './bomb';
 import { death } from './death';
-import { fatality, isFatalityDeath } from './fatality';
+import { fatality, fatalityOptions, isFatalityDeath } from './fatality';
 import { disarm } from './disarm';
 import { dropShield } from './dropShield';
 import { eat } from './eat';
@@ -907,6 +907,8 @@ export const setupFight: (
           break;
         }
         case StepType.End: {
+          // Demo: tras una fatality, el ganador puede no celebrar (opción de la interfaz)
+          if (fatalityDone && !fatalityOptions.celebrate) break;
           end(app, spritesheets, fighters, step);
           break;
         }
@@ -1157,7 +1159,8 @@ export const setupFight: (
       if (shouldAbort()) return;
     }
 
-    void sound.play('sfx', { sprite: 'win' });
+    const celebrate = !fatalityDone || fatalityOptions.celebrate;
+    if (celebrate) void sound.play('sfx', { sprite: 'win' });
 
     // Get winner fighter
     const winner = fighters.find((fighter) => !fighter.master && isWinner(fighter, fight));
@@ -1218,7 +1221,7 @@ export const setupFight: (
     currentStepName = 'postFight';
     currentStepIndex = steps.length;
     let completedPetals = 0;
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < (celebrate ? 50 : 0); i++) {
       const petal = new AnimatedSprite(miscSheet.animations.petals ?? []);
       petal.filters = [new ColorOverlayFilter({
         // Random color

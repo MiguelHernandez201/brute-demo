@@ -27,6 +27,9 @@ import { getHitDistance } from './utils/getHitDistance';
 import { isHudLayer } from './utils/hud';
 import { Spritesheets } from './utils/spritesheet';
 
+// Opciones de la interfaz: si el ganador celebra (saca músculo y luego la celebración de victoria)
+export const fatalityOptions = { celebrate: true };
+
 type Kind = 'decapitacion' | 'partido' | 'aplastado' | 'acribillado' | 'latigo' | 'explosion';
 
 // Remate según el arma del ganador (sin arma o con una arrojadiza: explosión)
@@ -1153,7 +1156,7 @@ export const fatality = async (
     camera.z = 1 + 0.06 * Math.sin(p * Math.PI);
   });
   void shake(8, 0.5);
-  if (!killer.trapped && !killer.stunned) killer.animation.setAnimation('strengthen');
+  if (fatalityOptions.celebrate && !killer.trapped && !killer.stunned) killer.animation.setAnimation('strengthen');
   void animate(0.3, (p) => {
     subtitle.alpha = p;
     subtitle.scale.set(lerp(0.6, 1, easeOutBack(p)));
