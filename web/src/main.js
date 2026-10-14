@@ -55,6 +55,12 @@ function applyVolumes() {
 async function destroyApp() {
   setFightDisposing(true);
   sound.stopAll();
+  // Voz de la fatality (síntesis de voz del navegador)
+  try {
+    window.speechSynthesis?.cancel();
+  } catch {
+    /* sin síntesis de voz */
+  }
   gsap.killTweensOf('*');
   gsap.globalTimeline.clear();
   if (app) {

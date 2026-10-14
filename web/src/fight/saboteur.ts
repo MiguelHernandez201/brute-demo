@@ -25,6 +25,8 @@ export const saboteur = async (
     : 'hit' as const;
 
   brute.animation.waitForEvent(`${animation}:end`).then(() => {
+    // Demo: no se espera; un muerto no vuelve a ponerse de pie
+    if (brute.dead) return;
     // Set animation to `idle`
     brute.animation.setAnimation('idle');
   }).catch(console.error);
