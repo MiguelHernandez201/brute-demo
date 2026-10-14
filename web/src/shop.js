@@ -6,6 +6,7 @@ import skillsSheet from '../public/images/game/skills.json';
 import miscSheet from '../public/images/game/misc.json';
 import { skills as coreSkills } from '@labrute/core';
 
+const BASE = import.meta.env.BASE_URL;
 const ICON = 28;
 const PICK = 5;
 const WEAPONS = Object.keys(labels.weapons);
@@ -20,7 +21,7 @@ const pending = { p1: emptyPending(), p2: emptyPending() };
 const current = { p1: null, p2: null };
 let names = ['Jugador 1', 'Jugador 2'];
 
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const pickRandom = (list, n) => [...list].sort(() => Math.random() - 0.5).slice(0, n);
 
 // Icono de habilidad recortado del spritesheet del juego (versión HD x3)
@@ -29,7 +30,7 @@ function skillIconStyle(skill) {
   if (!f) return '';
   const r = ICON / f.w;
   const { w, h } = skillsSheet.meta.size;
-  return `background-image:url(/images/game/${skillsSheet.meta.image});background-size:${w * r}px ${h * r}px;background-position:-${f.x * r}px -${f.y * r}px`;
+  return `background-image:url(${BASE}images/game/${skillsSheet.meta.image});background-size:${w * r}px ${h * r}px;background-position:-${f.x * r}px -${f.y * r}px`;
 }
 
 // Iconos de armas: los mismos de la barra superior de la pelea (hoja misc HD).
@@ -43,7 +44,8 @@ function loadWeaponIcons() {
       if (!fr) continue;
       const { frame: f, rotated, spriteSourceSize: s, sourceSize: src } = fr;
       const c = document.createElement('canvas');
-      c.width = src.w; c.height = src.h;
+      c.width = src.w;
+      c.height = src.h;
       const ctx = c.getContext('2d');
       ctx.translate(s.x, s.y);
       if (rotated) {
@@ -58,15 +60,22 @@ function loadWeaponIcons() {
     }
     renderShop();
   };
-  img.src = `/images/game/${miscSheet.meta.image}`;
+  img.src = `${BASE}images/game/${miscSheet.meta.image}`;
 }
 
-const weaponIcon = (k) => `<img class="icon" src="${weaponIcons[k] ?? `/images/weapons/${k}.png`}" alt="" title="${esc(labels.weapons[k] ?? k)}">`;
-const petIcon = (k) => `<img class="icon" src="/images/pets/${k}.svg" alt="" title="${esc(PETS[k] ?? k)}">`;
-const skillIcon = (k) => `<span class="icon skill-icon" style="${skillIconStyle(k)}" title="${esc(labels.skills[k]?.name ?? k)}${labels.skills[k]?.desc ? ` — ${esc(labels.skills[k].desc)}` : ''}"></span>`;
+const weaponIcon = (k) =>
+  `<img class="icon" src="${weaponIcons[k] ?? `${BASE}images/weapons/${k}.png`}" alt="" title="${esc(labels.weapons[k] ?? k)}">`;
+const petIcon = (k) => `<img class="icon" src="${BASE}images/pets/${k}.svg" alt="" title="${esc(PETS[k] ?? k)}">`;
+const skillIcon = (k) =>
+  `<span class="icon skill-icon" style="${skillIconStyle(k)}" title="${esc(labels.skills[k]?.name ?? k)}${labels.skills[k]?.desc ? ` — ${esc(labels.skills[k].desc)}` : ''}"></span>`;
 
 // Icono de poción: el de la Poción trágica del juego
-const potionIcons = (n) => Array.from({ length: n }, () => `<span class="icon skill-icon" style="${skillIconStyle('tragicPotion')}" title="Poción: cura el 50 % de la vida"></span>`).join('');
+const potionIcons = (n) =>
+  Array.from(
+    { length: n },
+    () =>
+      `<span class="icon skill-icon" style="${skillIconStyle('tragicPotion')}" title="Poción: cura el 50 % de la vida"></span>`,
+  ).join('');
 
 function icons(kind, list) {
   if (!list?.length) return '<span class="none">—</span>';
@@ -85,35 +94,55 @@ function renderSide(p, i) {
     <button type="button" class="shop-btn" data-buy="skills" data-player="${p}">✨ Comprar power-ups</button>
     <button type="button" class="shop-btn" data-buy="pets" data-player="${p}">🐾 Comprar mascota</button>
     <button type="button" class="shop-btn" data-buy="potions" data-player="${p}">🧪 Comprar poción</button>
-    ${hasPending ? `
+    ${
+      hasPending
+        ? `
       <div class="shop-block pending">
         <div class="shop-label">Entra en el próximo turno</div>
         ${pend.weapons ? `<div class="icons">${icons('weapons', pend.weapons)}</div>` : ''}
         ${pend.skills ? `<div class="icons">${icons('skills', pend.skills)}</div>` : ''}
         ${pend.pets ? `<div class="icons">${icons('pets', pend.pets)}</div>` : ''}
         ${pend.potions ? `<div class="icons">${potionIcons(pend.potions)}</div>` : ''}
-      </div>` : ''}
-    ${cur ? `
+      </div>`
+        : ''
+    }
+    ${
+      cur
+        ? `
       <div class="shop-block">
         ${cur.hp ? `<div class="shop-label">Vida al empezar</div><div class="hp-line">${cur.hp} / ${cur.maxHp}${cur.hp < cur.maxHp ? ' <span class="hurt">(herido)</span>' : ''}</div>` : ''}
         <div class="shop-label">Armas en uso</div>
         <div class="icons">${icons('weapons', cur.weapons)}</div>
         <div class="shop-label">Power-ups en uso</div>
-        <div class="icons">${icons('skills', cur.skills.filter((s) => SKILLS.includes(s)))}</div>
+        <div class="icons">${icons(
+          'skills',
+          cur.skills.filter((s) => SKILLS.includes(s)),
+        )}</div>
         <div class="shop-label">Mascotas</div>
         <div class="icons">${icons('pets', cur.pets)}</div>
-      </div>` : ''}`;
+      </div>`
+        : ''
+    }`;
 }
 
-export function renderShop() { renderSide('p1', 0); renderSide('p2', 1); }
+export function renderShop() {
+  renderSide('p1', 0);
+  renderSide('p2', 1);
+}
 
-export function setShopNames(n1, n2) { names = [n1, n2]; renderShop(); }
+export function setShopNames(n1, n2) {
+  names = [n1, n2];
+  renderShop();
+}
 
 // Equipo real de la pelea que empieza (para mostrarlo bajo los botones)
 export function setCurrentGear(brutes) {
   const gear = (b) => ({
-    weapons: [...b.weapons], skills: [...b.skills], pets: [...b.pets],
-    maxHp: b.hpValue, hp: Math.min(b.hpValue, b.carryHp ?? b.hpValue),
+    weapons: [...b.weapons],
+    skills: [...b.skills],
+    pets: [...b.pets],
+    maxHp: b.hpValue,
+    hp: Math.min(b.hpValue, b.carryHp ?? b.hpValue),
   });
   current.p1 = gear(brutes[0]);
   current.p2 = gear(brutes[1]);

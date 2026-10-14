@@ -1,7 +1,5 @@
 {
-  "resources": [
-    "sfx.mp3"
-  ],
+  "resources": ["sfx.mp3"],
   "spritemap": {
     "arrive": {
       "start": 0,
