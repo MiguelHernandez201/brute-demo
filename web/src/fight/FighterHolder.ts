@@ -484,9 +484,9 @@ export class FighterHolder {
 
   weapon: WeaponName | null = null;
 
-  readonly baseWidth: number;
+  baseWidth: number;
 
-  readonly baseHeight: number;
+  baseHeight: number;
 
   // PIXI
   readonly container: Container;
@@ -1465,6 +1465,18 @@ export class FighterHolder {
     ticker?.add(onTick);
     this.once(event, finish);
   });
+
+  // Demo: Súper gigante. Agranda el dibujo y la sombra (no el contenedor, cuya escala se usa
+  // para mirar a un lado u otro) y el tamaño con el que se calculan distancias y efectos.
+  giantScale = 1;
+  setGiantScale = (value: number) => {
+    const ratio = value / this.giantScale;
+    this.giantScale = value;
+    this.#renderContainer.scale.set(this.#renderContainer.scale.x * ratio, this.#renderContainer.scale.y * ratio);
+    for (const child of this.shadow.children) child.scale.set(child.scale.x * ratio, child.scale.y * ratio);
+    this.baseWidth *= ratio;
+    this.baseHeight *= ratio;
+  };
 
   // Stop / restart actualizing zIndex
   setAirborn = (airborn: boolean) => {

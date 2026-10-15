@@ -63,6 +63,7 @@ import { vampirism } from './vampirism';
 import { getFighters } from './utils/getFighters';
 import { mimic } from './mimic';
 import { tween } from './utils/tween';
+import { shakeStage } from './utils/stageAnimations';
 import { Spritesheets } from './utils/spritesheet';
 
 export const setupFight: (
@@ -1005,6 +1006,32 @@ export const setupFight: (
           await drinkEnded;
           updateHp(fighters, drinker, potionStep.h, speed, isClanWar);
           drinker.animation.setAnimation('idle');
+          break;
+        }
+        // Demo: Súper gigante → el brute crece (daño x2 y resistencia x2 en el motor)
+        case 'demoGiant' as never: {
+          const giant = fighters.find((f) => f.index === (step as unknown as { f: number }).f);
+          if (!giant) break;
+          void sound.play('sfx', { sprite: 'fierceBrute' });
+          void shakeStage(app, speed, 4, 600);
+          const label = new Text({
+            text: '¡SÚPER GIGANTE!',
+            style: { fontFamily: 'GameFont', fontSize: 16, fill: 0xffd23f, stroke: { color: 0x3a1a00, width: 4 } },
+          });
+          label.anchor.set(0.5);
+          label.position.set(giant.animation.container.x, giant.animation.container.y - giant.animation.baseHeight * 1.6);
+          label.zIndex = 950;
+          app.stage?.addChild(label);
+          void tween(label, { y: label.y - 25, alpha: 0, duration: 1.6 / speed.current, delay: 0.6 / speed.current, ease: 'power1.in' })
+            .then(() => label.destroy());
+          const grow = { s: giant.animation.giantScale };
+          await tween(grow, {
+            s: 1.5,
+            duration: 0.8 / speed.current,
+            ease: 'elastic.out(1, 0.5)',
+            onUpdate: () => giant.animation.setGiantScale(grow.s),
+          });
+          giant.animation.setGiantScale(1.5);
           break;
         }
         case 'demoSpawn' as never: {
