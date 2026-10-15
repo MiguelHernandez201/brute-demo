@@ -64,6 +64,9 @@ import { getFighters } from './utils/getFighters';
 import { mimic } from './mimic';
 import { tween } from './utils/tween';
 import { shakeStage } from './utils/stageAnimations';
+
+// Demo: tamaño del brute con Súper gigante
+const GIANT_SCALE = 3;
 import { Spritesheets } from './utils/spritesheet';
 
 export const setupFight: (
@@ -1019,19 +1022,19 @@ export const setupFight: (
             style: { fontFamily: 'GameFont', fontSize: 16, fill: 0xffd23f, stroke: { color: 0x3a1a00, width: 4 } },
           });
           label.anchor.set(0.5);
-          label.position.set(giant.animation.container.x, giant.animation.container.y - giant.animation.baseHeight * 1.6);
+          label.position.set(giant.animation.container.x, Math.max(30, giant.animation.container.y - giant.animation.baseHeight * GIANT_SCALE * 1.1));
           label.zIndex = 950;
           app.stage?.addChild(label);
           void tween(label, { y: label.y - 25, alpha: 0, duration: 1.6 / speed.current, delay: 0.6 / speed.current, ease: 'power1.in' })
             .then(() => label.destroy());
           const grow = { s: giant.animation.giantScale };
           await tween(grow, {
-            s: 1.5,
+            s: GIANT_SCALE,
             duration: 0.8 / speed.current,
             ease: 'elastic.out(1, 0.5)',
             onUpdate: () => giant.animation.setGiantScale(grow.s),
           });
-          giant.animation.setGiantScale(1.5);
+          giant.animation.setGiantScale(GIANT_SCALE);
           break;
         }
         case 'demoSpawn' as never: {

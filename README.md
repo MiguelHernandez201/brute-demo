@@ -39,7 +39,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   que entran en el siguiente turno, y un botón por cada power-up (Bomba, Red, Rompecuellos, Hipnosis…):
   el power-up elegido se activa sí o sí al empezar el siguiente turno, sin depender de la probabilidad
   (si aún no puede usarse, como Ladrón con el rival desarmado, se reintenta hasta 3 turnos).
-  Además hay un power-up propio de la demo, **Súper gigante**: el brute crece y durante el resto
+  Además hay un power-up propio de la demo, **Súper gigante**: el brute crece al triple de su tamaño y durante el resto
   de la pelea hace el doble de daño y recibe la mitad.
   El ganador sigue (sin curarse) al *Desafiar*.
   Cuando cae el perdedor, la pelea se remata con una **fatality**: "FINISH HIM!", el ganador se acerca
