@@ -420,11 +420,17 @@
       }
       .row {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
         margin-top: 12px;
       }
       .row button {
-        flex: 1;
+        flex: 1 1 110px;
+      }
+      /* Casillas: si no caben en la fila pasan a la siguiente en vez de salirse de la pantalla */
+      .row .auto-toggle {
+        flex: 1 1 auto;
+        min-height: 44px;
       }
     </style>
   </head>
