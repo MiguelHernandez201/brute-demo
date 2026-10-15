@@ -515,6 +515,14 @@ const registerHit = ({
       : damage,
   }), {});
 
+  // Demo: Súper gigante → hace el doble de daño y recibe la mitad
+  opponents.forEach((opponent) => {
+    let giantDamage = actualDamage[opponent.index] ?? damage;
+    if ((fighter as { demoGiant?: boolean }).demoGiant) giantDamage *= 2;
+    if ((opponent as { demoGiant?: boolean }).demoGiant) giantDamage = Math.max(1, Math.floor(giantDamage / 2));
+    actualDamage[opponent.index] = giantDamage;
+  });
+
   opponents.forEach((opponent) => {
     // Reset consecutive hits for any damage source other than poison
     if (source !== 'poison') {

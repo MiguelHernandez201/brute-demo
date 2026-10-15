@@ -203,6 +203,26 @@
         background-repeat: no-repeat;
         border-radius: 3px;
       }
+      /* Súper gigante: botón destacado a lo ancho e icono emoji */
+      .power-btn.giant {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        justify-content: center;
+        gap: 6px;
+        font-size: 12px;
+        background: linear-gradient(#ffe27a, #f0a020);
+      }
+      .giant-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #6b3a00;
+        font-size: 14px;
+        line-height: 1;
+      }
+      .icons .giant-icon {
+        font-size: 18px;
+      }
       .shop-block {
         border-top: 1px solid #3a2d22;
         padding-top: 8px;

@@ -16,6 +16,9 @@ import {
 // `activate`: power-ups que se activan al empezar el siguiente turno (sin depender de la probabilidad)
 export type Purchase = { weapons?: string[]; skills?: string[]; pets?: string[]; potions?: number; activate?: string[] };
 
+// Power-up propio de la demo (no existe en el juego): el brute crece, daño x2 y resistencia x2
+export const SUPER_GIANT = 'superGiant';
+
 // Turnos que se reintenta un power-up que todavía no puede usarse (p. ej. Ladrón si el rival no tiene arma)
 const ACTIVATE_TRIES = 3;
 
@@ -200,6 +203,16 @@ export class FightSession {
       const brute = fd.fighters.find((f) => f.team === team && f.type === 'brute' && !f.master);
       for (let i = 0; i < queue.length && !this.finished; ) {
         const entry = queue[i]!;
+        // Súper gigante: dura el resto de la pelea (comprarlo otra vez no lo acumula)
+        if (entry.name === SUPER_GIANT) {
+          const giant = brute as { demoGiant?: boolean } | undefined;
+          if (brute && brute.hp > 0 && !giant!.demoGiant) {
+            giant!.demoGiant = true;
+            this.steps.push({ a: 'demoGiant', f: brute.index } as never);
+          }
+          queue.splice(i, 1);
+          continue;
+        }
         const skill = brute?.skills[entry.name as keyof typeof brute.skills];
         if (!brute || brute.hp <= 0 || !skill) {
           queue.splice(i, 1);
@@ -323,6 +336,10 @@ export class FightSession {
     // Power-ups a activar: se le da un uso más (o la habilidad con un solo uso si no la tenía)
     const extraUses: Partial<Record<SkillId, number>> = {};
     for (const name of purchase.activate ?? []) {
+      if (name === SUPER_GIANT) {
+        this.#toActivate[team].push({ name, tries: 0 });
+        continue;
+      }
       const id = SkillByName[name as keyof typeof SkillByName];
       const owned = brute.skills[name as keyof typeof brute.skills] as { uses?: number[]; tier: number } | undefined;
       if (owned?.uses) {

@@ -14,7 +14,14 @@ const WEAPONS = Object.keys(labels.weapons);
 // Solo habilidades activas ("súper" en el juego: Rompecuellos, Bomba, Red, Hipnosis…)
 const SKILLS = Object.keys(labels.skills).filter((k) => coreSkills[k]?.type === 'super');
 // Botones de power-up (Imitador solo copia habilidades del rival: no tiene sentido activarlo a mano)
-const ACTIVABLE = SKILLS.filter((k) => k !== 'mimic');
+// Súper gigante: power-up propio de la demo (no está en el juego), va primero
+const GIANT = 'superGiant';
+const GIANT_LABEL = {
+  name: 'Súper gigante',
+  desc: 'El brute crece: hace el doble de daño y recibe la mitad durante el resto de la pelea',
+};
+const ACTIVABLE = [GIANT, ...SKILLS.filter((k) => k !== 'mimic')];
+const skillLabel = (k) => (k === GIANT ? GIANT_LABEL : labels.skills[k]);
 // Guion opcional (solo aparece si el nombre no cabe en el botón)
 const SOFT_NAMES = { hammer: 'Rompe\u00adcuellos', vampirism: 'Vampi\u00adrismo' };
 const PETS = { dog1: 'Perro', dog2: 'Perro de caza', dog3: 'Perro guardián', panther: 'Pantera', bear: 'Oso' };
@@ -71,8 +78,12 @@ function loadWeaponIcons() {
 const weaponIcon = (k) =>
   `<img class="icon" src="${weaponIcons[k] ?? `${BASE}images/weapons/${k}.png`}" alt="" title="${esc(labels.weapons[k] ?? k)}">`;
 const petIcon = (k) => `<img class="icon" src="${BASE}images/pets/${k}.svg" alt="" title="${esc(PETS[k] ?? k)}">`;
+const giantIcon = (cls) =>
+  `<span class="${cls} giant-icon" title="${esc(GIANT_LABEL.name)} — ${esc(GIANT_LABEL.desc)}">💪</span>`;
 const skillIcon = (k) =>
-  `<span class="icon skill-icon" style="${skillIconStyle(k)}" title="${esc(labels.skills[k]?.name ?? k)}${labels.skills[k]?.desc ? ` — ${esc(labels.skills[k].desc)}` : ''}"></span>`;
+  k === GIANT
+    ? giantIcon('icon skill-icon')
+    : `<span class="icon skill-icon" style="${skillIconStyle(k)}" title="${esc(labels.skills[k]?.name ?? k)}${labels.skills[k]?.desc ? ` — ${esc(labels.skills[k].desc)}` : ''}"></span>`;
 
 // Icono de poción: el de la Poción trágica del juego
 const potionIcons = (n) =>
@@ -99,7 +110,7 @@ function renderSide(p, i) {
     <div class="shop-label">✨ Power-ups (se activan en el siguiente turno)</div>
     <div class="power-grid">${ACTIVABLE.map(
       (k) =>
-        `<button type="button" class="power-btn" data-activate="${k}" data-player="${p}" title="${esc(labels.skills[k]?.desc ?? '')}"><span class="skill-icon" style="${skillIconStyle(k, 20)}"></span><span>${esc(SOFT_NAMES[k] ?? labels.skills[k]?.name ?? k)}</span></button>`,
+        `<button type="button" class="power-btn${k === GIANT ? ' giant' : ''}" data-activate="${k}" data-player="${p}" title="${esc(skillLabel(k)?.desc ?? '')}">${k === GIANT ? giantIcon('skill-icon') : `<span class="skill-icon" style="${skillIconStyle(k, 20)}"></span>`}<span>${esc(SOFT_NAMES[k] ?? skillLabel(k)?.name ?? k)}</span></button>`,
     ).join('')}</div>
     <button type="button" class="shop-btn" data-buy="pets" data-player="${p}">🐾 Comprar mascota</button>
     <button type="button" class="shop-btn" data-buy="potions" data-player="${p}">🧪 Comprar poción</button>
