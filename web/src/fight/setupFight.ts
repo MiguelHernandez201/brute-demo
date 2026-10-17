@@ -815,11 +815,11 @@ export const setupFight: (
 
       switch (step.a) {
         case StepType.Move: {
-          await moveTo(fighters, step, speed);
+          await moveTo(fighters, step, speed, app, spritesheets);
           break;
         }
         case StepType.MoveBack: {
-          await moveBack(fighters, step, speed);
+          await moveBack(fighters, step, speed, undefined, app, spritesheets);
           break;
         }
         case StepType.Arrive: {
@@ -859,7 +859,7 @@ export const setupFight: (
           break;
         }
         case StepType.Evade: {
-          await evade(fighters, step, speed);
+          await evade(fighters, step, speed, app, spritesheets);
           break;
         }
         case StepType.Saboteur: {

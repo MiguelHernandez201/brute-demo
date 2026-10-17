@@ -509,6 +509,9 @@ export class FighterHolder {
 
   #timer = 0;
 
+  // Demo: milisegundos que la animación sigue congelada (hit-stop)
+  #frozenMs = 0;
+
   #baseAnimationSpeed = 1;
 
   svgs: Sprite[] = [];
@@ -740,6 +743,12 @@ export class FighterHolder {
         // Update zIndex if not airborn
         if (!this.#isAirborn) {
           this.container.zIndex = this.container.y;
+        }
+
+        // Demo: hit-stop. El fotograma se queda quieto un instante al dar o recibir un golpe
+        if (this.#frozenMs > 0) {
+          this.#frozenMs -= (this.#appTicker?.elapsedMS) ?? 0;
+          return;
         }
 
         // Do nothing if not playing
@@ -1440,6 +1449,12 @@ export class FighterHolder {
 
   pause = () => {
     this.#playing = false;
+  };
+
+  // Demo: hit-stop. Congela la animación `ms` milisegundos (cuenta con el ticker de la pelea, así que respeta
+  // la pausa) sin cambiar si está reproduciéndose: al acabar sigue exactamente donde estaba
+  freeze = (ms: number) => {
+    this.#frozenMs = Math.max(this.#frozenMs, ms);
   };
 
   // Demo: con tope de tiempo. Si la animación esperada no existe para este luchador

@@ -115,6 +115,6 @@ export const skillExpire = async (
   // Hammer
   if (step.s === SkillId.hammer) {
     // Jump back from impact
-    await jumpBack(fighter, speed, 110, 0.33);
+    await jumpBack(fighter, speed, 110, 0.33, app, spritesheets);
   }
 };
