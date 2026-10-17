@@ -2,12 +2,15 @@
 import {
   HitStep, StepType, WEAPONS_SFX, WeaponById, randomBetween
 } from '@labrute/core';
+import { ColorOverlayFilter } from 'pixi-filters/color-overlay';
 import { OutlineFilter } from 'pixi-filters/outline';
 
-import { Application } from 'pixi.js';
+import { Application, Ticker } from 'pixi.js';
 import { sound } from '@pixi/sound';
 import { displayDamage } from './utils/displayDamage';
 import { AnimationFighter, findFighter } from './utils/findFighter';
+import { isFightDisposing } from './utils/lifecycle';
+import { shakeStage } from './utils/stageAnimations';
 import { stagger } from './stagger';
 import { updateHp } from './updateHp';
 import { untrap } from './untrap';
@@ -18,6 +21,47 @@ import { Spritesheets } from './utils/spritesheet';
 const POISON_OUTLINE_FILTER_CONFIG = {
   thickness: 1,
   color: 0x006400,
+};
+
+// Demo: "hit-stop". Al conectar, atacante y víctima se quedan quietos un instante (más si el golpe es fuerte
+// o crítico) mientras la víctima destella en blanco; en los fuertes y críticos además tiembla la pantalla.
+const HIT_STOP_MS = { normal: 55, heavy: 85, critical: 120 };
+const impact = async (
+  app: Application,
+  fighter: AnimationFighter,
+  target: AnimationFighter,
+  step: HitStep,
+  speed: React.RefObject<number>,
+) => {
+  // Fuerte: quita al menos un 20 % de la vida o deja aturdido
+  const strength = step.c ? 'critical' : step.d >= target.maxHp * 0.2 || step.s ? 'heavy' : 'normal';
+  const ms = HIT_STOP_MS[strength] / speed.current;
+  fighter.animation.freeze(ms);
+  target.animation.freeze(ms);
+
+  const { container } = target.animation;
+  const flash = new ColorOverlayFilter({ color: 0xffffff, alpha: 0.75 });
+  container.filters = [...container.filters || [], flash];
+  if (strength === 'critical') void shakeStage(app, speed, 6, 280);
+  else if (strength === 'heavy') void shakeStage(app, speed, 3, 180);
+
+  // Espera con el ticker de la pelea (se detiene con la pausa)
+  await new Promise<void>((resolve) => {
+    const { ticker } = app;
+    if (isFightDisposing() || !ticker) {
+      resolve();
+      return;
+    }
+    let waited = 0;
+    const tick = (t: Ticker) => {
+      waited += t.elapsedMS;
+      if (waited < ms) return;
+      ticker.remove(tick);
+      resolve();
+    };
+    ticker.add(tick);
+  });
+  if (!container.destroyed) container.filters = (container.filters || []).filter((f) => f !== flash);
 };
 
 export const hit = async (
@@ -124,6 +168,11 @@ export const hit = async (
 
   if (step.c) {
     knockBack += 12;
+  }
+
+  // Demo: impacto (pausa, destello y temblor) antes del retroceso; el veneno no es un golpe
+  if (step.a !== StepType.Poison) {
+    await impact(app, fighter, target, step, speed);
   }
 
   // Stagger with knockBack
