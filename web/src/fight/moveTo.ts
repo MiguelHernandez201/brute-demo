@@ -1,16 +1,22 @@
 
 import { MoveStep } from '@labrute/core';
 import { sound } from '@pixi/sound';
+import { Application } from 'pixi.js';
 import { AnimationFighter, findFighter } from './utils/findFighter';
 import { repositionFighters } from './utils/repositionFighters';
 import { getHitDistance } from './utils/getHitDistance';
-import { tween } from './utils/tween';
+import { Easing, tween } from './utils/tween';
 import { isMaxApproach, QUICK_STEP_DURATION } from './utils/fightPositions';
+import { playStepDust } from './utils/playVFX';
+import { Spritesheets } from './utils/spritesheet';
 
 export const moveTo = async (
   fighters: AnimationFighter[],
   step: MoveStep,
   speed: React.RefObject<number>,
+  // Demo: para el polvo al arrancar y al frenar
+  app?: Application,
+  spritesheets?: Spritesheets,
 ) => {
   const fighter = findFighter(fighters, step.f);
   if (!fighter) {
@@ -65,13 +71,19 @@ export const moveTo = async (
   // Travel duration depends on distance
   const duration = Math.max(0.16, travelDistance / 430);
 
-  // Move fighter to the position
+  // Demo: polvo detrás al arrancar y delante al frenar (solo en carreras de verdad)
+  const dir = Math.sign(targetX - fighter.animation.container.x) || 1;
+  const dusty = app && spritesheets && travelDistance >= 40;
+  if (dusty) playStepDust(app, spritesheets, fighter, speed, -dir * 10);
+
+  // Move fighter to the position (Demo: acelera, mantiene y frena en vez de ir a velocidad fija)
   await tween(fighter.animation.container, {
     duration: duration / speed.current,
-    ease: 'none',
+    ease: Easing.run,
     x: targetX,
     y: targetY,
   });
+  if (dusty) playStepDust(app, spritesheets, fighter, speed, dir * 8, 0.5);
 
   // Set animation to `idle`
   fighter.animation.setAnimation('idle');

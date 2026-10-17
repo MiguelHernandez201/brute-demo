@@ -35,6 +35,31 @@ const playDustEffect = (
   dustSprite.play();
 };
 
+// Demo: nube de polvo pequeña y rápida a `dx` píxeles de los pies (positivo = derecha),
+// para arrancar y frenar al correr y para aterrizar de un salto
+const playStepDust = (
+  app: Application,
+  spritesheets: Spritesheets,
+  fighter: AnimationFighter,
+  speed: React.RefObject<number>,
+  dx: number = 0,
+  size: number = 0.6,
+) => {
+  const dust = new AnimatedSprite(spritesheets.misc.animations.dust || []);
+  dust.animationSpeed = speed.current * 0.9;
+  dust.loop = false;
+  dust.scale.set(size * (fighter.animation.giantScale || 1));
+  dust.alpha = 0.85;
+  dust.x = fighter.animation.container.x + dx;
+  dust.y = fighter.animation.container.y + 3;
+  dust.zIndex = fighter.animation.container.zIndex - 1;
+  app.stage.addChild(dust);
+  dust.onComplete = () => {
+    dust.destroy();
+  };
+  dust.play();
+};
+
 const playHitEffect = (
   app: Application,
   spritesheets: Spritesheets,
@@ -105,4 +130,4 @@ const playHitEffect = (
   hitVfx.play();
 };
 
-export { playDustEffect, playHitEffect };
+export { playDustEffect, playHitEffect, playStepDust };
