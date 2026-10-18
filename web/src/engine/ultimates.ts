@@ -4,8 +4,8 @@
 // - Diluvio total: una lluvia de armas cae sobre varios rivales, más armas y durante más rato que el Diluvio
 // - Lluvia de bombas: caen bombas del cielo, cada una sobre uno o dos rivales
 // - Prisa en cadena: embiste a varios rivales, uno detrás de otro
-// - Súper gigante: crece 15 s (daño x2 y recibe la mitad) y cada ataque suelta una onda que alcanza a los más cercanos
-//   (la suelta la animación cuando le ve atacar, ver cleave)
+// - Súper gigante: crece 15 s (daño x2 y recibe la mitad) y cada ataque suelta una onda que alcanza a la vez a los más
+//   cercanos (la suelta la animación cuando le ve atacar, ver cleave)
 import {
   AchievementsStore, FightStep, randomBetween, Tiered, Weapon, WeaponByName, weapons,
 } from '@labrute/core';
@@ -31,7 +31,7 @@ const HASTE_FACTOR = 2.5;
 // alcanza la onda además del suyo y con qué parte del daño de un golpe normal (luego x2, como todo lo que pega de gigante)
 export const GIANT_SECONDS = 15;
 const CLEAVE_TARGETS = 3;
-const CLEAVE_FACTOR = 0.6;
+const CLEAVE_FACTOR = 0.7;
 
 type Ultimates = { giant?: boolean };
 const state = (f: DetailedFighter) => f as DetailedFighter & { demoUlt?: Ultimates; demoGiant?: boolean };
@@ -155,7 +155,10 @@ export const endGiant = (fightData: DetailedFight, index: number) => {
 };
 
 // Onda del Súper gigante `index` (la animación la suelta cuando le ve atacar): alcanza a los primeros de `candidates`
-// (los más cercanos en la arena) que sigan en pie, hasta CLEAVE_TARGETS. Devuelve a quiénes
+// (los más cercanos en la arena) que sigan en pie, hasta CLEAVE_TARGETS. Devuelve a quiénes y cuánto les quita.
+// No remata (deja como mínimo 1 PV): así la animación muestra todos sus golpes a la vez, en el momento del pisotón,
+// aunque los alcanzados estén a mitad de su turno (si cayeran, tendrían que esperar a acabar lo que tenían en cola).
+// Por lo mismo no alcanza a quien está atrapado en una red o aturdido (el golpe le soltaría)
 export const cleave = (
   fightData: DetailedFight,
   stats: Stats,
@@ -165,16 +168,19 @@ export const cleave = (
 ) => {
   const giant = fightData.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master);
   if (!giant || giant.hp <= 0 || !state(giant).demoUlt?.giant) return [];
-  const alive = rivals(fightData, giant);
+  const alive = rivals(fightData, giant).filter((f) => f.hp > 1 && !f.trapped && !f.stunned);
   const others = candidates
     .map((c) => alive.find((f) => f.index === c))
     .filter((f): f is DetailedFighter => !!f)
     .slice(0, CLEAVE_TARGETS);
-  for (const other of others) {
+  return others.map((other) => {
+    const before = other.hp;
     const damage = Math.max(1, Math.floor(getDamage(false, giant, other).damage * CLEAVE_FACTOR));
-    strike({ fightData, stats, achievements, fighter: giant }, [other], damage, (d) => ({
-      a: 'demoCleaveHit', f: giant.index, t: other.index, d: d[other.index] ?? damage,
-    } as never));
-  }
-  return others.map((o) => o.index);
+    const step = { a: 'demoCleaveHit', f: giant.index, t: other.index, d: damage };
+    strike({ fightData, stats, achievements, fighter: giant }, [other], damage, () => step as never);
+    // Lo que de verdad le quita (x2 de gigante; menos si resiste o sobrevive)
+    if (other.hp < 1) other.hp = 1;
+    step.d = before - other.hp;
+    return { t: other.index, d: step.d };
+  });
 };

@@ -106,7 +106,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     - 💣 **Lluvia de bombas**: caen 7 bombas, cada una sobre uno o dos rivales.
     - ⚡ **Prisa en cadena**: 8 embestidas seguidas, cada una a un rival (si hay menos, vuelve a por los primeros).
     - 💪 **Súper gigante**: crece 15 s (daño x2 y recibe la mitad) y tras cada ataque da un pisotón cuya onda
-      alcanza a los 3 rivales más cercanos.
+      golpea a la vez a los 3 rivales más cercanos (sin rematar: deja como mínimo 1 PV).
 
     Están equilibradas: en 400 royales de 10 simulados, cada una quita de media unos 240 PV en total (el gigante,
     contando lo que pega de más y lo que deja de recibir). Tras verse, el botón se recarga en 30 s (se para con la
@@ -118,7 +118,11 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       le quitan es la misma). Solo el golpe que remata espera su turno, para caer justo después. Si la ultimate
       fuera un turno más, no se vería hasta que todos sus objetivos terminaran lo que el motor ya había jugado.
     - La onda del gigante la suelta la animación cuando le ve atacar, así alcanza a los que tiene cerca en ese
-      momento, y sus 15 s cuentan desde que se le ve crecer.
+      momento, y sus 15 s cuentan desde que se le ve crecer. Sus golpes llegan a todos a la vez que el suyo, aunque
+      estén a mitad de su turno: quien está libre encaja el golpe y quien está ocupado lo recibe sin pararse
+      (destello, daño y vida). Por eso la onda no remata: si alguien cayera por ella, su caída tendría que esperar
+      a que acabara lo que tenía en cola. Antes cada golpe esperaba a que su objetivo quedara libre y llegaban
+      escalonados, a veces segundos después del pisotón.
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, en cualquier momento hasta que se ve el final. El
     que llega entra en un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y
     recibe golpes enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
