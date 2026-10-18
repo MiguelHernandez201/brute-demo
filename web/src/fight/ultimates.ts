@@ -1,9 +1,9 @@
 // Demo battle royale: animaciones de las ultimates (ver engine/ultimates). Reutilizan los gráficos y sonidos de las
 // técnicas en las que se inspiran (Diluvio, Bomba, Prisa y Súper gigante), pero sobre varios rivales a la vez.
-// Cada golpe se anima por su cuenta (ver el planificador del royale en setupFight): solo espera a que su objetivo
-// quede libre, así la ultimate se ve enseguida aunque los demás estén a mitad de un turno (los de la onda del Súper
-// gigante, ni eso: llegan todos a la vez, ver giantStomp). El letrero y el brillo de quien la lanza son solo efectos
-// encima: no le paran lo que esté haciendo.
+// Cada golpe se anima por su cuenta (ver el planificador del royale en setupFight): lo que cae del cielo (armas, bombas)
+// y la onda del Súper gigante llegan a su hora, y quien está a mitad de su turno lo recibe sin pararse; las embestidas
+// de la Prisa esperan a que su objetivo quede libre. El letrero y el brillo de quien la lanza son solo efectos encima:
+// no le paran lo que esté haciendo.
 import { randomBetween, WeaponById } from '@labrute/core';
 import { WeaponName } from '@labrute/prisma';
 import { sound } from '@pixi/sound';
@@ -70,6 +70,42 @@ const struck = async (
   }
 };
 
+// Golpe de ultimate a quien está a mitad de su turno: no se le para (ni animación de golpe ni empujón), solo destello,
+// chispa, daño y vida. Termina cuando se apaga el destello
+const lightHit = async (
+  app: Application,
+  spritesheets: Spritesheets,
+  fighters: AnimationFighter[],
+  target: AnimationFighter,
+  damage: number,
+  speed: Speed,
+  from = target,
+) => {
+  const c = pos(target);
+  if (c.destroyed) return;
+  const flash = new ColorOverlayFilter({ color: 0xffffff, alpha: 0.85 });
+  c.filters = [...(c.filters || []), flash];
+  playHitEffect(app, spritesheets, from, target, speed);
+  displayDamage({ app, target, damage, speed, criticalHit: 0 });
+  updateHp(fighters, target, -damage, speed, false);
+  await tween(flash, { alpha: 0, duration: 0.35 / speed.current });
+  if (!c.destroyed) c.filters = (c.filters || []).filter((f) => f !== flash);
+};
+// Golpe que cae del cielo (o de la onda): lo encaja quien se ha reservado para él (`reserved`, ver el planificador)
+// y los demás lo reciben sin pararse
+const landHit = (
+  app: Application,
+  spritesheets: Spritesheets,
+  fighters: AnimationFighter[],
+  target: AnimationFighter,
+  damage: number,
+  speed: Speed,
+  knockBack: number,
+  reserved?: Set<number>,
+) => (reserved && !reserved.has(target.index)
+  ? lightHit(app, spritesheets, fighters, target, damage, speed)
+  : struck(app, spritesheets, fighters, target, damage, speed, knockBack));
+
 // Al lanzarla: letrero arriba (debajo del reloj), destello dorado y un anillo de poder a los pies de quien la lanza
 export const ultimateCast = (
   app: Application,
@@ -119,6 +155,7 @@ export const ultimateFlood = async (
   fighters: AnimationFighter[],
   step: Series & { t: number; w?: number; d: number },
   speed: Speed,
+  reserved?: Set<number>,
 ) => {
   const target = findFighter(fighters, step.t);
   if (!target || pos(target).destroyed) return;
@@ -146,7 +183,7 @@ export const ultimateFlood = async (
   // El arma cae al suelo y se desvanece
   void tween(item, { y: pos(target).y + 3, alpha: 0, duration: 0.9 / speed.current, delay: 0.15 / speed.current })
     .then(() => item.destroy());
-  await struck(app, spritesheets, fighters, target, step.d, speed, 10);
+  await landHit(app, spritesheets, fighters, target, step.d, speed, 10, reserved);
 };
 
 // Lluvia de bombas: cada bomba cae del cielo (con su sombra creciendo en el suelo) y estalla sobre sus objetivos
@@ -156,6 +193,7 @@ export const ultimateBomb = async (
   fighters: AnimationFighter[],
   step: Series & { t: number[]; d: Record<number, number> },
   speed: Speed,
+  reserved?: Set<number>,
 ) => {
   const victims = step.t.map((t) => findFighter(fighters, t)).filter((v): v is AnimationFighter => !!v && !pos(v).destroyed);
   const spot = victims.length
@@ -194,7 +232,7 @@ export const ultimateBomb = async (
   explosion.play();
   void sound.play('sfx', { sprite: 'bomb' });
   void shakeStage(app, speed, 6, 250);
-  await Promise.all(victims.map((v) => struck(app, spritesheets, fighters, v, step.d[v.index] ?? 0, speed, 16)));
+  await Promise.all(victims.map((v) => landHit(app, spritesheets, fighters, v, step.d[v.index] ?? 0, speed, 16, reserved)));
 };
 
 // Prisa en cadena: tras cargarse, embiste a cada rival uno detrás de otro, a toda velocidad y brillando como la Prisa.
@@ -256,7 +294,8 @@ export const ultimateHaste = async (
 // Súper gigante: tras cada ataque da un pisotón que suelta una onda desde sus pies, tan grande como haga falta para
 // llegar a los que alcanza (`hits`, con lo que le quita a cada uno), y les golpea a todos a la vez que su golpe (la onda
 // es rápida). Quien está libre lo encaja como cualquier golpe (`reserve` lo aparta de lo demás mientras, ver
-// setupFight); quien está a mitad de su turno lo recibe sin pararlo: destello, chispa, daño y vida
+// setupFight); quien está a mitad de su turno lo recibe sin pararlo: destello, chispa, daño y vida. A los que remata
+// (`k`) los golpea el planificador (ultimateCleaveHit), justo antes de que caigan
 const RING_SECONDS = 0.3;
 export type Reserve = {
   free: (f: AnimationFighter) => boolean;
@@ -268,7 +307,7 @@ export const giantStomp = (
   spritesheets: Spritesheets,
   fighters: AnimationFighter[],
   index: number,
-  hits: { t: number; d: number }[],
+  hits: { t: number; d: number; k?: number }[],
   speed: Speed,
   reserve: Reserve,
 ) => {
@@ -277,9 +316,9 @@ export const giantStomp = (
   const g = pos(giant);
   // Lo vertical cuenta el doble (la arena es poco profunda): la onda es una elipse el doble de ancha que de alta
   const distance = (f: AnimationFighter) => Math.hypot(pos(f).x - g.x, (pos(f).y - g.y) * 2);
-  const victims = hits.flatMap(({ t, d }) => {
+  const victims = hits.flatMap(({ t, d, k }) => {
     const victim = findFighter(fighters, t);
-    return victim && !pos(victim).destroyed ? [{ victim, d }] : [];
+    return victim && !pos(victim).destroyed ? [{ victim, d, k }] : [];
   });
   const radius = Math.max(70, ...victims.map(({ victim }) => distance(victim) + 20));
   const ring = new Graphics()
@@ -297,7 +336,7 @@ export const giantStomp = (
   void sound.play('sfx', { sprite: 'hammer' });
   void shakeStage(app, speed, 7, 300);
   playStepDust(app, spritesheets, giant, speed, 0, 1.2);
-  for (const { victim, d } of victims) {
+  for (const { victim, d } of victims.filter((v) => !v.k)) {
     // A cada uno cuando le llega la onda
     wait(RING_SECONDS * Math.min(1, distance(victim) / radius), speed)
       .then(async () => {
@@ -311,18 +350,24 @@ export const giantStomp = (
           }
           return;
         }
-        const c = pos(victim);
-        const flash = new ColorOverlayFilter({ color: 0xffffff, alpha: 0.85 });
-        c.filters = [...(c.filters || []), flash];
-        void tween(flash, { alpha: 0, duration: 0.35 / speed.current }).then(() => {
-          if (!c.destroyed) c.filters = (c.filters || []).filter((f) => f !== flash);
-        });
-        playHitEffect(app, spritesheets, giant, victim, speed);
-        displayDamage({ app, target: victim, damage: d, speed, criticalHit: 0 });
-        updateHp(fighters, victim, -d, speed, false);
+        await lightHit(app, spritesheets, fighters, victim, d, speed, giant);
       })
       .catch(console.error);
   }
+};
+
+// Golpe de la onda del Súper gigante que remata a alguien (lo anima el planificador, como los de las demás ultimates)
+export const ultimateCleaveHit = async (
+  app: Application,
+  spritesheets: Spritesheets,
+  fighters: AnimationFighter[],
+  step: { t: number; d: number },
+  speed: Speed,
+  reserved?: Set<number>,
+) => {
+  const victim = findFighter(fighters, step.t);
+  if (!victim || pos(victim).destroyed) return;
+  await landHit(app, spritesheets, fighters, victim, step.d, speed, 22, reserved);
 };
 
 // Cuenta los segundos del Súper gigante desde que crece (con el reloj de la pelea: se para con la pausa y va más

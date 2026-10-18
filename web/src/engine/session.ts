@@ -197,11 +197,13 @@ export class FightSession {
   }
 
   // Battle royale: el brute `index` lanza su ultimate (botón de la lista). Como al agregar un brute, se juega en el
-  // motor ya (tras lo que el motor ya llevaba jugado); la animación la muestra enseguida (ver setupFight)
+  // motor ya (tras lo que el motor ya llevaba jugado); la animación la muestra enseguida (ver setupFight). No se puede
+  // si no queda a quién darle o si está atrapado en una red o aturdido (el botón la deja en cola, ver main.js)
   castUltimate(index: number, kind: Ultimate) {
     if (!this.royale || this.winner) return false;
     const fd = this.fightData;
-    const caster = fd.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master && f.hp > 0);
+    const caster = fd.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master && f.hp > 0
+      && !f.trapped && !f.stunned);
     if (!caster || !playUltimate(fd, this.#stats, this.#achievements, caster, kind)) return false;
     checkDeaths(fd, this.#stats);
     this.#royaleEliminations();
@@ -209,10 +211,16 @@ export class FightSession {
   }
 
   // Battle royale: la onda del Súper gigante `index` alcanza a los primeros de `candidates` que pueda (la animación
-  // la suelta cuando le ve atacar). Devuelve a quiénes y cuánto les quita (no remata a nadie)
+  // la suelta cuando le ve atacar). Devuelve a quiénes, cuánto les quita y si caen
   cleave(index: number, candidates: number[]) {
     if (!this.royale || this.winner) return [];
-    return cleave(this.fightData, this.#stats, this.#achievements, index, candidates);
+    const fd = this.fightData;
+    const hits = cleave(fd, this.#stats, this.#achievements, index, candidates);
+    if (hits.some((h) => h.k)) {
+      checkDeaths(fd, this.#stats);
+      this.#royaleEliminations();
+    }
+    return hits;
   }
 
   // Battle royale: se acaba el Súper gigante (ultimate) del brute `index`

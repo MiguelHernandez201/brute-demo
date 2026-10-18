@@ -99,30 +99,35 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     vida. Lo que el motor ya había jugado y aún no se veía no cuenta. Los últimos 10 segundos el reloj se pone en
     rojo y late. Si los últimos caen a la vez y no queda nadie, la ronda se cierra ahí (ya no puede entrar nadie).
     Con **Rondas continuas** cada ronda empieza con el reloj en marcha, así terminan solas y pasa la siguiente.
-  - **Ultimates**: cada brute tiene un botoncito en su fila de la lista con su ultimate, una versión más fuerte
-    y de área de una técnica del juego que alcanza a rivales de cualquier duelo. Se reparten por igual (salen de
-    una bolsa con las cuatro):
+  - **Ultimates**: cada brute tiene un botoncito en su fila de la lista con su ultimate, una versión mucho más
+    fuerte y de área de una técnica del juego, hecha para eliminar a varios de golpe, que alcanza a rivales de
+    cualquier duelo. Se reparten por igual (salen de una bolsa con las cuatro):
     - 🌊 **Diluvio total**: caen del cielo 16 armas repartidas entre hasta 8 rivales.
     - 💣 **Lluvia de bombas**: caen 7 bombas, cada una sobre uno o dos rivales.
     - ⚡ **Prisa en cadena**: 8 embestidas seguidas, cada una a un rival (si hay menos, vuelve a por los primeros).
     - 💪 **Súper gigante**: crece 15 s (daño x2 y recibe la mitad) y tras cada ataque da un pisotón cuya onda
-      golpea a la vez a los 3 rivales más cercanos (sin rematar: deja como mínimo 1 PV).
+      golpea a la vez a los 3 rivales más cercanos.
 
-    Están equilibradas: en 400 royales de 10 simulados, cada una quita de media unos 240 PV en total (el gigante,
-    contando lo que pega de más y lo que deja de recibir). Tras verse, el botón se recarga en 30 s (se para con la
-    pausa). Quien cae por una ultimate no tiene fatality (son muchos a la vez), pero la victoria es para quien la
-    lanzó. Si no queda a quién darle, o ese brute ya ha caído en el motor aunque aún no se vea, el botón tiembla y
-    no se gasta.
-    - El letrero sale al momento y cada golpe va por su cuenta: solo espera a que su objetivo acabe lo que está
-      haciendo y pasa por delante de lo que tuviera en cola (da igual en qué orden reciba los golpes: la vida que
-      le quitan es la misma). Solo el golpe que remata espera su turno, para caer justo después. Si la ultimate
-      fuera un turno más, no se vería hasta que todos sus objetivos terminaran lo que el motor ya había jugado.
+    Están equilibradas: en 300 royales de 10 simulados, cada una quita de media unos 470-490 PV en total (el
+    gigante, contando lo que pega de más y lo que deja de recibir) y elimina a unos 2 rivales. Tras verse, el botón
+    se recarga en 30 s (se para con la pausa). Quien cae por una ultimate no tiene fatality (son muchos a la vez),
+    pero la victoria es para quien la lanzó.
+    - Si ahora no se puede lanzar (no queda a quién darle, está atrapado en una red o aturdido, o en el motor ya ha
+      caído aunque aún no se vea), el clic la deja **en cola** (⏳, el botón late) y sale sola en cuanto se pueda,
+      por ejemplo al entrar otro brute. Otro clic la quita de la cola.
+    - El letrero sale al momento. Lo que cae del cielo (armas, bombas) y la onda del gigante llegan a su hora: quien
+      está libre encaja el golpe y quien está a mitad de su turno lo recibe sin pararse (destello, daño y vida). Las
+      embestidas de la Prisa van a por cada uno en cuanto él y su objetivo quedan libres, pasando por delante de lo
+      que tuvieran en cola (da igual en qué orden reciba los golpes cada uno: la vida que le quitan es la misma).
+    - Quien cae por una ultimate cae en cuanto acaba lo que estaba animando y le llegan sus golpes: lo que el motor
+      ya le había jugado (y aún no se veía) se da por visto, sin animarlo, y solo se ajusta la vida de los que
+      salían en ello. Así los que caen a la vez caen casi juntos. Si en eso caía alguien (o paraba la arena), se ve
+      entero y cae después.
     - La onda del gigante la suelta la animación cuando le ve atacar, así alcanza a los que tiene cerca en ese
-      momento, y sus 15 s cuentan desde que se le ve crecer. Sus golpes llegan a todos a la vez que el suyo, aunque
-      estén a mitad de su turno: quien está libre encaja el golpe y quien está ocupado lo recibe sin pararse
-      (destello, daño y vida). Por eso la onda no remata: si alguien cayera por ella, su caída tendría que esperar
-      a que acabara lo que tenía en cola. Antes cada golpe esperaba a que su objetivo quedara libre y llegaban
-      escalonados, a veces segundos después del pisotón.
+      momento, y sus 15 s cuentan desde que se le ve crecer.
+  - **¡MULTI KILL!**: cuando un brute elimina a dos o más casi a la vez (en menos de 4 s entre una y otra), sale un
+    letrero grande con su nombre y cuántos lleva en la racha, y la voz del anunciador (la de la fatality del 1 vs 1)
+    dice "Multi kill!". Si suma más en la misma racha, el letrero cuenta y vuelve a latir.
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, en cualquier momento hasta que se ve el final. El
     que llega entra en un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y
     recibe golpes enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.

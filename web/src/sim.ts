@@ -251,15 +251,15 @@ export function createRoyale(count: number) {
       return true;
     },
     // Súper gigante: lo llama la animación cuando le ve atacar (su onda alcanza a los más cercanos de `candidates`;
-    // devuelve a quiénes y cuánto les quita, y los golpes los anima ella misma en ese momento) y cuando pasan sus
-    // segundos
+    // devuelve a quiénes, cuánto les quita y si caen) y cuando pasan sus segundos. Los golpes que no matan los anima
+    // ella misma en ese momento; los que rematan (y su caída) van con el resto de pasos
     cleave: (index: number, candidates: number[]) => {
       if (fight.timeUp) return [];
       const hits = session.cleave(index, candidates);
-      // Lo que no son los golpes (si alguno resiste o sobrevive) va con el resto de pasos
-      const other = session.takeNewSteps().filter((s: any) => s.a !== 'demoCleaveHit');
-      if (other.length) {
-        fight.liveSteps.push(...other);
+      const killed = new Set(hits.filter((h) => h.k).map((h) => h.t));
+      const steps = session.takeNewSteps().filter((s: any) => s.a !== 'demoCleaveHit' || killed.has(s.t));
+      if (steps.length) {
+        fight.liveSteps.push(...steps);
         fight.wake?.();
       }
       return hits;

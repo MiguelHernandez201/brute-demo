@@ -244,31 +244,30 @@ function renderRoster(fight) {
   const who = (index) =>
     `<i class="dot" style="background:${royaleColorCss(index)}"></i><span class="who">${esc(state.get(index)?.name ?? '?')}</span>`;
   const canAdd = () => !winner && !!fight.canAddBrute?.();
-  // Botoncito de ultimate de una fila: listo, lanzada y esperando a verse (…) o recargando (segundos)
+  // Botoncito de ultimate de una fila: lista, en cola (⏳), lanzada y esperando a verse (…) o recargando (segundos)
   const ultInfo = (index) => ULTIMATE_INFO[fight.ultimateOf?.(index)];
   const ultLabel = (index, s) => {
     const icon = ultInfo(index)?.icon ?? '✨';
-    return s.ult === 'ready' ? icon : s.ult === 'pending' ? `${icon}…` : `${icon}${Math.ceil(s.ult)}`;
+    if (s.ult === 'ready') return icon;
+    if (s.ult === 'queued') return `${icon}⏳`;
+    return s.ult === 'pending' ? `${icon}…` : `${icon}${Math.ceil(s.ult)}`;
   };
-  const ultDisabled = (s) => !!(winner || fight.timeUp || s.ult !== 'ready');
+  // Se puede pulsar lista (la lanza o la deja en cola) y en cola (la quita)
+  const ultDisabled = (s) => !!(winner || fight.timeUp || (s.ult !== 'ready' && s.ult !== 'queued'));
   const ultButton = (index, s) => {
     const info = ultInfo(index);
     if (!info) return '';
-    const title = `Ultimate · ${info.name}: ${info.text}`;
-    return `<button class="ult" data-ult="${index}" title="${esc(title)}" ${ultDisabled(s) ? 'disabled' : ''}>${ultLabel(index, s)}</button>`;
+    const queued = s.ult === 'queued';
+    const title = `Ultimate · ${info.name}: ${info.text}${queued ? ' · En cola: sale en cuanto se pueda (clic para quitarla)' : ''}`;
+    return `<button class="ult${queued ? ' queued' : ''}" data-ult="${index}" title="${esc(title)}" ${ultDisabled(s) ? 'disabled' : ''}>${ultLabel(index, s)}</button>`;
   };
+  // Lanza la ultimate. Si ahora no se puede (no queda a quién darle, está atrapado o aturdido, o en la pelea ya ha caído
+  // aunque aún no se vea), queda en cola y sale sola en cuanto se pueda (ver `tick`); otro clic la quita de la cola
   const castUltimate = (index) => {
     const s = state.get(index);
     if (!s || s.out || ultDisabled(s)) return;
-    if (!fight.castUltimate?.(index)) {
-      // No se pudo (no queda a quién darle, o en la pelea ya ha caído aunque aún no se haya visto): el botón tiembla
-      const button = $('roster').querySelector(`[data-ult="${index}"]`);
-      button?.classList.remove('nope');
-      void button?.offsetWidth;
-      button?.classList.add('nope');
-      return;
-    }
-    s.ult = 'pending';
+    if (s.ult === 'queued') s.ult = 'ready';
+    else s.ult = fight.castUltimate?.(index) ? 'pending' : 'queued';
     draw();
   };
   const draw = () => {
@@ -357,7 +356,13 @@ function renderRoster(fight) {
     const now = performance.now();
     const elapsed = app?.ticker?.started ? (now - lastTick) / 1000 : 0;
     lastTick = now;
+    let fired = false;
     for (const [index, s] of state) {
+      // En cola: sale en cuanto se pueda (con la pelea en marcha)
+      if (s.ult === 'queued' && !s.out && !winner && !fight.timeUp && elapsed && fight.castUltimate?.(index)) {
+        s.ult = 'pending';
+        fired = true;
+      }
       if (typeof s.ult !== 'number' || s.out) continue;
       const before = ultLabel(index, s);
       s.ult = s.ult - elapsed <= 0 ? 'ready' : s.ult - elapsed;
@@ -366,6 +371,7 @@ function renderRoster(fight) {
       button.textContent = ultLabel(index, s);
       button.disabled = ultDisabled(s);
     }
+    if (fired) draw();
     if (winner || fight.timeUp) document.querySelectorAll('#roster [data-ult]').forEach((b) => (b.disabled = true));
     // Cuenta atrás de "Finalizar": la lleva el reloj de la arena, aquí se copia al botón
     const finish = $('roster').querySelector('[data-finish]');

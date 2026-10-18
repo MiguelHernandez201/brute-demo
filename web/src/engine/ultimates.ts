@@ -1,6 +1,6 @@
 // Demo battle royale: ultimates. Cada brute tiene una (botón en su fila de la lista) que golpea a varios rivales a la
-// vez, sean o no de su duelo. Son versiones más fuertes de técnicas del juego y están equilibradas entre sí: todas
-// quitan en total más o menos lo mismo (ver las constantes y el README):
+// vez, sean o no de su duelo. Son versiones mucho más fuertes de técnicas del juego, hechas para eliminar a varios de
+// golpe, y están equilibradas entre sí: todas quitan en total más o menos lo mismo (ver las constantes y el README):
 // - Diluvio total: una lluvia de armas cae sobre varios rivales, más armas y durante más rato que el Diluvio
 // - Lluvia de bombas: caen bombas del cielo, cada una sobre uno o dos rivales
 // - Prisa en cadena: embiste a varios rivales, uno detrás de otro
@@ -20,18 +20,18 @@ export type Ultimate = typeof ULTIMATES[number];
 // Diluvio total: armas que caen en total, sobre como mucho tantos rivales, y cuánto más pega cada una
 const FLOOD_THROWS = 16;
 const FLOOD_TARGETS = 8;
-const FLOOD_FACTOR = 0.75;
+const FLOOD_FACTOR = 1.5;
 // Lluvia de bombas: bombas, y daño de cada una a cada rival que alcanza
 const BOMBS = 7;
-const BOMB_DAMAGE: [number, number] = [18, 28];
+const BOMB_DAMAGE: [number, number] = [36, 56];
 // Prisa en cadena: embestidas (si hay menos rivales, vuelve a por los primeros) y cuánto más pega cada una
 const HASTE_HITS = 8;
-const HASTE_FACTOR = 2.5;
+const HASTE_FACTOR = 5;
 // Súper gigante: segundos de pelea que dura (los cuenta la animación, ver endGiant) y, en cada ataque, rivales que
 // alcanza la onda además del suyo y con qué parte del daño de un golpe normal (luego x2, como todo lo que pega de gigante)
 export const GIANT_SECONDS = 15;
 const CLEAVE_TARGETS = 3;
-const CLEAVE_FACTOR = 0.7;
+const CLEAVE_FACTOR = 1.65;
 
 type Ultimates = { giant?: boolean };
 const state = (f: DetailedFighter) => f as DetailedFighter & { demoUlt?: Ultimates; demoGiant?: boolean };
@@ -155,10 +155,9 @@ export const endGiant = (fightData: DetailedFight, index: number) => {
 };
 
 // Onda del Súper gigante `index` (la animación la suelta cuando le ve atacar): alcanza a los primeros de `candidates`
-// (los más cercanos en la arena) que sigan en pie, hasta CLEAVE_TARGETS. Devuelve a quiénes y cuánto les quita.
-// No remata (deja como mínimo 1 PV): así la animación muestra todos sus golpes a la vez, en el momento del pisotón,
-// aunque los alcanzados estén a mitad de su turno (si cayeran, tendrían que esperar a acabar lo que tenían en cola).
-// Por lo mismo no alcanza a quien está atrapado en una red o aturdido (el golpe le soltaría)
+// (los más cercanos en la arena) que sigan en pie, hasta CLEAVE_TARGETS. Devuelve a quiénes, cuánto les quita y si
+// caen (`k`). No alcanza a quien está atrapado en una red o aturdido: la animación da los golpes que no matan sin parar
+// a nadie, y a esos el golpe les soltaría
 export const cleave = (
   fightData: DetailedFight,
   stats: Stats,
@@ -168,7 +167,7 @@ export const cleave = (
 ) => {
   const giant = fightData.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master);
   if (!giant || giant.hp <= 0 || !state(giant).demoUlt?.giant) return [];
-  const alive = rivals(fightData, giant).filter((f) => f.hp > 1 && !f.trapped && !f.stunned);
+  const alive = rivals(fightData, giant).filter((f) => !f.trapped && !f.stunned);
   const others = candidates
     .map((c) => alive.find((f) => f.index === c))
     .filter((f): f is DetailedFighter => !!f)
@@ -177,10 +176,12 @@ export const cleave = (
     const before = other.hp;
     const damage = Math.max(1, Math.floor(getDamage(false, giant, other).damage * CLEAVE_FACTOR));
     const step = { a: 'demoCleaveHit', f: giant.index, t: other.index, d: damage };
-    strike({ fightData, stats, achievements, fighter: giant }, [other], damage, () => step as never);
-    // Lo que de verdad le quita (x2 de gigante; menos si resiste o sobrevive)
-    if (other.hp < 1) other.hp = 1;
-    step.d = before - other.hp;
-    return { t: other.index, d: step.d };
+    strike({ fightData, stats, achievements, fighter: giant }, [other], damage, (d) => {
+      step.d = d[other.index] ?? damage;
+      return step as never;
+    });
+    // Si sobrevive (habilidad), lo que de verdad le quitó
+    if (other.hp > 0) step.d = Math.min(step.d, before - other.hp);
+    return { t: other.index, d: step.d, k: other.hp <= 0 ? 1 : 0 };
   });
 };
