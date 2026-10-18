@@ -415,6 +415,35 @@
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
+      /* Botoncito de ultimate de cada fila del royale */
+      .roster-top .ult {
+        flex: 0 0 auto;
+        align-self: center;
+        padding: 1px 6px;
+        font-size: 12px;
+        line-height: 1.4;
+        border-radius: 6px;
+        background: #3a2c22;
+        border: 1px solid var(--gold);
+        color: var(--gold);
+        box-shadow: 0 0 6px rgba(255, 209, 102, 0.45);
+        font-variant-numeric: tabular-nums;
+      }
+      .roster-top .ult:disabled {
+        box-shadow: none;
+      }
+      /* No se pudo lanzar: tiembla */
+      .roster-top .ult.nope {
+        animation: ult-nope 0.35s;
+      }
+      @keyframes ult-nope {
+        25% {
+          transform: translateX(-3px);
+        }
+        75% {
+          transform: translateX(3px);
+        }
+      }
       /* Victorias de la ronda (rivales eliminados), junto a la vida; salta al sumar una */
       .roster-top .wins {
         color: var(--gold);

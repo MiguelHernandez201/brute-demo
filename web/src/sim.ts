@@ -14,6 +14,7 @@ import {
 } from '@labrute/core';
 import { updateBruteData } from './engine/updateBruteData';
 import { FightSession, Purchase } from './engine/session';
+import { ULTIMATES, Ultimate } from './engine/ultimates';
 
 function randomBruteData(name: string, level: number) {
   const gender = Math.random() > 0.5 ? 'male' : 'female';
@@ -199,6 +200,16 @@ export function createRoyale(count: number) {
     brutes.map((b) => getCalculatedBrute(b, modifiers) as any),
     { modifiers, royale: true },
   );
+  // Ultimate de cada brute (por su número de luchador). Se sacan de una bolsa con las cuatro, así se reparten por igual
+  const ultimates = new Map<number, Ultimate>();
+  let bag: Ultimate[] = [];
+  const drawUltimate = () => {
+    if (!bag.length) bag = [...ULTIMATES].sort(() => Math.random() - 0.5);
+    return bag.pop() as Ultimate;
+  };
+  session.fightData.fighters
+    .filter((f) => f.type === 'brute' && !f.master)
+    .forEach((f) => ultimates.set(f.index, drawUltimate()));
 
   const fight: any = {
     id: 'royale',
@@ -229,6 +240,32 @@ export function createRoyale(count: number) {
       takeResult();
       return true;
     },
+    // Botón de ultimate de cada brute (ver engine/ultimates): se juega ya en el motor y la animación la muestra en
+    // cuanto puede (`wake` la avisa, ver setupFight)
+    ultimateOf: (index: number) => ultimates.get(index),
+    castUltimate: (index: number) => {
+      const kind = ultimates.get(index);
+      if (!kind || fight.timeUp || !session.castUltimate(index, kind)) return false;
+      fight.liveSteps.push(...session.takeNewSteps());
+      fight.wake?.();
+      return true;
+    },
+    // Súper gigante: lo llama la animación cuando le ve atacar (su onda alcanza a los más cercanos de `candidates`,
+    // devuelve a quiénes) y cuando pasan sus segundos
+    cleave: (index: number, candidates: number[]) => {
+      if (fight.timeUp) return [];
+      const hit = session.cleave(index, candidates);
+      if (!hit.length) return hit;
+      fight.liveSteps.push(...session.takeNewSteps());
+      fight.wake?.();
+      return hit;
+    },
+    endGiant: (index: number) => {
+      if (fight.timeUp || !session.endGiant(index)) return false;
+      fight.liveSteps.push(...session.takeNewSteps());
+      fight.wake?.();
+      return true;
+    },
     // Botón "Agregar brute": entra uno nuevo en plena pelea. Devuelve sus datos para la lista (null si ya acabó)
     canAddBrute: () => !fight.timeUp && session.canAddRoyaleBrute(),
     addBrute: () => {
@@ -239,6 +276,7 @@ export function createRoyale(count: number) {
       if (!added) return null;
       used.add(name);
       brutes.push(brute);
+      ultimates.set(added.index, drawUltimate());
       // Sus pasos (aparecer y llegar) van solos, antes del siguiente turno
       fight.liveSteps.push(...session.takeNewSteps());
       return { index: added.index, name: added.name, hp: added.hp, maxHp: added.maxHp };

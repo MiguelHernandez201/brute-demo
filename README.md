@@ -99,6 +99,26 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     vida. Lo que el motor ya había jugado y aún no se veía no cuenta. Los últimos 10 segundos el reloj se pone en
     rojo y late. Si los últimos caen a la vez y no queda nadie, la ronda se cierra ahí (ya no puede entrar nadie).
     Con **Rondas continuas** cada ronda empieza con el reloj en marcha, así terminan solas y pasa la siguiente.
+  - **Ultimates**: cada brute tiene un botoncito en su fila de la lista con su ultimate, una versión más fuerte
+    y de área de una técnica del juego que alcanza a rivales de cualquier duelo. Se reparten por igual (salen de
+    una bolsa con las cuatro):
+    - 🌊 **Diluvio total**: caen del cielo 16 armas repartidas entre hasta 8 rivales.
+    - 💣 **Lluvia de bombas**: caen 7 bombas, cada una sobre uno o dos rivales.
+    - ⚡ **Prisa en cadena**: 8 embestidas seguidas, cada una a un rival (si hay menos, vuelve a por los primeros).
+    - 💪 **Súper gigante**: crece 15 s (daño x2 y recibe la mitad) y tras cada ataque da un pisotón cuya onda
+      alcanza a los 3 rivales más cercanos.
+
+    Están equilibradas: en 400 royales de 10 simulados, cada una quita de media unos 240 PV en total (el gigante,
+    contando lo que pega de más y lo que deja de recibir). Tras verse, el botón se recarga en 30 s (se para con la
+    pausa). Quien cae por una ultimate no tiene fatality (son muchos a la vez), pero la victoria es para quien la
+    lanzó. Si no queda a quién darle, o ese brute ya ha caído en el motor aunque aún no se vea, el botón tiembla y
+    no se gasta.
+    - El letrero sale al momento y cada golpe va por su cuenta: solo espera a que su objetivo acabe lo que está
+      haciendo y pasa por delante de lo que tuviera en cola (da igual en qué orden reciba los golpes: la vida que
+      le quitan es la misma). Solo el golpe que remata espera su turno, para caer justo después. Si la ultimate
+      fuera un turno más, no se vería hasta que todos sus objetivos terminaran lo que el motor ya había jugado.
+    - La onda del gigante la suelta la animación cuando le ve atacar, así alcanza a los que tiene cerca en ese
+      momento, y sus 15 s cuentan desde que se le ve crecer.
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, en cualquier momento hasta que se ve el final. El
     que llega entra en un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y
     recibe golpes enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
