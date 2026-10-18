@@ -13,14 +13,16 @@ const PICK = 5;
 const WEAPONS = Object.keys(labels.weapons);
 // Solo habilidades activas ("súper" en el juego: Rompecuellos, Bomba, Red, Hipnosis…)
 const SKILLS = Object.keys(labels.skills).filter((k) => coreSkills[k]?.type === 'super');
-// Botones de power-up (Imitador solo copia habilidades del rival: no tiene sentido activarlo a mano)
+// Botones de power-up (Imitador solo copia habilidades del rival: no tiene sentido activarlo a mano;
+// Grito maldito y Ladrón están en desuso, ver skills.ts)
 // Súper gigante: power-up propio de la demo (no está en el juego), va primero
 const GIANT = 'superGiant';
 const GIANT_LABEL = {
   name: 'Súper gigante',
   desc: 'El brute crece: hace el doble de daño y recibe la mitad durante el resto de la pelea',
 };
-const ACTIVABLE = [GIANT, ...SKILLS.filter((k) => k !== 'mimic')];
+const DISABLED_POWERUPS = ['mimic', 'cryOfTheDamned', 'thief'];
+const ACTIVABLE = [GIANT, ...SKILLS.filter((k) => !DISABLED_POWERUPS.includes(k))];
 const skillLabel = (k) => (k === GIANT ? GIANT_LABEL : labels.skills[k]);
 // Guion opcional (solo aparece si el nombre no cabe en el botón)
 const SOFT_NAMES = { hammer: 'Rompe\u00adcuellos', vampirism: 'Vampi\u00adrismo' };
