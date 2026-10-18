@@ -47,6 +47,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   lanzan el arma que llevan con menos frecuencia y tardan más en cambiarla por otra (ver las constantes al
   principio de `engine/fightMethods.ts`). La probabilidad de perder el arma en cada golpe baja de ~11 % a ~6 %.
   El ganador sigue (sin curarse) al *Desafiar*.
+  Arriba, junto a la barra de vida de cada jugador, un trofeo cuenta sus victorias: suma una (con un salto) cuando
+  se ve el final de la pelea y vuelve a cero al elegir los nombres.
   Cuando cae el perdedor, la pelea se remata con una **fatality**: "FINISH HIM!", el ganador se acerca
   y lo remata según el arma que lleva, y luego el letrero "FATALITY" (con voz del navegador si los
   efectos de sonido están activos):

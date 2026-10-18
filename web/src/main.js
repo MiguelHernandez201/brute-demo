@@ -129,6 +129,10 @@ function revealWhenReady(a, id) {
 // Última pelea: brutes y ganador, para el botón "Desafiar"
 let last = null;
 
+// Victorias de cada jugador en el 1 vs 1, junto a su barra de vida (las suma la animación al verse el final).
+// Empiezan de cero al elegir los nombres
+const wins = { L: 0, R: 0 };
+
 // Modo actual: '1v1' (dos jugadores con tienda) o 'royale' (todos contra todos)
 let mode = '1v1';
 let royaleCount = 6;
@@ -140,6 +144,7 @@ async function startFight(n1, n2, keep = {}) {
   // La pelea se simula turno a turno mientras se anima; las compras entran antes del siguiente turno
   const { brutes, fight } = createFight(n1, n2, keep, takePurchases, setCurrentGear);
   if (id !== run) return;
+  fight.wins = wins;
   // Los brutes guardan lo comprado: el campeón lo conserva al "Desafiar". El ganador se conoce al terminar.
   last = { brutes, fight };
   setCurrentGear(brutes);
@@ -460,6 +465,8 @@ function enterArena(newMode) {
 }
 $('go').onclick = () => {
   names = [$('n1').value.trim() || 'Jugador 1', $('n2').value.trim() || 'Jugador 2'];
+  wins.L = 0;
+  wins.R = 0;
   enterArena('1v1');
   setShopNames(...names);
   begin();

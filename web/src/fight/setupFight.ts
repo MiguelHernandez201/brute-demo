@@ -68,6 +68,7 @@ import { getFighters } from './utils/getFighters';
 import { mimic } from './mimic';
 import { tween } from './utils/tween';
 import { shakeStage } from './utils/stageAnimations';
+import { Wins, winsCounter } from './winsCounter';
 
 // Demo: tamaño del brute con Súper gigante
 const GIANT_SCALE = 3;
@@ -590,6 +591,10 @@ export const setupFight: (
       app.stage?.addChild(bossPhantomHpBar);
     }
 
+    // Demo 1 vs 1: victorias de cada jugador junto a su barra de vida
+    const demoWins = (fight as unknown as { wins?: Wins }).wins;
+    const winsHud = demoWins && brute2 && !boss ? winsCounter(app, demoWins, speed) : null;
+
     // Set stage as sortable
     if (app.stage) {
       app.stage.sortableChildren = true;
@@ -1016,6 +1021,8 @@ export const setupFight: (
           break;
         }
         case StepType.End: {
+          // Demo 1 vs 1: el ganador suma una victoria (aunque no celebre)
+          winsHud?.win(findFighter(fighters, step.w)?.team);
           // Demo: tras una fatality, el ganador puede no celebrar (opción de la interfaz)
           if (fatalityDone && !fatalityOptions.celebrate) break;
           end(app, spritesheets, fighters, step);
