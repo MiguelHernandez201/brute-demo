@@ -410,6 +410,22 @@
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
+      /* Victorias de la ronda (rivales eliminados), junto a la vida; salta al sumar una */
+      .roster-top .wins {
+        color: var(--gold);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .roster-top .wins.pop {
+        display: inline-block;
+        animation: win-pop 0.6s ease-out;
+      }
+      @keyframes win-pop {
+        40% {
+          transform: scale(1.6);
+        }
+      }
       .roster-bar {
         height: 8px;
         background: #000;

@@ -199,9 +199,11 @@ let rosterFight = null;
 function renderRoster(fight) {
   rosterFight = fight;
   const fighters = JSON.parse(fight.fighters).filter((f) => f.type === 'brute' && !f.master);
-  const state = new Map(fighters.map((f) => [f.index, { name: f.name, out: 0, hp: f.hp, maxHp: f.maxHp }]));
+  const state = new Map(fighters.map((f) => [f.index, { name: f.name, out: 0, hp: f.hp, maxHp: f.maxHp, wins: 0 }]));
   let fallen = 0;
   let winner;
+  // Fila que acaba de sumar una victoria (su trofeo salta en ese dibujo)
+  let popped = null;
   // Fila fijada con un clic (se queda resaltada al quitar el ratón)
   let pinned = null;
   const kills = [];
@@ -220,8 +222,10 @@ function renderRoster(fight) {
         const status = index === winner ? '🏆 Ganador' : s.out ? `Eliminado · puesto ${total - s.out + 1}` : '';
         const pct = s.out ? 0 : Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100));
         const classes = [index === winner ? 'win' : s.out ? 'out' : '', index === pinned ? 'lit' : ''].join(' ');
+        // Victorias de la ronda (rivales que eliminó), junto a la vida: desde la primera
+        const wins = s.wins ? `<b class="wins${index === popped ? ' pop' : ''}">🏆${s.wins}</b>` : '';
         return `<li data-index="${index}" class="${classes}" style="--c:${royaleColorCss(index)}">
-          <div class="roster-top">${who(index)}<small class="hp-text">${s.out ? '' : `${Math.max(0, Math.round(s.hp))}/${s.maxHp}`}</small></div>
+          <div class="roster-top">${who(index)}${wins}<small class="hp-text">${s.out ? '' : `${Math.max(0, Math.round(s.hp))}/${s.maxHp}`}</small></div>
           <div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div>
           ${status ? `<small>${status}</small>` : ''}
         </li>`;
@@ -247,7 +251,7 @@ function renderRoster(fight) {
     for (let k = 0; k < count; k++) {
       const brute = fight.addBrute?.();
       if (!brute) break;
-      state.set(brute.index, { name: brute.name, out: 0, hp: brute.hp, maxHp: brute.maxHp });
+      state.set(brute.index, { name: brute.name, out: 0, hp: brute.hp, maxHp: brute.maxHp, wins: 0 });
     }
     draw();
   };
@@ -270,7 +274,14 @@ function renderRoster(fight) {
   };
   fight.onKill = (kill) => {
     kills.unshift(kill);
+    // Victoria para quien lo eliminó (la misma que suma su trofeo en la arena)
+    const by = kill.killer !== kill.victim ? state.get(kill.killer) : undefined;
+    if (by) {
+      by.wins += 1;
+      popped = kill.killer;
+    }
     draw();
+    popped = null;
   };
   // Vida en vivo: se lee de los luchadores de la animación (así va al ritmo de los golpes que se ven)
   const tick = setInterval(() => {
