@@ -87,15 +87,23 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - Junto a esa barra de vida, un trofeo cuenta las victorias de cada brute en la ronda (cada rival que
     elimina). Aparece con la primera, para no llenar la arena de ceros, y salta cada vez que suma. La lista
     también lo muestra junto a la vida de cada fila (los eliminados conservan las suyas).
-  - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, hasta que se ve el final. El que llega entra en
-    un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y recibe golpes
-    enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
+  - La ronda no termina sola: si queda uno en pie, se queda **esperando retador** y mientras tanto hace el tonto
+    (entrena, merienda, bebe, baila, hace piruetas, da vueltas a la arena, boxea con el aire, presume o se
+    duerme), con frases en un globo. En cuanto entra alguien, vuelve a pelear.
+  - **🏁 Finalizar** pone una cuenta atrás de 3 minutos (se para con la pausa; pulsándolo otra vez se cancela).
+    Si antes queda uno solo en pie, gana él (si ya estaba solo, gana al momento); si se acaba el tiempo, gana el
+    que más victorias lleve de los que siguen en pie, y a igualdad el que tenga más vida. Lo que el motor ya
+    había jugado y aún no se veía no cuenta. Con **Rondas continuas** cada ronda empieza con Finalizar activado,
+    así terminan solas y pasa la siguiente.
+  - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, en cualquier momento hasta que se ve el final. El
+    que llega entra en un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y
+    recibe golpes enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
     - El motor solo juega por delante de la animación un turno por cada brute en pie. Antes eran al menos 16:
       con pocos en pie, todos esos turnos eran del mismo duelo y el recién llegado esperaba unos 25 s a que
       se vieran.
     - Cuando en el motor ya queda uno solo en pie, la pelea no se cierra hasta que la animación lo ha mostrado
-      todo, y si entra alguien antes, sigue contra él. Antes el botón se apagaba con 3 o 4 brutes aún peleando
-      en pantalla (el motor va por delante y ya había terminado).
+      todo (y solo si se está finalizando), y si entra alguien, sigue contra él. Antes el botón se apagaba con 3
+      o 4 brutes aún peleando en pantalla (el motor va por delante y ya había terminado).
     - El tiempo extra (veneno para todos pasados 1000 turnos) cuenta desde el último que entró: al mantener la
       pelea agregando brutes un buen rato, los que entraban caían envenenados en cuatro turnos.
     - La lista muestra los fps para ver cuántos aguanta la pantalla: en un PC de escritorio va fluido hasta

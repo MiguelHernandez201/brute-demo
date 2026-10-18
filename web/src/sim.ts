@@ -210,25 +210,30 @@ export function createRoyale(count: number) {
     winner: null,
     loser: null,
     winnerId: null,
-    // `drained`: la animación ya mostró todo lo anterior. Con uno solo en pie, la pelea se cierra (paso End) recién
-    // entonces y hasta ahí se pueden seguir agregando brutes (ver closeRoyale); antes devuelve null: "todavía no"
+    // Botón "Finalizar": con él activo, al quedar uno solo en pie gana él; sin él, espera a que entre otro
+    finishing: false,
+    // Se acabó el tiempo de "Finalizar": lo marca la interfaz y la animación cierra la pelea (ver endNow)
+    timeUp: false,
+    // `drained`: la animación ya mostró todo lo anterior. Con uno solo en pie la pelea no se cierra (paso End) hasta
+    // entonces, y solo si se está finalizando: si no, devuelve null ("todavía no") y se siguen pudiendo agregar brutes
     pullSteps: async (drained = true) => {
       if (session.winner) return false;
       if (!session.finished) session.playTurn();
-      else if (drained) session.closeRoyale();
+      else if (drained && fight.finishing) session.closeRoyale();
       else return null;
-      if (session.winner) {
-        fight.winner = session.winner.name;
-        fight.loser = session.loser?.name ?? null;
-        fight.winnerId = session.winner.id;
-        fight.loserId = session.loser?.id ?? null;
-      }
-      fight.liveSteps.push(...session.takeNewSteps());
+      takeResult();
+      return true;
+    },
+    // Fin por tiempo: cierra ya la pelea con el ganador que elige la animación
+    endNow: (winnerIndex: number) => {
+      if (!session.endRoyaleNow(winnerIndex)) return false;
+      takeResult();
       return true;
     },
     // Botón "Agregar brute": entra uno nuevo en plena pelea. Devuelve sus datos para la lista (null si ya acabó)
-    canAddBrute: () => session.canAddRoyaleBrute(),
+    canAddBrute: () => !fight.timeUp && session.canAddRoyaleBrute(),
     addBrute: () => {
+      if (!fight.canAddBrute()) return null;
       const name = royaleName(used);
       const brute = makeRoyaleBrute(name, `royale-${brutes.length + 1}-${++seq}`);
       const added = session.addRoyaleBrute(getCalculatedBrute(brute, modifiers) as any);
@@ -240,6 +245,17 @@ export function createRoyale(count: number) {
       return { index: added.index, name: added.name, hp: added.hp, maxHp: added.maxHp };
     },
   };
+
+  // Ganador (si ya lo hay) y pasos nuevos para la animación
+  function takeResult() {
+    if (session.winner) {
+      fight.winner = session.winner.name;
+      fight.loser = session.loser?.name ?? null;
+      fight.winnerId = session.winner.id;
+      fight.loserId = session.loser?.id ?? null;
+    }
+    fight.liveSteps.push(...session.takeNewSteps());
+  }
 
   return { brutes, fight, session };
 }

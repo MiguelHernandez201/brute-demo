@@ -3,9 +3,11 @@
 // rebota como un boxeador, se pone en guardia, saca músculo o mira a otro lado. Cuando pasa algo gordo cerca
 // (`react`) los que miran reaccionan. Al entrar en un duelo se le suelta al instante (`release`): vuelve al
 // reposo mirando hacia su lado, así que la pelea se anima exactamente igual que antes.
-import { weapons } from '@labrute/core';
+// Si queda uno solo en pie, mientras espera a que entre alguien hace el tonto (entrena, merienda, baila, presume...)
+// con frases en un globo.
+import { Animation, weapons } from '@labrute/core';
 import { gsap } from 'gsap';
-import { Application, Ticker } from 'pixi.js';
+import { Application, Container, Graphics, Text, Ticker } from 'pixi.js';
 import { AnimationFighter } from './utils/findFighter';
 import { roomAt, royaleArena } from './utils/fightPositions';
 import { playStepDust } from './utils/playVFX';
@@ -293,6 +295,274 @@ export const royaleAmbient = (
     };
   };
 
+  // --- Solo en la arena: el último en pie hace el tonto mientras espera a que entre alguien ---
+
+  type Bubble = { root: Container; f: AnimationFighter; t: number; life: number };
+  const bubbles = new Set<Bubble>();
+  const drop = (b: Bubble | null) => {
+    if (!b || !bubbles.delete(b)) return;
+    if (!b.root.destroyed) b.root.destroy({ children: true });
+  };
+  // Globo con una frase sobre la cabeza: sigue al que habla y se desvanece solo
+  const say = (f: AnimationFighter, text: string, life = 2): Bubble => {
+    const label = new Text({ text, style: { fontFamily: 'GameFont', fontSize: 8, fill: 0x2a1a0a } });
+    label.anchor.set(0.5);
+    const w = Math.ceil(label.width) + 10;
+    const h = Math.ceil(label.height) + 4;
+    label.position.set(0, -h / 2 - 4);
+    // Globo y pico como una sola silueta: primero el borde de los dos y encima el relleno
+    const shape = (g: Graphics) => g.roundRect(-w / 2, -h - 4, w, h, 4).poly([-5, -5, 3, -5, -7, 2]);
+    const box = new Graphics();
+    shape(box).stroke({ color: 0x2a1a0a, width: 2 });
+    shape(box).fill(0xfffdf5);
+    const root = new Container();
+    root.addChild(box, label);
+    root.zIndex = 905;
+    root.eventMode = 'none';
+    root.alpha = 0;
+    // Como las etiquetas: en el móvil el lienzo se ve reducido y el globo crece para que se lea
+    root.scale.set(clamp(9 / (8 * ((app.canvas?.clientWidth || 500) / 500)), 1, 1.7));
+    app.stage.addChild(root);
+    const b = { root, f, t: 0, life };
+    bubbles.add(b);
+    return b;
+  };
+  const updateBubbles = (dt: number) => {
+    for (const b of bubbles) {
+      const c = b.f.animation.container;
+      b.t += dt;
+      if (c.destroyed || b.f.dead || b.t >= b.life) {
+        drop(b);
+        continue;
+      }
+      b.root.alpha = Math.min(1, b.t / 0.15, (b.life - b.t) / 0.3);
+      b.root.position.set(clamp(c.x + 14, 45, 455), c.y - b.f.animation.baseHeight * (b.f.animation.giantScale || 1) - 20);
+    }
+  };
+
+  const QUIPS = {
+    brag: ['¿Nadie más?', '¡Que pase el siguiente!', '¿Eso es todo?', '¡Soy invencible!', '¡Traigan más!'],
+    flex: ['¡Mira estos músculos!', '¡Puro músculo!', '¿Ves esto?'],
+    train: ['¡Uno, dos! ¡Uno, dos!', '¡A entrenar!', '¡Sin dolor no hay gloria!'],
+    eat: ['Ñam, ñam...', '¡Qué rico!', 'Hora del bocadillo'],
+    drink: ['¡Salud!', 'Glup, glup...'],
+    dance: ['¡A bailar!', '¡Pasos prohibidos!', '¡Bailando solo!'],
+    spin: ['¡Tachán!', '¡Olé!'],
+    laps: ['¡Calentando!', '¡Una vuelta más!'],
+    box: ['¡Toma!', '¡Ven si te atreves!', '¡Ja! ¡Ja!'],
+  };
+  const quip = (kind: keyof typeof QUIPS) => QUIPS[kind][Math.floor(Math.random() * QUIPS[kind].length)] ?? '';
+
+  // Una animación de la pelea un rato (entrenar, merendar, beber, sacar músculo, celebrar), repitiéndola si acaba.
+  // Se repite en el siguiente fotograma y no dentro del aviso de fin: un aviso "once" pedido desde otro del mismo
+  // nombre se dispara en la misma pasada y se encadena sin fin (la página se quedaba colgada)
+  const perform = (f: AnimationFighter, animation: Animation, seconds: number, text: string): Action => {
+    let t = 0;
+    let ended = false;
+    const play = () => {
+      ended = false;
+      f.animation.setAnimation(animation);
+      f.animation.once(`${animation}:end`, () => {
+        ended = true;
+      });
+    };
+    play();
+    const bubble = say(f, text, Math.min(seconds, 2.4));
+    return {
+      update: (dt) => {
+        t += dt;
+        if (t >= seconds || f.animation.container.destroyed) {
+          rest(f);
+          return false;
+        }
+        if (ended && t < seconds - 0.5) play();
+        return true;
+      },
+      cancel: () => {
+        drop(bubble);
+        rest(f);
+      },
+    };
+  };
+
+  // Baila: da saltitos al ritmo mirando a un lado y a otro
+  const dance = (f: AnimationFighter): Action => {
+    const c = f.animation.container;
+    const ground = c.y;
+    const giant = f.animation.giantScale || 1;
+    const bubble = say(f, quip('dance'), 2.2);
+    const BEAT = 0.28;
+    let t = 0;
+    let beat = -1;
+    f.animation.setAirborn(true);
+    const land = () => {
+      c.y = ground;
+      f.animation.setAirborn(false);
+    };
+    return {
+      update: (dt) => {
+        t += dt;
+        const b = Math.floor(t / BEAT);
+        if (b !== beat) {
+          beat = b;
+          face(f, b % 2 ? -1 : 1);
+        }
+        const h = 4 * giant * Math.abs(Math.sin((t / BEAT) * Math.PI));
+        c.y = ground - h;
+        f.animation.shadow.y = h;
+        if (t < BEAT * 9) return true;
+        land();
+        rest(f);
+        return false;
+      },
+      cancel: () => {
+        drop(bubble);
+        land();
+        rest(f);
+      },
+    };
+  };
+
+  // Pirueta: salta girando sobre sí mismo y cae levantando polvo
+  const spin = (f: AnimationFighter): Action => {
+    const c = f.animation.container;
+    const ground = c.y;
+    const giant = f.animation.giantScale || 1;
+    const TIME = 0.75;
+    let t = 0;
+    let turn = -1;
+    f.animation.setAnimation('evade');
+    f.animation.setAirborn(true);
+    const land = () => {
+      c.y = ground;
+      f.animation.setAirborn(false);
+    };
+    return {
+      update: (dt) => {
+        t += dt;
+        const p = Math.min(1, t / TIME);
+        const h = 24 * giant * Math.sin(p * Math.PI);
+        c.y = ground - h;
+        f.animation.shadow.y = h;
+        const k = Math.floor(p * 9);
+        if (k !== turn) {
+          turn = k;
+          face(f, k % 2 ? -1 : 1);
+        }
+        if (p < 1) return true;
+        land();
+        playStepDust(app, spritesheets, f, speed, 0, 0.6);
+        say(f, quip('spin'), 1.4);
+        rest(f);
+        return false;
+      },
+      cancel: () => {
+        land();
+        rest(f);
+      },
+    };
+  };
+
+  // Da una vuelta a la carrera: hasta la otra punta de la arena y de vuelta
+  const laps = (f: AnimationFighter, s: State): Action => {
+    const c = f.animation.container;
+    const home = { x: c.x, y: c.y };
+    const far = {
+      x: c.x < 250 ? royaleArena.maxX - rand(10, 40) : royaleArena.minX + rand(10, 40),
+      y: clamp(c.y + rand(-15, 15), royaleArena.minY, royaleArena.maxY),
+    };
+    const bubble = say(f, quip('laps'), 1.8);
+    let leg = jog(f, s, far, 1.8);
+    let back = false;
+    return {
+      update: (dt) => {
+        if (leg.update(dt)) return true;
+        if (back) return false;
+        back = true;
+        leg = jog(f, s, home, 1.8);
+        return true;
+      },
+      cancel: () => {
+        drop(bubble);
+        leg.cancel();
+      },
+    };
+  };
+
+  // Boxea con el aire: golpes a un lado y a otro con lo que lleve en la mano
+  const shadowBox = (f: AnimationFighter): Action => {
+    const weapon = f.animation.weapon ? weapons[f.animation.weapon] : null;
+    const animation = (weapon?.animation || 'fist') as 'fist' | 'slash' | 'estoc' | 'whip';
+    const bubble = say(f, quip('box'), 2);
+    let t = 0;
+    let swing = -1;
+    f.animation.animationSpeed = 1.2;
+    return {
+      update: (dt) => {
+        t += dt;
+        const k = Math.floor(t / 0.5);
+        if (k !== swing && k < 4) {
+          swing = k;
+          face(f, k % 2 ? -1 : 1);
+          f.animation.setAnimation(animation);
+        }
+        if (t < 2.1) return true;
+        rest(f);
+        return false;
+      },
+      cancel: () => {
+        drop(bubble);
+        rest(f);
+      },
+    };
+  };
+
+  // Se queda dormido de pie: respira despacio y suelta zetas
+  const snooze = (f: AnimationFighter): Action => {
+    let t = 0;
+    let next = 0;
+    let bubble: Bubble | null = null;
+    f.animation.animationSpeed = 0.35;
+    return {
+      update: (dt) => {
+        t += dt;
+        if (t >= next) {
+          drop(bubble);
+          bubble = say(f, next === 0 ? 'Zzz...' : 'ZZZ...', 1.1);
+          next += 1.3;
+        }
+        if (t < 3.6) return true;
+        rest(f);
+        return false;
+      },
+      cancel: () => {
+        drop(bubble);
+        rest(f);
+      },
+    };
+  };
+
+  const pickSolo = (f: AnimationFighter, s: State): Action | null => {
+    const options: [number, () => Action | null][] = [
+      [14, () => perform(f, 'win', 2.4, quip('brag'))],
+      [10, () => perform(f, 'strengthen', 1.8, quip('flex'))],
+      [12, () => perform(f, Math.random() < 0.5 ? 'train' : 'train2', 3, quip('train'))],
+      [8, () => perform(f, 'eat', 2.2, quip('eat'))],
+      [8, () => perform(f, 'drink', 2, quip('drink'))],
+      [12, () => dance(f)],
+      [10, () => spin(f)],
+      [8, () => laps(f, s)],
+      [10, () => shadowBox(f)],
+      [8, () => snooze(f)],
+    ];
+    let roll = Math.random() * options.reduce((sum, [w]) => sum + w, 0);
+    for (const [weight, make] of options) {
+      roll -= weight;
+      if (roll <= 0) return make();
+    }
+    return null;
+  };
+
   const pick = (f: AnimationFighter, s: State): Action | null => {
     const brute = f.type === 'brute';
     const options: [number, () => Action | null][] = brute
@@ -324,6 +594,10 @@ export const royaleAmbient = (
   const tick = (ticker: Ticker) => {
     if (stopped || !app.stage || app.stage.destroyed) return;
     const dt = (Math.min(ticker.elapsedMS, 50) / 1000) * speed.current;
+    updateBubbles(dt);
+    // El único brute que queda en pie, si es así
+    const standing = getFighters().filter((o) => o.type === 'brute' && !o.master && visible(o));
+    const alone = standing.length === 1 ? standing[0] : null;
     for (const f of getFighters()) {
       let s = states.get(f);
       if (!s) {
@@ -334,12 +608,12 @@ export const royaleAmbient = (
       if (s.action) {
         if (s.action.update(dt)) continue;
         s.action = null;
-        s.wait = f.type === 'pet' ? rand(0.1, 0.45) : rand(0.15, 0.6);
+        s.wait = f === alone ? rand(0.4, 1) : f.type === 'pet' ? rand(0.1, 0.45) : rand(0.15, 0.6);
         continue;
       }
       s.wait -= dt;
       if (s.wait > 0 || !ready(f)) continue;
-      s.action = pick(f, s);
+      s.action = f === alone ? pickSolo(f, s) : pick(f, s);
       s.touched = true;
       if (!s.action) s.wait = rand(0.2, 0.5);
     }
@@ -415,6 +689,7 @@ export const royaleAmbient = (
     stop: () => {
       stopped = true;
       getFighters().forEach(release);
+      [...bubbles].forEach(drop);
       app.ticker?.remove(tick);
     },
   };
