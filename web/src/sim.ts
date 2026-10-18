@@ -210,20 +210,24 @@ export function createRoyale(count: number) {
     winner: null,
     loser: null,
     winnerId: null,
-    pullSteps: async () => {
-      if (session.finished) return false;
-      session.playTurn();
-      if (session.finished) {
-        fight.winner = session.winner?.name ?? null;
+    // `drained`: la animación ya mostró todo lo anterior. Con uno solo en pie, la pelea se cierra (paso End) recién
+    // entonces y hasta ahí se pueden seguir agregando brutes (ver closeRoyale); antes devuelve null: "todavía no"
+    pullSteps: async (drained = true) => {
+      if (session.winner) return false;
+      if (!session.finished) session.playTurn();
+      else if (drained) session.closeRoyale();
+      else return null;
+      if (session.winner) {
+        fight.winner = session.winner.name;
         fight.loser = session.loser?.name ?? null;
-        fight.winnerId = session.winner?.id ?? null;
+        fight.winnerId = session.winner.id;
         fight.loserId = session.loser?.id ?? null;
       }
       fight.liveSteps.push(...session.takeNewSteps());
       return true;
     },
     // Botón "Agregar brute": entra uno nuevo en plena pelea. Devuelve sus datos para la lista (null si ya acabó)
-    canAddBrute: () => !session.finished,
+    canAddBrute: () => session.canAddRoyaleBrute(),
     addBrute: () => {
       const name = royaleName(used);
       const brute = makeRoyaleBrute(name, `royale-${brutes.length + 1}-${++seq}`);

@@ -66,20 +66,35 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   Para ver una en concreto se puede forzar con la URL, por ejemplo `?fatality=aplastado`
   (`decapitacion`, `partido`, `aplastado`, `acribillado`, `latigo` o `explosion`).
 - **Battle Royale**: de 3 a 20 brutes, todos contra todos y todos peleando a la vez por toda la arena.
-  - Duelos simultáneos: cada brute (con sus mascotas) pelea contra un rival fijo hasta que uno de los dos
-    cae, y entonces busca otro (primero a quien lo esté atacando, luego a alguien libre). Así cada turno solo
-    implica a una pareja y se animan todos los duelos a la vez: si cada ataque fuera a un rival al azar entre
-    todos, la mayoría tendría que esperar a que otros terminaran. Con número impar, el que sobra se suma a un
-    duelo ajeno hasta que alguien quede libre. Bomba, Diluvio y demás técnicas solo alcanzan al rival del duelo.
+  - Duelos simultáneos: cada brute (con sus mascotas) pelea solo con los de su grupo, una pareja o un trío,
+    hasta que caen sus rivales, y entonces busca otro: alguien libre; si no hay, saca a uno de un trío; y si
+    todos están en pareja, se suma a una y forman un trío donde los tres pelean entre sí. Así cada turno solo
+    implica a un grupo y se animan todos los duelos a la vez: si cada ataque fuera a un rival al azar entre
+    todos, la mayoría tendría que esperar a que otros terminaran. Bomba, Diluvio y demás técnicas solo alcanzan
+    a los de su grupo.
+  - Todos los grupos dan turnos al mismo ritmo: un trío, o una pareja de brutes rápidos, no generan más turnos
+    que los demás (dentro del grupo el más rápido sigue atacando más seguido). La animación muestra los turnos
+    de cada grupo de uno en uno, así que el grupo con más turnos marcaba el paso de toda la arena y el resto
+    esperaba.
   - Tras atacar, cada uno retrocede frente a su rival (no a otra punta de la arena), así cada pareja pelea en
     su zona. Las llegadas del principio van escalonadas, sin esperar a que aterrice el anterior.
   - Carroñero y Golosina están en desuso en el royale: aquí no hay mascotas (solo llegan comprándolas en el
     1 vs 1), así que nunca podían usarse. Los brutes del royale reciben otra mejora en su lugar.
   - Cada brute lleva encima su nombre y su vida, con un color propio que también marca su fila en la
     lista. Al pasar el ratón por una fila (o tocarla) se resalta en la arena; con un clic se queda fijo.
-  - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea. La lista muestra los fps para ver cuántos
-    aguanta la pantalla: en un PC de escritorio va fluido hasta unos 55 en pie, a unos 37 fps con 70 y a
-    unos 29 fps con 85.
+  - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, hasta que se ve el final. El que llega entra en
+    un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y recibe golpes
+    enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
+    - El motor solo juega por delante de la animación un turno por cada brute en pie. Antes eran al menos 16:
+      con pocos en pie, todos esos turnos eran del mismo duelo y el recién llegado esperaba unos 25 s a que
+      se vieran.
+    - Cuando en el motor ya queda uno solo en pie, la pelea no se cierra hasta que la animación lo ha mostrado
+      todo, y si entra alguien antes, sigue contra él. Antes el botón se apagaba con 3 o 4 brutes aún peleando
+      en pantalla (el motor va por delante y ya había terminado).
+    - El tiempo extra (veneno para todos pasados 1000 turnos) cuenta desde el último que entró: al mantener la
+      pelea agregando brutes un buen rato, los que entraban caían envenenados en cuatro turnos.
+    - La lista muestra los fps para ver cuántos aguanta la pantalla: en un PC de escritorio va fluido hasta
+      unos 55 en pie, a unos 37 fps con 70 y a unos 29 fps con 85.
   - Calidad automática: con pocos brutes todo se dibuja como siempre. Con más de 20 en pie (⚡ junto a los
     fps), cada pieza sombreada del cuerpo se dibuja una vez a una imagen y se reutiliza, y la sombra ya va
     desenfocada: se ve igual sin repetir esos filtros en cada fotograma. Con más de 35 (⚡⚡), los que

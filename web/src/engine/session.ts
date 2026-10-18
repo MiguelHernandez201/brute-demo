@@ -10,7 +10,7 @@ import { DetailedFight, DetailedFighter } from './generateFight';
 import { getFighters } from './getFighters';
 import { applySpy } from './applySpy';
 import {
-  Stats, activateSuper, checkDeaths, fighterArrives, orderFighters, playFighterTurn, saboteur,
+  Stats, activateSuper, checkDeaths, fighterArrives, orderFighters, playFighterTurn, royalePace, saboteur,
 } from './fightMethods';
 
 // `activate`: power-ups que se activan al empezar el siguiente turno (sin depender de la probabilidad)
@@ -156,8 +156,8 @@ export class FightSession {
       winner: null,
       loser: null,
       overtime: false,
-      // Royale: duelos simultáneos (cada equipo con un rival fijo hasta que uno cae)
-      ...(royale ? { royaleFoes: {} } : {}),
+      // Royale: duelos simultáneos (cada equipo en una pareja o un trío hasta que caen sus rivales)
+      ...(royale ? { royaleDuels: { group: {}, next: 1, step: {} } } : {}),
     };
 
     // Llegada de todos, espionaje (1 vs 1) y saboteador, como en generateFight
@@ -173,6 +173,20 @@ export class FightSession {
   }
 
   get finished() { return !!this.fightData.loser; }
+
+  // Battle royale: el motor va por delante de la animación, así que cuando queda uno en pie todavía se ve pelear a
+  // varios. Por eso la pelea no se cierra (paso End) hasta que la animación lo ha mostrado todo y llama a esto:
+  // mientras tanto se pueden seguir agregando brutes y la pelea sigue con el que quedaba en pie.
+  closeRoyale() {
+    if (this.royale && this.finished && !this.winner) this.#finish();
+  }
+
+  // Si se puede agregar un brute al royale: hasta su paso End, con alguien en pie con quien pelear
+  // (si los dos últimos caen en el mismo turno gana el último en caer y ya no entra nadie)
+  canAddRoyaleBrute() {
+    return this.royale && !this.winner
+      && this.fightData.fighters.some((f) => f.type === 'brute' && !f.master && f.hp > 0);
+  }
 
   // Luchadores para la animación al empezar.
   // En el battle royale la animación solo entiende dos lados ('L'/'R'): se reparten alternando
@@ -192,8 +206,14 @@ export class FightSession {
   // Battle royale: entra un brute nuevo en plena pelea (botón "Agregar brute"). Forma su propio equipo, actúa
   // enseguida y la animación lo crea y lo hace llegar como al principio. Devuelve su luchador (o null si ya acabó).
   addRoyaleBrute(brute: CalculatedBrute) {
-    if (!this.royale || this.finished) return null;
+    if (!this.canAddRoyaleBrute()) return null;
     const fd = this.fightData;
+    // Si ya solo quedaba uno en pie (sin cerrar la pelea, ver closeRoyale), sigue contra el que llega
+    fd.loser = null;
+    // El tiempo extra (veneno para todos pasados 1000 turnos) cuenta desde el último que entró: si no, al mantener
+    // la pelea agregando brutes un buen rato, los que entraban caían envenenados en cuatro turnos
+    this.#turn = 0;
+    fd.overtime = false;
     const team = this.#brutes.length + 1;
     this.#brutes.push(brute);
     this.#achievements[brute.id] = { userId: brute.userId, eventId: brute.eventId, achievements: {} };
@@ -288,13 +308,16 @@ export class FightSession {
       if (!first) break;
       fd.initiative = first.initiative;
       if (this.#turn > 1000) fd.overtime = true;
+      const before = first.initiative;
       playFighterTurn(fd, this.#stats, this.#achievements);
+      if (this.royale) royalePace(fd, first, before);
       checkDeaths(fd, this.#stats);
       if (this.royale) this.#royaleEliminations();
       this.#turn += 1;
     }
 
-    if (fd.loser && !this.winner) this.#finish();
+    // El royale se cierra después, con closeRoyale
+    if (fd.loser && !this.winner && !this.royale) this.#finish();
     return true;
   }
 
