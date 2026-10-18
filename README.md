@@ -84,6 +84,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     y sus sonidos (sin letreros, voz ni cámara), mientras el resto sigue peleando y los que miran
     reaccionan. Sus restos se desvanecen al rato y la sangre se queda en el suelo. La lista cuenta quién
     eliminó a quién ("Mazo decapitó a Brasa").
+  - Toda la sangre del suelo (manchas, charcos y grietas) es un solo dibujo: cada mancha se pinta una vez en
+    una imagen de la arena y se descarta. Así no pesa más a medida que avanza la pelea y los fps se recuperan
+    cuando quedan pocos en pie (antes cada mancha era un dibujo suelto y llegaban a acumularse unas 8.000).
 
 ## Estructura (`web/src`)
 
