@@ -65,8 +65,12 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - Cada brute lleva encima su nombre y su vida, con un color propio que también marca su fila en la
     lista. Al pasar el ratón por una fila (o tocarla) se resalta en la arena; con un clic se queda fijo.
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea. La lista muestra los fps para ver cuántos
-    aguanta la pantalla: en un PC de escritorio va fluido hasta unos 35 en pie, baja a unos 40 fps con 45
-    y a unos 25 fps con 60.
+    aguanta la pantalla: en un PC de escritorio va fluido hasta unos 55 en pie, a unos 37 fps con 70 y a
+    unos 29 fps con 85.
+  - Calidad automática: con pocos brutes todo se dibuja como siempre. Con más de 20 en pie (⚡ junto a los
+    fps), cada pieza sombreada del cuerpo se dibuja una vez a una imagen y se reutiliza, y la sombra ya va
+    desenfocada: se ve igual sin repetir esos filtros en cada fotograma. Con más de 35 (⚡⚡), los que
+    esperan respiran a la mitad de fotogramas. Para comparar se puede fijar con `?calidad=0`, `1` o `2`.
   - Los que esperan su turno no se quedan quietos: trotan, cruzan la arena a la carrera, rondan y amagan
     a un rival, saltan, se ponen en guardia o sacan músculo. Se sobresaltan con los críticos de al lado,
     y los críticos lanzan por los aires a quien los recibe.
