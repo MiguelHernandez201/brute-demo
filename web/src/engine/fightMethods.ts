@@ -19,6 +19,18 @@ import { DetailedFight, DetailedFighter } from './generateFight.js';
 import { getDamage } from './getDamage.js';
 import { getFighterStat } from './getFighterStat.js';
 
+// Demo: los brutes conservan más tiempo el arma que sacan. Medido con este motor, un arma duraba ~4 golpes en el
+// 1 vs 1 y ~5 en el royale, y se perdía sobre todo por desarmes del rival, por lanzarla y por cambiarla por otra
+// (la vieja se tira). Las tres vías se suavizan:
+// Probabilidad de los desarmes (los de la estadística de desarme y los de Cabeza de hierro)
+const DISARM_FACTOR = 0.5;
+// Una de cada tantas veces lanza el arma que lleva si no es arrojadiza (el juego original: 33)
+const THROW_WEAPON_ODDS = 80;
+// Tras sacar un arma, probabilidad de no cambiarla en su siguiente turno y cuánto baja cada vez que la conserva
+// (el juego original: 50 % y se reducía a la mitad)
+const KEEP_WEAPON_CHANCE = 0.85;
+const KEEP_WEAPON_DECAY = 0.85;
+
 export type Stats = Record<string, {
   userId: string | null;
   skillsUsed?: number;
@@ -465,7 +477,7 @@ export const fighterArrives = (
     if (possibleWeapon) {
       // Equip weapon
       fighter.activeWeapon = possibleWeapon;
-      fighter.keepWeaponChance = 0.5;
+      fighter.keepWeaponChance = KEEP_WEAPON_CHANCE;
 
       // Remove weapon from possible weapons
       delete fighter.weapons[possibleWeapon.name];
@@ -836,7 +848,7 @@ const drawWeapon = (
 
   // Decrease `keepWeaponChance` each turn and abort until true
   if (fighter.activeWeapon && !drawEveryWeapon && Math.random() < fighter.keepWeaponChance) {
-    fighter.keepWeaponChance *= 0.5;
+    fighter.keepWeaponChance *= KEEP_WEAPON_DECAY;
     return false;
   }
 
@@ -857,8 +869,8 @@ const drawWeapon = (
   // Equip new weapon
   fighter.activeWeapon = possibleWeapon;
 
-  // Set the chance to keep the weapon to 50%
-  fighter.keepWeaponChance = 0.5;
+  // Set the chance to keep the weapon (Demo: más alta, ver KEEP_WEAPON_CHANCE)
+  fighter.keepWeaponChance = KEEP_WEAPON_CHANCE;
 
   // Remove weapon from possible weapons
   delete fighter.weapons[possibleWeapon.name];
@@ -1803,7 +1815,8 @@ const disarm = (
   // Can't disarm someone if they are not holding a weapon >.>
   if (!opponent.activeWeapon) return false;
 
-  const shouldDisarm = getFighterStat(chaos, fighter, 'disarm', thrown ? 'weapon' : undefined) * 100 >= randomBetween(1, 100);
+  const shouldDisarm = getFighterStat(chaos, fighter, 'disarm', thrown ? 'weapon' : undefined) * 100 * DISARM_FACTOR
+    >= randomBetween(1, 100);
 
   // If the opponent has grip, they have a chance to prevent the disarm
   if (shouldDisarm && opponent.weaponGrip) {
@@ -1824,7 +1837,7 @@ const disarmAttacker = (fighter: DetailedFighter, opponent: DetailedFighter) => 
   // Only disarm if opponent has `ironHead`
   if (!opponent.ironHead) return false;
 
-  const shouldDisarm = Math.random() < opponent.ironHead;
+  const shouldDisarm = Math.random() < opponent.ironHead * DISARM_FACTOR;
 
   // If the attacker has grip, they have a chance to prevent the disarm
   if (shouldDisarm && fighter.weaponGrip) {
@@ -2386,11 +2399,11 @@ export const playFighterTurn = (
         ? randomBetween(0, 1) === 0
           ? 'thrown'
           : 'melee'
-        // 1/33 chance to throw a weapon otherwise
+        // 1/33 chance to throw a weapon otherwise (Demo: 1/80, ver THROW_WEAPON_ODDS)
         // (influenced by weapon hit speed)
         : randomBetween(
           0,
-          Math.round(33 - (fighter.activeWeapon.tempo[fighter.activeWeapon.tier - 1] ?? 0) * 5),
+          Math.round(THROW_WEAPON_ODDS - (fighter.activeWeapon.tempo[fighter.activeWeapon.tier - 1] ?? 0) * 5),
         ) === 0
           ? 'thrown' : 'melee'
       : 'melee';

@@ -43,6 +43,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   de la pelea hace el doble de daño y recibe la mitad.
   El **Grito maldito** y el **Ladrón** están en desuso en los dos modos: ningún brute los recibe y la tienda no
   los ofrece.
+  En los dos modos los brutes conservan más tiempo el arma que sacan: los desarmes son la mitad de probables,
+  lanzan el arma que llevan con menos frecuencia y tardan más en cambiarla por otra (ver las constantes al
+  principio de `engine/fightMethods.ts`). La probabilidad de perder el arma en cada golpe baja de ~11 % a ~6 %.
   El ganador sigue (sin curarse) al *Desafiar*.
   Cuando cae el perdedor, la pelea se remata con una **fatality**: "FINISH HIM!", el ganador se acerca
   y lo remata según el arma que lleva, y luego el letrero "FATALITY" (con voz del navegador si los
