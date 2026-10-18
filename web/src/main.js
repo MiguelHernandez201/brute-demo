@@ -275,7 +275,7 @@ function renderRoster(fight) {
   // Vida en vivo: se lee de los luchadores de la animación (así va al ritmo de los golpes que se ven)
   const tick = setInterval(() => {
     if (rosterFight !== fight) return clearInterval(tick);
-    // Ya no se puede agregar (la pelea terminó en el motor): botones apagados
+    // Ya no se puede agregar (la pelea se cerró: solo queda el final por ver): botones apagados
     if (!canAdd()) document.querySelectorAll('#roster [data-add]').forEach((b) => (b.disabled = true));
     const live = fight.liveFighters?.();
     if (!live) return;

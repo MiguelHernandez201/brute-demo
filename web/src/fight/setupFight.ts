@@ -851,9 +851,10 @@ export const setupFight: (
 
     // Demo: los pasos pueden llegar poco a poco (pelea simulada turno a turno).
     // `liveSteps` crece cuando se llama a `pullSteps`, que juega el siguiente turno del motor.
+    // `drained`: ya se animó todo lo anterior (el royale espera a eso para cerrar la pelea; mientras, devuelve null)
     const demoFight = fight as unknown as {
       liveSteps?: FightStep[];
-      pullSteps?: () => Promise<boolean>;
+      pullSteps?: (drained?: boolean) => Promise<boolean | null>;
     };
     const steps = demoFight.liveSteps ?? (JSON.parse(fight.steps) as FightStep[]);
     // Procesa (anima) un paso. Extraído del bucle original para poder animar turnos en paralelo.
@@ -1199,19 +1200,22 @@ export const setupFight: (
       }
     } else {
       // Demo battle royale: varios turnos a la vez. Cada turno del motor (sus pasos, en orden) se anima
-      // en paralelo con otros turnos siempre que no compartan luchadores. En el motor cada brute pelea con un
-      // rival fijo (duelos, ver royaleFoe), así que todos los duelos pueden ir a la vez. Solo paran la arena
-      // el fin, el saboteador del principio y la hipnosis (fotografía toda la escena para su efecto).
+      // en paralelo con otros turnos siempre que no compartan luchadores. En el motor cada brute pelea solo con
+      // los de su grupo (duelos en pareja o trío, ver royaleGroup), así que todos los duelos pueden ir a la vez.
+      // Solo paran la arena el fin, el saboteador del principio y la hipnosis (fotografía toda la escena).
       repositionControl.disabled = true;
       // Sin tope práctico: antes eran 6 duelos a la vez y el resto esperaba su turno
       const MAX_PARALLEL = 64;
       const exclusiveTypes = new Set<number>([StepType.Hypnotise, StepType.Saboteur, StepType.End, StepType.Spy]);
-      // Turnos que se miran por delante: el doble de los que siguen en pie, para que el siguiente turno de cada
-      // duelo ya esté en la cola cuando termina el anterior
-      const lookahead = () => Math.max(16, 2 * fighters.filter((f) => !f.dead).length);
+      // Turnos que se miran por delante: uno por cada uno en pie (unos dos por duelo), para que el siguiente turno de
+      // cada duelo ya esté en la cola cuando termina el anterior. No más: el motor va esos turnos por delante y un brute
+      // agregado entra detrás de todos ellos (con un mínimo de 16, si quedaban pocos esperaba unos 25 s para pelear)
+      const lookahead = () => Math.max(2, fighters.filter((f) => !f.dead).length);
       // Las llegadas del principio van escalonadas (sin parar nada): cada uno salta este tiempo después del anterior
       const ARRIVAL_STAGGER = 0.12;
       const isStartStep = (st: FightStep) => st.a === StepType.Arrive || st.a === StepType.Saboteur || st.a === StepType.Spy;
+      // Brute agregado en plena pelea: aparece (demoSpawn) y llega (Arrive)
+      const isSpawnStep = (st: FightStep) => (st.a as unknown) === 'demoSpawn' || st.a === StepType.Arrive;
       const involvedIn = (chunk: FightStep[]) => {
         const set = new Set<number>();
         for (const st of chunk) {
@@ -1277,22 +1281,33 @@ export const setupFight: (
       for (;;) {
         if (shouldAbort()) return;
         // Rellenar la cola con los siguientes turnos del motor
+        let waiting = false;
         while (!engineDone && queue.length < lookahead() && !queue.some((q) => q.exclusive)) {
           if (cursor >= steps.length) {
-            const more = demoFight.pullSteps ? await demoFight.pullSteps() : false;
+            // El motor va por delante: cuando queda uno en pie no cierra la pelea hasta que aquí se ha visto todo
+            // (null = todavía no), así se pueden seguir agregando brutes mientras quedan duelos en pantalla
+            const more = demoFight.pullSteps ? await demoFight.pullSteps(!queue.length && !running.size) : false;
+            if (more === null) { waiting = true; break; }
             if (!more && cursor >= steps.length) { engineDone = true; break; }
             if (cursor >= steps.length) continue;
           }
           const chunk = steps.slice(cursor);
           // Las llegadas del principio vienen todas juntas: van por separado, así cada uno queda libre (y se mueve
-          // por su cuenta o empieza su duelo) en cuanto aterriza en vez de esperar al último
-          const pieces = chunk.length > 1 && chunk.every(isStartStep)
-            ? chunk.map((st) => [st])
-            : [chunk];
+          // por su cuenta o empieza su duelo) en cuanto aterriza en vez de esperar al último. Lo mismo con varios
+          // brutes agregados a la vez (+5): cada uno aparece y llega por su cuenta
+          let pieces = [chunk];
+          if (chunk.length > 1 && chunk.every(isStartStep)) pieces = chunk.map((st) => [st]);
+          else if (chunk.length > 2 && chunk.every(isSpawnStep)) {
+            pieces = [];
+            for (const st of chunk) {
+              if (st.a !== StepType.Arrive || !pieces.length) pieces.push([st]);
+              else pieces[pieces.length - 1]!.push(st);
+            }
+          }
           let start = cursor;
           let arrivals = 0;
           for (const piece of pieces) {
-            const arrival = pieces.length > 1 && piece[0]?.a === StepType.Arrive;
+            const arrival = pieces.length > 1 && piece.some((st) => st.a === StepType.Arrive);
             queue.push({
               chunk: piece,
               start,
@@ -1304,7 +1319,11 @@ export const setupFight: (
           }
           cursor = steps.length;
         }
-        if (!queue.length && !running.size) break;
+        if (!queue.length && !running.size) {
+          // Ya se vio todo: en la siguiente vuelta el motor cierra la pelea
+          if (waiting) continue;
+          break;
+        }
 
         // Lanzar todo lo que se pueda
         let launched = false;

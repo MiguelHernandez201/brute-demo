@@ -133,8 +133,9 @@ export type DetailedFight = {
   winner: string | null;
   loser: string | null;
   overtime: boolean;
-  // Demo battle royale: rival de duelo de cada equipo (ver royaleFoe en fightMethods)
-  royaleFoes?: Record<string, string>;
+  // Demo battle royale: grupo de duelo de cada equipo y paso habitual de cada luchador (ver royaleGroup y
+  // royalePace en fightMethods)
+  royaleDuels?: { group: Record<string, number>; next: number; step: Record<number, number> };
 }
 
 export type GenerateFightResult = {

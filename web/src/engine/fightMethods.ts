@@ -138,44 +138,64 @@ const checkAchievements = (
   }
 };
 
-// Demo battle royale: duelos simultáneos. Cada equipo (un brute con sus mascotas) pelea contra un rival fijo
-// hasta que uno de los dos cae. Así cada turno solo implica a una pareja y la animación puede mostrar todos los
-// duelos a la vez: si cada ataque fuera a un rival al azar entre todos, casi todos esperarían a que otros
-// terminaran (un luchador no puede estar en dos animaciones a la vez). Sin rival vivo, en su siguiente acción
-// busca otro: primero a quien ya lo esté atacando, luego a alguien libre, luego a quien ataque a un tercero sin
-// que le responda. Si no queda nadie así (número impar), se suma a un duelo ajeno hasta que alguien quede libre.
+// Demo battle royale: duelos simultáneos. Cada equipo (un brute con sus mascotas) está en un grupo de duelo, una
+// pareja o un trío, y solo pelea con los de su grupo mientras le quede alguno en pie. Así cada turno solo implica
+// a un grupo y la animación puede mostrar todos los duelos a la vez: si cada ataque fuera a un rival al azar entre
+// todos, casi todos esperarían a que otros terminaran (un luchador no puede estar en dos animaciones a la vez).
+// Quien se queda sin rival, o acaba de entrar, busca grupo en su siguiente acción: con alguien libre; si no, saca a
+// uno de un trío (que queda en pareja); y si todos están en pareja, se suma a una y forman un trío donde los tres
+// pelean entre sí. Así los que entran en plena pelea atacan y reciben golpes desde su primer turno (antes atacaban
+// a alguien que seguía en su duelo y nadie los atacaba a ellos hasta que acababa otro duelo).
 const royaleTeams = (fightData: DetailedFight) => [...new Set(fightData.fighters
   .filter((f) => f.type === 'brute' && !f.master && f.hp > 0 && !f.arrivesAtInitiative)
   .map((f) => f.team as string))];
 
 const pickOne = <T>(items: T[]) => (items.length ? items[Math.floor(Math.random() * items.length)] : undefined);
 
-const royaleFoe = (fightData: DetailedFight, team: string) => {
-  const foes = fightData.royaleFoes;
-  if (!foes) return null;
-  const alive = new Set(royaleTeams(fightData));
-  const engaged = (t: string) => {
-    const foe = foes[t];
-    return !!foe && foe !== t && alive.has(foe);
+const royaleGroup = (fightData: DetailedFight, team: string) => {
+  const duels = fightData.royaleDuels;
+  if (!duels) return undefined;
+  const alive = royaleTeams(fightData);
+  const members = (group: number | undefined) => (group === undefined
+    ? []
+    : alive.filter((t) => duels.group[t] === group));
+  // Sigue en su grupo mientras le quede algún rival en pie
+  const current = duels.group[team];
+  if (members(current).length >= 2) return current;
+  const others = alive.filter((t) => t !== team);
+  const pairWith = (other: string) => {
+    const group = duels.next++;
+    duels.group[team] = group;
+    duels.group[other] = group;
+    return group;
   };
-  const current = foes[team];
-  // Sigue con su duelo mientras los dos vivan
-  if (engaged(team) && current && foes[current] === team) return current;
-  const others = [...alive].filter((t) => t !== team);
-  const pick = pickOne(others.filter((t) => foes[t] === team))
-    ?? pickOne(others.filter((t) => !engaged(t)))
-    ?? pickOne(others.filter((t) => engaged(t) && foes[foes[t] as string] !== t));
-  if (pick) {
-    foes[team] = pick;
-    foes[pick] = team;
-    return pick;
-  }
-  // Nadie libre: sigue atacando a quien ya atacaba o se suma a un duelo ajeno
-  if (engaged(team) && current) return current;
-  const other = pickOne(others);
-  if (!other) return null;
-  foes[team] = other;
-  return other;
+  const free = pickOne(others.filter((t) => members(duels.group[t]).length < 2));
+  if (free) return pairWith(free);
+  const trio = pickOne([...new Set(others.map((t) => duels.group[t]))].filter((g) => members(g).length >= 3));
+  if (trio !== undefined) return pairWith(pickOne(members(trio)) as string);
+  const pair = pickOne(others);
+  if (!pair) return undefined;
+  duels.group[team] = duels.group[pair] as number;
+  return duels.group[team];
+};
+
+// Demo battle royale: todos los grupos de duelo dan turnos al mismo ritmo, sean pareja o trío y sus brutes rápidos o
+// lentos. La animación muestra los turnos de cada grupo de uno en uno, así que el grupo que más turnos genera marca el
+// paso de toda la arena y el resto espera (un trío genera la mitad más que una pareja). Por eso lo que avanza la
+// iniciativa de quien acaba de actuar se escala según lo rápido que es su grupo: dentro del grupo el más rápido sigue
+// actuando más a menudo, pero cada grupo da los mismos turnos que una pareja normal.
+const ROYALE_PACE = 1.5;
+export const royalePace = (fightData: DetailedFight, fighter: DetailedFighter, before: number) => {
+  const duels = fightData.royaleDuels;
+  const group = duels?.group[fighter.team];
+  const delta = fighter.initiative - before;
+  if (!duels || group === undefined || !(delta > 0 && delta < 10)) return;
+  // Lo que suele avanzar cada uno por turno, sin escalar
+  duels.step[fighter.index] = 0.7 * (duels.step[fighter.index] ?? delta) + 0.3 * delta;
+  const rate = fightData.fighters
+    .filter((f) => f.hp > 0 && !f.arrivesAtInitiative && duels.group[f.team] === group)
+    .reduce((sum, f) => sum + 1 / (duels.step[f.index] ?? f.tempo), 0);
+  fighter.initiative = before + delta * (rate / ROYALE_PACE);
 };
 
 const getOpponents = ({
@@ -196,10 +216,11 @@ const getOpponents = ({
     && f.hp > 0
     && f.team !== fighter.team);
 
-  // Demo battle royale: solo el equipo de su rival de duelo
-  if (fightData.royaleFoes) {
-    const foe = royaleFoe(fightData, fighter.team);
-    opponents = opponents.filter((f) => f.team === foe);
+  // Demo battle royale: solo los equipos de su grupo de duelo
+  const duels = fightData.royaleDuels;
+  if (duels) {
+    const group = royaleGroup(fightData, fighter.team);
+    opponents = group === undefined ? [] : opponents.filter((f) => duels.group[f.team] === group);
   }
 
   if (bruteAndBossOnly) {
