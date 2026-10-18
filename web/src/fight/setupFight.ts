@@ -63,6 +63,10 @@ import { getDuelPosition, royaleArena } from './utils/fightPositions';
 import { royaleAmbient } from './royaleAmbient';
 import { royaleTags } from './royaleTags';
 import { royaleClock } from './royaleClock';
+import {
+  clearUltimates, giantShrink, giantTimer, ultimateBomb, ultimateCast, ultimateCleaveHit, ultimateFlood, ultimateHaste,
+  ultimateRing,
+} from './ultimates';
 import { resetBakeBudget, setCrowdLevel, updateCrowdQuality } from './crowdQuality';
 import { vampirism } from './vampirism';
 import { getFighters } from './utils/getFighters';
@@ -805,15 +809,29 @@ export const setupFight: (
         case StepType.Vampirism:
         case StepType.Haste:
         case StepType.Bomb:
+        case 'demoFlood' as never: // Demo royale: golpes de las ultimates
+        case 'demoBomb' as never:
+        case 'demoHaste' as never:
+        case 'demoCleaveHit' as never:
           if (typeof by !== 'number') return null;
           return { by, targets: (Array.isArray(s.t) ? s.t : [s.t]).filter((t): t is number => typeof t === 'number') };
         default:
           return null;
       }
     };
+    // Los que recibieron su último golpe de una ultimate: caen sin fatality (así no se alarga, con tantos a la vez)
+    const ultimateVictims = new Set<number>();
+    const ULTIMATE_HITS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste', 'demoCleaveHit']);
+    // Pasos de ultimates que son efectos encima de los demás: no colocan a nadie de lado (quien la lanza puede estar a
+    // mitad de otra cosa) ni se reserva para ellos a quien la lanza (ver involvedIn)
+    const ULTIMATE_OVERLAYS = new Set<unknown>(['demoUltimate', 'demoFlood', 'demoBomb', 'demoCleaveHit']);
     const trackHit = (step: FightStep) => {
       const damage = damageOf(step);
-      damage?.targets.forEach((t) => lastHitBy.set(t, damage.by));
+      damage?.targets.forEach((t) => {
+        lastHitBy.set(t, damage.by);
+        if (ULTIMATE_HITS.has(step.a)) ultimateVictims.add(t);
+        else ultimateVictims.delete(t);
+      });
     };
     // Rematador de un brute eliminado en el royale: quien le dio el último golpe (si fue una mascota, su amo),
     // siempre que siga en pie, libre (sin red ni aturdir) y dentro del mismo turno que se está animando
@@ -824,6 +842,28 @@ export const setupFight: (
       if (killer.dead || killer.hp <= 0 || killer.trapped || killer.stunned || !killer.animation.container.visible) return null;
       if (involved && !involved.has(killer.index)) return null;
       return killer;
+    };
+
+    // Royale: Súper gigantes (ultimate) y cuándo soltaron su última onda (una por ataque, aunque encadene golpes).
+    // Alcanza a los más cercanos en ese momento, menos a quien ataca (ese ya se lleva su golpe)
+    const stompers = new Map<number, number>();
+    const giantStomp = (index: number, target?: number) => {
+      const giant = findFighter(fighters, index);
+      const last = stompers.get(index);
+      if (last === undefined || !giant || giant.dead || giant.animation.container.destroyed) return;
+      const now = performance.now();
+      if (now - last < 1200 / speed.current) return;
+      stompers.set(index, now);
+      const g = giant.animation.container;
+      // Lo vertical cuenta el doble: la arena es poco profunda
+      const candidates = fighters
+        .filter((f) => f !== giant && f.index !== target && f.type === 'brute' && !f.master && !f.dead && f.hp > 0
+          && f.animation.container.visible && !f.animation.container.destroyed)
+        .map((f) => ({ f, d: Math.hypot(f.animation.container.x - g.x, (f.animation.container.y - g.y) * 2) }))
+        .sort((a, b) => a.d - b.d)
+        .map(({ f }) => f.index);
+      const hit = demoFight.cleave?.(index, candidates) ?? [];
+      void ultimateRing(app, spritesheets, fighters, { f: index, v: hit }, speed);
     };
 
     // Royale (duelos): a quién atacó cada uno por última vez, para retroceder frente a él (ver getDuelPosition)
@@ -854,7 +894,9 @@ export const setupFight: (
     // `liveSteps` crece cuando se llama a `pullSteps`, que juega el siguiente turno del motor.
     // `drained`: ya se animó todo lo anterior. En el royale, con uno solo en pie, devuelve null ("espera").
     // Royale: `finishing` es el botón "Finalizar" (cuenta atrás en la arena, ver royaleClock), `timeUp` que se acabó el
-    // tiempo y `endNow` cierra la pelea con el ganador que se le diga
+    // tiempo y `endNow` cierra la pelea con el ganador que se le diga. Ultimates (ver ultimates): `cleave` es la onda
+    // de un Súper gigante (alcanza a los primeros de los que se le dan, devuelve a quiénes) y `endGiant` se lo pasa;
+    // aquí se pone `wake` (hay pasos nuevos: botón de una ultimate, onda)
     const demoFight = fight as unknown as {
       liveSteps?: FightStep[];
       pullSteps?: (drained?: boolean) => Promise<boolean | null>;
@@ -862,6 +904,9 @@ export const setupFight: (
       timeLeft?: number | null;
       timeUp?: boolean;
       endNow?: (winnerIndex: number) => boolean;
+      cleave?: (index: number, candidates: number[]) => number[];
+      endGiant?: (index: number) => boolean;
+      wake?: () => void;
     };
     const steps = demoFight.liveSteps ?? (JSON.parse(fight.steps) as FightStep[]);
     // Procesa (anima) un paso. Extraído del bucle original para poder animar turnos en paralelo.
@@ -879,8 +924,9 @@ export const setupFight: (
 
       // Demo battle royale: la animación solo tiene dos lados; antes de cada paso se coloca
       // a quien actúa y a su objetivo en lados opuestos (según dónde estén) y se les da ese HUD
+      const overlay = ULTIMATE_OVERLAYS.has(step.a);
       if (isRoyale) {
-        royaleSides(step);
+        if (!overlay) royaleSides(step);
         trackHit(step);
       }
 
@@ -888,15 +934,16 @@ export const setupFight: (
       if (isRangedStep(step.a)) await repositionFighters(fighters, speed);
 
       // Display step's brute in HUD
-      if ('b' in step && Object.hasOwn(step, 'b') && step.a !== StepType.AttemptHit) {
+      if (!overlay && 'b' in step && Object.hasOwn(step, 'b') && step.a !== StepType.AttemptHit) {
         void setHUDFocus(app, spritesheets, renderer, fighters, step.b, speed, isClanWar);
       }
       // Display step's fighter in HUD
-      if ('f' in step && Object.hasOwn(step, 'f') && typeof step.f === 'number') {
+      if (!overlay && 'f' in step && Object.hasOwn(step, 'f') && typeof step.f === 'number') {
         void setHUDFocus(app, spritesheets, renderer, fighters, step.f, speed, isClanWar);
       }
       // Display step's target in HUD
-      if ('t' in step && Object.hasOwn(step, 't') && step.a !== StepType.Bomb && step.a !== StepType.Hypnotise) {
+      if (!overlay && 't' in step && Object.hasOwn(step, 't')
+        && step.a !== StepType.Bomb && step.a !== StepType.Hypnotise) {
         void setHUDFocus(app, spritesheets, renderer, fighters, step.t, speed, isClanWar);
       }
 
@@ -925,6 +972,8 @@ export const setupFight: (
         }
         case StepType.AttemptHit: {
           await attemptHit(app, spritesheets, fighters, step, speed);
+          // Demo royale: el Súper gigante (ultimate) suelta su onda al atacar
+          if (isRoyale) giantStomp(step.f, step.t);
           break;
         }
         case StepType.Hit:
@@ -954,7 +1003,7 @@ export const setupFight: (
           // sobre los personajes (sin letreros, voz, sonidos ni cámara): el resto de duelos sigue a la vez
           if (isRoyale && isFatalityDeath(fighters, step)) {
             const victim = findFighter(fighters, step.f);
-            const killer = victim && royaleKiller(victim, involved);
+            const killer = victim && !ultimateVictims.has(victim.index) && royaleKiller(victim, involved);
             if (victim && killer) {
               const kind = fatalityKind(killer);
               await fatality(app, spritesheets, fighters, step, speed, {
@@ -1136,10 +1185,12 @@ export const setupFight: (
         }
         // Demo: Súper gigante → el brute crece (daño x2 y resistencia x2 en el motor)
         case 'demoGiant' as never: {
-          const giant = fighters.find((f) => f.index === (step as unknown as { f: number }).f);
+          const giantStep = step as unknown as { f: number; u?: 1 };
+          const giant = fighters.find((f) => f.index === giantStep.f);
           if (!giant) break;
           void sound.play('sfx', { sprite: 'fierceBrute' });
           void shakeStage(app, speed, 4, 600);
+          // Como ultimate del royale ya lleva su letrero arriba (ver ultimateCast)
           const label = new Text({
             text: '¡SÚPER GIGANTE!',
             style: { fontFamily: 'GameFont', fontSize: 16, fill: 0xffd23f, stroke: { color: 0x3a1a00, width: 4 } },
@@ -1147,6 +1198,7 @@ export const setupFight: (
           label.anchor.set(0.5);
           label.position.set(giant.animation.container.x, Math.max(30, giant.animation.container.y - giant.animation.baseHeight * GIANT_SCALE * 1.1));
           label.zIndex = 950;
+          label.visible = !giantStep.u;
           app.stage?.addChild(label);
           void tween(label, { y: label.y - 25, alpha: 0, duration: 1.6 / speed.current, delay: 0.6 / speed.current, ease: 'power1.in' })
             .then(() => label.destroy());
@@ -1158,6 +1210,39 @@ export const setupFight: (
             onUpdate: () => giant.animation.setGiantScale(grow.s),
           });
           giant.animation.setGiantScale(GIANT_SCALE);
+          // Como ultimate dura unos segundos desde que crece, y mientras suelta su onda al atacar
+          if (giantStep.u) {
+            stompers.set(giant.index, 0);
+            giantTimer(app, speed, () => {
+              stompers.delete(giant.index);
+              demoFight.endGiant?.(giant.index);
+            });
+          }
+          break;
+        }
+        // Demo royale: ultimates (ver ultimates)
+        case 'demoUltimate' as never: {
+          ultimateCast(app, fighters, step as never, speed);
+          break;
+        }
+        case 'demoFlood' as never: {
+          await ultimateFlood(app, spritesheets, fighters, step as never, speed);
+          break;
+        }
+        case 'demoBomb' as never: {
+          await ultimateBomb(app, spritesheets, fighters, step as never, speed);
+          break;
+        }
+        case 'demoHaste' as never: {
+          await ultimateHaste(app, spritesheets, fighters, step as never, speed);
+          break;
+        }
+        case 'demoCleaveHit' as never: {
+          await ultimateCleaveHit(app, spritesheets, fighters, step as never, speed);
+          break;
+        }
+        case 'demoGiantEnd' as never: {
+          await giantShrink(app, spritesheets, fighters, step as never, speed);
           break;
         }
         case 'demoSpawn' as never: {
@@ -1231,8 +1316,10 @@ export const setupFight: (
           // Claves con luchadores (`p`: mascotas afectadas). `w` es el arma (o el ganador, en el paso final,
           // que va solo): contarla reservaba al luchador con ese número sin motivo y frenaba los duelos en paralelo
           for (const key of ['f', 't', 'b', 'p']) {
-            // En AttemptHit `b` es "escudo roto" (0/1) y en Mimic `t` es el nivel de la habilidad
-            if ((key === 'b' && st.a === StepType.AttemptHit) || (key === 't' && st.a === StepType.Mimic)) continue;
+            // En AttemptHit `b` es "escudo roto" (0/1) y en Mimic `t` es el nivel de la habilidad. En los efectos de
+            // las ultimates (letrero, lo que cae del cielo, la onda del gigante) `f` es quien la lanza: sigue a lo suyo
+            if ((key === 'b' && st.a === StepType.AttemptHit) || (key === 't' && st.a === StepType.Mimic)
+              || (key === 'f' && ULTIMATE_OVERLAYS.has(st.a))) continue;
             const v = (st as unknown as Record<string, unknown>)[key];
             if (typeof v === 'number') set.add(v);
             else if (Array.isArray(v)) v.forEach((x) => { if (typeof x === 'number') set.add(x); });
@@ -1261,33 +1348,148 @@ export const setupFight: (
       crowd = ambient;
       // Reloj de "Finalizar" arriba en la arena: la ronda solo termina cuando llega a cero
       royaleClock(app, demoFight);
-      const runChunk = async (chunk: FightStep[], start: number, involved?: Set<number>, delay = 0) => {
-        if (delay > 0) await tween({ t: 0 }, { t: 1, duration: delay / speed.current });
-        for (let k = 0; k < chunk.length; k++) {
-          if (shouldAbort()) return;
-          await processStep(chunk[k], start + k, involved);
-        }
-      };
       // Cola de turnos ya simulados por el motor (ver `lookahead`): se lanza cualquier turno que no comparta
       // luchadores con lo que se está animando ni con turnos anteriores aún en cola, así cada luchador conserva
       // el orden de sus acciones.
-      type QueuedTurn = { chunk: FightStep[]; start: number; involved: Set<number>; exclusive: boolean; delay?: number };
+      // Ultimates (ver ultimates): alcanzan a muchos a la vez y, si fueran un solo turno, no se verían hasta que todos
+      // acabaran lo que tenían en cola. Así que cada golpe (y la caída de quien muera por él) va en su propia pieza, que
+      // solo espera a su objetivo y a que salga su letrero: `after` es esa señal y `signal`, el paso que la da.
+      // `extra`: pieza que no es un turno del motor (no cuenta para `lookahead`).
+      // `jump`: puede ir antes que lo que sus luchadores tengan en cola (en cuanto queden libres): los golpes que no
+      // matan (da igual en qué orden recibe cada uno sus golpes, la vida que le quitan es la misma; los que matan
+      // esperan su turno, para que caiga justo después) y que el Súper gigante crezca o encoja (solo se ve).
+      // `owner`: el de la Prisa en cadena, que no hace otra cosa mientras le queden embestidas, aunque estas pueden ir
+      // en otro orden (a por el primero que quede libre). `timing`: espera al letrero y entre golpes seguidos, y cuál
+      // es este. `indices`: número de cada paso (si no van seguidos)
+      type Signal = { reached: boolean; at: number };
+      type QueuedTurn = {
+        chunk: FightStep[]; start: number; involved: Set<number>; exclusive: boolean; delay?: number;
+        extra?: boolean; after?: Signal; signal?: { step: FightStep; token: Signal }; jump?: boolean; owner?: number;
+        timing?: [number, number, number]; indices?: number[];
+      };
       const queue: QueuedTurn[] = [];
+      (globalThis as any).__royaleQueue = queue; // depuración: lo que espera a animarse
       let engineDone = false;
+      // Despierta al bucle de abajo cuando sale una señal o llegan pasos nuevos (botón de una ultimate)
+      let nudge = () => {};
+      const nudged = () => new Promise<void>((resolve) => { nudge = () => resolve(); });
+      demoFight.wake = () => nudge();
+      const fire = (token: Signal) => {
+        if (token.reached) return;
+        token.reached = true;
+        token.at = performance.now();
+        nudge();
+      };
+      const runChunk = async (turn: QueuedTurn) => {
+        if (turn.delay && turn.delay > 0) await tween({ t: 0 }, { t: 1, duration: turn.delay / speed.current });
+        for (let k = 0; k < turn.chunk.length; k++) {
+          if (shouldAbort()) return;
+          const step = turn.chunk[k]!;
+          if (turn.signal?.step === step) fire(turn.signal.token);
+          await processStep(step, turn.indices?.[k] ?? turn.start + k, turn.involved);
+        }
+      };
       // Reserva a los luchadores de un turno: dejan al instante lo que hicieran por su cuenta
       const reserve = (involved: Set<number>) => involved.forEach((x) => {
         busy.add(x);
         ambient.release(findFighter(fighters, x));
       });
       const launch = (turn: QueuedTurn) => {
+        // Golpes seguidos de una serie: cada uno a su tiempo desde el letrero (si su objetivo estaba ocupado, ya)
+        if (turn.timing && turn.after) {
+          const [first, gap, k] = turn.timing;
+          const elapsed = ((performance.now() - turn.after.at) / 1000) * speed.current;
+          turn.delay = Math.max(0, first + gap * k - elapsed);
+        }
         reserve(turn.involved);
-        const p: Promise<void> = runChunk(turn.chunk, turn.start, turn.involved, turn.delay)
+        const p: Promise<void> = runChunk(turn)
           .catch(console.error)
           .finally(() => {
+            // Si no llegó a dar su señal (algo falló), lo que espera por ella no se queda colgado
+            if (turn.signal) fire(turn.signal.token);
             turn.involved.forEach((x) => busy.delete(x));
             running.delete(p);
           });
         running.add(p);
+      };
+      // Golpes de ultimates (ver arriba) y cuánto esperan al letrero y entre uno y otro (segundos)
+      const SERIES_STEPS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste', 'demoCleaveHit']);
+      const SERIES_TIMING: Record<string, [number, number]> = { demoFlood: [0.45, 0.2], demoBomb: [0.45, 0.38] };
+      // Reparte en piezas un trozo con ultimates (lanzadas con su botón, la onda de un Súper gigante o que encoja).
+      // Null si no tiene
+      const splitUltimates = (chunk: FightStep[], from: number): QueuedTurn[] | null => {
+        const visual = (st: FightStep) => (st.a as unknown) === 'demoGiant' || (st.a as unknown) === 'demoGiantEnd';
+        const ultimate = (st: FightStep) => (st.a as unknown) === 'demoUltimate' || SERIES_STEPS.has(st.a) || visual(st);
+        if (!chunk.some(ultimate)) return null;
+        type Item = { st: FightStep; i: number };
+        const piece = (items: Item[], extra: Partial<QueuedTurn>): QueuedTurn => ({
+          chunk: items.map((x) => x.st),
+          start: items[0]!.i,
+          indices: items.map((x) => x.i),
+          involved: involvedIn(items.map((x) => x.st)),
+          exclusive: false,
+          extra: true,
+          ...extra,
+        });
+        const victims = new Set<number>();
+        chunk.forEach((st) => { if (SERIES_STEPS.has(st.a)) damageOf(st)?.targets.forEach((t) => victims.add(t)); });
+        const lethal = new Set(chunk.flatMap((st) => (st.a === StepType.Death && victims.has(st.f) ? [st.f] : [])));
+        const heads: QueuedTurn[] = [];
+        const tail: QueuedTurn[] = [];
+        const main: Item[] = [];
+        let token: Signal = { reached: true, at: performance.now() };
+        // Lo que el motor pone delante de un golpe (resiste) va con él
+        let before: Item[] = [];
+        chunk.forEach((st, n) => {
+          const item = { st, i: from + n };
+          const a = st.a as unknown;
+          if (st.a === StepType.Resist) {
+            before.push(item);
+            return;
+          }
+          if (SERIES_STEPS.has(a)) {
+            const s = st as unknown as { k?: number; b?: number };
+            const timing = SERIES_TIMING[a as string];
+            tail.push(piece([...before, item], {
+              after: token,
+              // (si alguno aún no ha llegado a la arena, después de llegar)
+              jump: !damageOf(st)?.targets.some((t) => lethal.has(t)
+                || !findFighter(fighters, t)?.animation.container.visible),
+              owner: a === 'demoHaste' ? s.b : undefined,
+              timing: timing && [timing[0], timing[1], s.k ?? 0],
+            }));
+            before = [];
+            return;
+          }
+          main.push(...before);
+          before = [];
+          const last = tail[tail.length - 1];
+          // Sobrevive a un golpe (con 1 PV): va con ese golpe
+          if (st.a === StepType.Survive && last?.involved.has(st.b)) {
+            last.chunk.push(st);
+            last.indices?.push(item.i);
+          } else if (st.a === StepType.Death && victims.has(st.f)) {
+            tail.push(piece([item], {}));
+          } else if (a === 'demoUltimate') {
+            // Su letrero: no espera a nadie y da la señal a sus golpes
+            token = { reached: false, at: 0 };
+            heads.push(piece([item], { signal: { step: st, token } }));
+          } else {
+            main.push(item);
+          }
+        });
+        main.push(...before);
+        // El resto va junto: un turno del motor que coincidiera (con la onda del gigante), o que el gigante crezca o
+        // encoja (solo se ve, ver `jump`)
+        if (main.length) {
+          const look = main.every((x) => visual(x.st));
+          heads.push(piece(main, {
+            extra: look || chunk.some((st) => (st.a as unknown) === 'demoUltimate'),
+            exclusive: main.some((x) => exclusiveTypes.has(x.st.a)),
+            jump: look,
+          }));
+        }
+        return [...heads, ...tail];
       };
       let timeOver = false;
       // Nadie en pie (los últimos cayeron a la vez): ya no puede entrar nadie, se cierra como al acabarse el tiempo
@@ -1305,6 +1507,8 @@ export const setupFight: (
           cursor = steps.length;
           await Promise.all(running);
           if (shouldAbort()) return;
+          // Ultimates a medias (sus golpes ya no se ven): fuera sus efectos
+          clearUltimates();
           const score = (f: AnimationFighter) => (tags?.winsOf(f.index) ?? 0) + f.hp / f.maxHp / 2;
           const alive = standing();
           // Si no queda nadie en pie, gana el que más victorias lleve
@@ -1312,10 +1516,12 @@ export const setupFight: (
             .sort((a, b) => score(b) - score(a))[0];
           if (best) demoFight.endNow?.(best.index);
         }
-        // Rellenar la cola con los siguientes turnos del motor
+        // Rellenar la cola con los siguientes turnos del motor (los pasos que ya están, como los de una ultimate recién
+        // lanzada, se cogen siempre)
         let waiting = false;
-        while (!engineDone && queue.length < lookahead() && !queue.some((q) => q.exclusive)) {
+        while (!engineDone && !queue.some((q) => q.exclusive)) {
           if (cursor >= steps.length) {
+            if (queue.filter((q) => !q.extra).length >= lookahead()) break;
             // El motor va por delante: cuando queda uno en pie no cierra la pelea hasta que aquí se ha visto todo
             // (null = todavía no), así se pueden seguir agregando brutes mientras quedan duelos en pantalla
             const more = demoFight.pullSteps ? await demoFight.pullSteps(!queue.length && !running.size) : false;
@@ -1324,6 +1530,12 @@ export const setupFight: (
             if (cursor >= steps.length) continue;
           }
           const chunk = steps.slice(cursor);
+          const ultimate = splitUltimates(chunk, cursor);
+          if (ultimate) {
+            queue.push(...ultimate);
+            cursor = steps.length;
+            continue;
+          }
           // Las llegadas del principio vienen todas juntas: van por separado, así cada uno queda libre (y se mueve
           // por su cuenta o empieza su duelo) en cuanto aterriza en vez de esperar al último. Lo mismo con varios
           // brutes agregados a la vez (+5): cada uno aparece y llega por su cuenta
@@ -1362,9 +1574,33 @@ export const setupFight: (
           break;
         }
 
-        // Lanzar todo lo que se pueda
+        // Lanzar todo lo que se pueda: primero lo que puede adelantarse (ver `jump`), luego en orden
         let launched = false;
+        // Objetivos de una Prisa en cadena que solo espera a que quede libre quien la lanza: le esperan sin empezar
+        // otra cosa (si no, cuando él quedara libre ellos podrían estar a mitad de un turno)
+        const claimed = new Set<number>();
+        if (!queue.some((q) => q.exclusive)) {
+          for (let q = 0; q < queue.length; q++) {
+            const turn = queue[q]!;
+            if (!turn.jump || (turn.after && !turn.after.reached) || running.size >= MAX_PARALLEL) continue;
+            const waits = [...turn.involved].filter((x) => busy.has(x));
+            if (waits.length) {
+              if (waits.every((x) => x === turn.owner)) {
+                turn.involved.forEach((x) => { if (x !== turn.owner) claimed.add(x); });
+              }
+              continue;
+            }
+            queue.splice(q, 1);
+            q -= 1;
+            launch(turn);
+            launched = true;
+          }
+        }
         const blocked = new Set<number>();
+        // El de una Prisa en cadena con embestidas aún en cola: solo puede seguir con las de esa serie (aunque tuviera
+        // otras cosas antes en cola, si alguna embestida puede adelantarse)
+        const held = new Map<number, Signal | undefined>();
+        for (const q of queue) if (q.owner !== undefined && q.jump && !held.has(q.owner)) held.set(q.owner, q.after);
         for (let q = 0; q < queue.length; q++) {
           const turn = queue[q]!;
           if (turn.exclusive) {
@@ -1376,25 +1612,35 @@ export const setupFight: (
               const last = turn.chunk.some((st) => st.a === StepType.End);
               if (last) ambient.stop();
               else reserve(turn.involved);
-              await runChunk(turn.chunk, turn.start, turn.involved);
+              await runChunk(turn);
               if (!last) turn.involved.forEach((x) => busy.delete(x));
               launched = true;
             }
             break;
           }
           const free = running.size < MAX_PARALLEL
-            && ![...turn.involved].some((x) => busy.has(x) || blocked.has(x));
+            && (!turn.after || turn.after.reached)
+            && ![...turn.involved].some((x) => busy.has(x) || blocked.has(x) || claimed.has(x)
+              || (held.has(x) && held.get(x) !== turn.after));
           if (free) {
             queue.splice(q, 1);
             q -= 1;
             launch(turn);
             launched = true;
           } else {
-            turn.involved.forEach((x) => blocked.add(x));
+            turn.involved.forEach((x) => {
+              if (x !== turn.owner) blocked.add(x);
+              else if (!held.has(x)) held.set(x, turn.after);
+            });
           }
         }
-        if (!launched && running.size) {
-          await Promise.race(running);
+        if (!launched) {
+          // A esperar a que acabe algo, salga la señal de una ultimate o se lance otra (sin nada en marcha, poco)
+          await Promise.race([
+            ...running,
+            nudged(),
+            ...(running.size ? [] : [new Promise((resolve) => { setTimeout(resolve, 150); })]),
+          ]);
         }
       }
       await Promise.all(running);

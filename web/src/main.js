@@ -200,10 +200,26 @@ let fpsClass = '';
 let rosterFight = null;
 // Activa "Finalizar" en la ronda en curso (las rondas continuas lo hacen solas)
 let royaleFinish = null;
+// Ultimate de cada brute (ver engine/ultimates): icono de su botoncito en la lista, nombre y qué hace
+const ULTIMATE_INFO = {
+  flood: { icon: '🌊', name: 'Diluvio total', text: 'una lluvia de armas cae sobre varios rivales' },
+  bombs: { icon: '💣', name: 'Lluvia de bombas', text: 'caen bombas del cielo sobre varios rivales' },
+  haste: { icon: '⚡', name: 'Prisa en cadena', text: 'embiste a varios rivales, uno detrás de otro' },
+  giant: {
+    icon: '💪',
+    name: 'Súper gigante',
+    text: 'crece 15 s (daño x2 y recibe la mitad) y tras cada ataque suelta una onda que alcanza a los más cercanos',
+  },
+};
+// Tras verse, la ultimate de un brute se recarga en este tiempo (corre con la pelea: se para con la pausa)
+const ULTIMATE_COOLDOWN = 30;
 function renderRoster(fight) {
   rosterFight = fight;
   const fighters = JSON.parse(fight.fighters).filter((f) => f.type === 'brute' && !f.master);
-  const state = new Map(fighters.map((f) => [f.index, { name: f.name, out: 0, hp: f.hp, maxHp: f.maxHp, wins: 0 }]));
+  // ult: 'ready', 'pending' (lanzada, aún no se ve) o los segundos que le quedan para recargarse
+  const state = new Map(
+    fighters.map((f) => [f.index, { name: f.name, out: 0, hp: f.hp, maxHp: f.maxHp, wins: 0, ult: 'ready' }]),
+  );
   let fallen = 0;
   let winner;
   // Fila que acaba de sumar una victoria (su trofeo salta en ese dibujo)
@@ -228,6 +244,33 @@ function renderRoster(fight) {
   const who = (index) =>
     `<i class="dot" style="background:${royaleColorCss(index)}"></i><span class="who">${esc(state.get(index)?.name ?? '?')}</span>`;
   const canAdd = () => !winner && !!fight.canAddBrute?.();
+  // Botoncito de ultimate de una fila: listo, lanzada y esperando a verse (…) o recargando (segundos)
+  const ultInfo = (index) => ULTIMATE_INFO[fight.ultimateOf?.(index)];
+  const ultLabel = (index, s) => {
+    const icon = ultInfo(index)?.icon ?? '✨';
+    return s.ult === 'ready' ? icon : s.ult === 'pending' ? `${icon}…` : `${icon}${Math.ceil(s.ult)}`;
+  };
+  const ultDisabled = (s) => !!(winner || fight.timeUp || s.ult !== 'ready');
+  const ultButton = (index, s) => {
+    const info = ultInfo(index);
+    if (!info) return '';
+    const title = `Ultimate · ${info.name}: ${info.text}`;
+    return `<button class="ult" data-ult="${index}" title="${esc(title)}" ${ultDisabled(s) ? 'disabled' : ''}>${ultLabel(index, s)}</button>`;
+  };
+  const castUltimate = (index) => {
+    const s = state.get(index);
+    if (!s || s.out || ultDisabled(s)) return;
+    if (!fight.castUltimate?.(index)) {
+      // No se pudo (no queda a quién darle, o en la pelea ya ha caído aunque aún no se haya visto): el botón tiembla
+      const button = $('roster').querySelector(`[data-ult="${index}"]`);
+      button?.classList.remove('nope');
+      void button?.offsetWidth;
+      button?.classList.add('nope');
+      return;
+    }
+    s.ult = 'pending';
+    draw();
+  };
   const draw = () => {
     const total = state.size;
     const rows = [...state.entries()]
@@ -240,7 +283,7 @@ function renderRoster(fight) {
         // Victorias de la ronda (rivales que eliminó), junto a la vida: desde la primera
         const wins = s.wins ? `<b class="wins${index === popped ? ' pop' : ''}">🏆${s.wins}</b>` : '';
         return `<li data-index="${index}" class="${classes}" style="--c:${royaleColorCss(index)}">
-          <div class="roster-top">${who(index)}${wins}<small class="hp-text">${Math.max(0, Math.round(s.hp))}/${s.maxHp}</small></div>
+          <div class="roster-top">${who(index)}${wins}<small class="hp-text">${Math.max(0, Math.round(s.hp))}/${s.maxHp}</small>${ultButton(index, s)}</div>
           <div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div>
           ${status ? `<small>${status}</small>` : ''}
         </li>`;
@@ -271,7 +314,7 @@ function renderRoster(fight) {
     for (let k = 0; k < count; k++) {
       const brute = fight.addBrute?.();
       if (!brute) break;
-      state.set(brute.index, { name: brute.name, out: 0, hp: brute.hp, maxHp: brute.maxHp, wins: 0 });
+      state.set(brute.index, { name: brute.name, out: 0, hp: brute.hp, maxHp: brute.maxHp, wins: 0, ult: 'ready' });
     }
     draw();
   };
@@ -287,6 +330,8 @@ function renderRoster(fight) {
     const button = e.target.closest?.('[data-add]');
     if (button) return add(+button.dataset.add);
     if (e.target.closest?.('[data-finish]')) return setFinish(!fight.finishing);
+    const ult = e.target.closest?.('[data-ult]');
+    if (ult) return castUltimate(+ult.dataset.ult);
     const li = e.target.closest?.('ol.roster li[data-index]');
     if (!li) return;
     pinned = pinned === +li.dataset.index ? null : +li.dataset.index;
@@ -305,8 +350,23 @@ function renderRoster(fight) {
     popped = null;
   };
   // Vida en vivo: se lee de los luchadores de la animación (así va al ritmo de los golpes que se ven)
+  let lastTick = performance.now();
   const tick = setInterval(() => {
     if (rosterFight !== fight) return clearInterval(tick);
+    // Recarga de las ultimates (con la pelea en marcha)
+    const now = performance.now();
+    const elapsed = app?.ticker?.started ? (now - lastTick) / 1000 : 0;
+    lastTick = now;
+    for (const [index, s] of state) {
+      if (typeof s.ult !== 'number' || s.out) continue;
+      const before = ultLabel(index, s);
+      s.ult = s.ult - elapsed <= 0 ? 'ready' : s.ult - elapsed;
+      const button = $('roster').querySelector(`[data-ult="${index}"]`);
+      if (!button || ultLabel(index, s) === before) continue;
+      button.textContent = ultLabel(index, s);
+      button.disabled = ultDisabled(s);
+    }
+    if (winner || fight.timeUp) document.querySelectorAll('#roster [data-ult]').forEach((b) => (b.disabled = true));
     // Cuenta atrás de "Finalizar": la lleva el reloj de la arena, aquí se copia al botón
     const finish = $('roster').querySelector('[data-finish]');
     if (finish && fight.finishing) {
@@ -333,6 +393,11 @@ function renderRoster(fight) {
     }
   }, 150);
   fight.onStep = (step) => {
+    // Su ultimate se ve ya: empieza a recargarse
+    if (step.a === 'demoUltimate' && state.has(step.f)) {
+      state.get(step.f).ult = ULTIMATE_COOLDOWN;
+      draw();
+    }
     if (step.a === StepType.Death && state.has(step.f) && !state.get(step.f).out) {
       fallen += 1;
       state.get(step.f).out = fallen;

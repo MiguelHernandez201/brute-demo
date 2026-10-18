@@ -12,6 +12,9 @@ import { applySpy } from './applySpy';
 import {
   Stats, activateSuper, checkDeaths, fighterArrives, orderFighters, playFighterTurn, royalePace, saboteur,
 } from './fightMethods';
+import {
+  Ultimate, castUltimate as playUltimate, cleave, endGiant,
+} from './ultimates';
 
 // `activate`: power-ups que se activan al empezar el siguiente turno (sin depender de la probabilidad)
 export type Purchase = { weapons?: string[]; skills?: string[]; pets?: string[]; potions?: number; activate?: string[] };
@@ -191,6 +194,35 @@ export class FightSession {
     this.loser = loser;
     this.steps.push({ a: StepType.End, w: winner.index, l: loser.index });
     return true;
+  }
+
+  // Battle royale: el brute `index` lanza su ultimate (botón de la lista). Como al agregar un brute, se juega en el
+  // motor ya (tras lo que el motor ya llevaba jugado); la animación la muestra enseguida (ver setupFight)
+  castUltimate(index: number, kind: Ultimate) {
+    if (!this.royale || this.winner) return false;
+    const fd = this.fightData;
+    const caster = fd.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master && f.hp > 0);
+    if (!caster || !playUltimate(fd, this.#stats, this.#achievements, caster, kind)) return false;
+    checkDeaths(fd, this.#stats);
+    this.#royaleEliminations();
+    return true;
+  }
+
+  // Battle royale: la onda del Súper gigante `index` alcanza a los primeros de `candidates` que pueda (la animación
+  // la suelta cuando le ve atacar). Devuelve a quiénes
+  cleave(index: number, candidates: number[]) {
+    if (!this.royale || this.winner) return [];
+    const fd = this.fightData;
+    const hit = cleave(fd, this.#stats, this.#achievements, index, candidates);
+    if (!hit.length) return hit;
+    checkDeaths(fd, this.#stats);
+    this.#royaleEliminations();
+    return hit;
+  }
+
+  // Battle royale: se acaba el Súper gigante (ultimate) del brute `index`
+  endGiant(index: number) {
+    return this.royale && !this.winner && endGiant(this.fightData, index);
   }
 
   // Si se puede agregar un brute al royale: hasta su paso End, con alguien en pie con quien pelear

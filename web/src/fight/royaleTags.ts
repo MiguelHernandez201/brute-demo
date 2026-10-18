@@ -204,13 +204,14 @@ export const royaleTags = (
         tag.counter.scale.set(1 + 0.8 * Math.sin((Math.PI * tag.pop) / POP_TIME));
       }
 
-      // Encima de la cabeza, sin salirse por los lados y sin taparse con la de al lado (se sube un escalón)
+      // Encima de la cabeza, sin salirse por los lados ni por arriba (Súper gigante) y sin taparse con la de al lado
+      // (se sube un escalón)
       const giant = f.animation.giantScale || 1;
       const left = tag.left * size;
       const right = tag.right * size;
       const step = TAG_H * size;
       const x = clamp(c.x, left + 3, 500 - right - 3);
-      const y = c.y - f.animation.baseHeight * 0.98 * giant - 3;
+      const y = Math.max(step + 3, c.y - f.animation.baseHeight * 0.98 * giant - 3);
       let lift = 0;
       for (let tries = 0; tries < 4; tries++) {
         const top = y - lift;

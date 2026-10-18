@@ -4,7 +4,7 @@ import {
   ArriveStep,
   entries,
   ExtraTieredSkillData,
-  FightStat, FightWeapon, getSkillScaledStat, HasteStep, HitStep, keys, LeaveStep,
+  FightStat, FightStep, FightWeapon, getSkillScaledStat, HasteStep, HitStep, keys, LeaveStep,
   NO_SKILL_TOSS,
   NO_WEAPON_TOSS,
   randomBetween, randomItem, Skill,
@@ -552,7 +552,8 @@ const consumeActiveSkill = (
   fighter.activeSkills = fighter.activeSkills.filter((sk) => sk.name !== skillName);
 };
 
-const registerHit = ({
+// Demo: `customStep` arma el paso de la animación con el daño final de cada uno (ultimates del royale, ver ultimates)
+export const registerHit = ({
   fightData,
   stats,
   achievements,
@@ -563,6 +564,7 @@ const registerHit = ({
   thrown,
   source,
   flashFloodWeapon,
+  customStep,
 }: {
   fightData: DetailedFight;
   stats: Stats;
@@ -572,8 +574,9 @@ const registerHit = ({
   damage: number;
   criticalHit?: boolean;
   thrown?: boolean;
-  source?: 'hammer' | 'flashFlood' | 'poison' | 'bomb' | 'vampirism' | 'haste';
+  source?: 'hammer' | 'flashFlood' | 'poison' | 'bomb' | 'vampirism' | 'haste' | 'ultimate';
   flashFloodWeapon?: FightWeapon;
+  customStep?: (damage: Record<number, number>) => FightStep;
 }) => {
   const bombDamageRangeOnPets: Record<PetName, [number, number]> = {
     [PetName.dog1]: [90, 150],
@@ -665,7 +668,9 @@ const registerHit = ({
     }
   });
 
-  if (source === 'bomb') {
+  if (customStep) {
+    fightData.steps.push(customStep(actualDamage));
+  } else if (source === 'bomb') {
     // Add bomb step
     fightData.steps.push({
       a: StepType.Bomb,
