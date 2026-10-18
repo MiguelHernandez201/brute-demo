@@ -59,7 +59,7 @@ import { displayHeal } from './utils/displayHeal';
 import { createBustImage } from './utils/createBustImage';
 import { AnimationFighter, findFighter, findHUDFocusedFighter } from './utils/findFighter';
 import { isRangedStep, repositionControl, repositionFighters } from './utils/repositionFighters';
-import { royaleArena } from './utils/fightPositions';
+import { getDuelPosition, royaleArena } from './utils/fightPositions';
 import { royaleAmbient } from './royaleAmbient';
 import { royaleTags } from './royaleTags';
 import { resetBakeBudget, setCrowdLevel, updateCrowdQuality } from './crowdQuality';
@@ -820,6 +820,10 @@ export const setupFight: (
       return killer;
     };
 
+    // Royale (duelos): a quién atacó cada uno por última vez, para retroceder frente a él (ver getDuelPosition)
+    const duelFoe = new Map<number, number>();
+    // Royale: sitios ya elegidos por los que están llegando a la vez
+    const arrivalSpots: { x: number; y: number }[] = [];
     const royaleSides = (step: FightStep) => {
       const s = step as unknown as { f?: number; b?: number; t?: number; w?: number };
       if (step.a === StepType.End) {
@@ -834,6 +838,7 @@ export const setupFight: (
       const actor = findFighter(fighters, s.f ?? s.b);
       const target = findFighter(fighters, s.t);
       if (!actor || !target || actor === target) return;
+      duelFoe.set(actor.index, target.index);
       const actorLeft = actor.animation.container.x <= target.animation.container.x;
       setRoyaleSide(actor, actorLeft ? 'L' : 'R');
       setRoyaleSide(target, actorLeft ? 'R' : 'L');
@@ -888,11 +893,17 @@ export const setupFight: (
           break;
         }
         case StepType.MoveBack: {
-          await moveBack(fighters, step, speed, undefined, app, spritesheets);
+          // Demo royale (duelos): retrocede frente a su rival si sigue en pie, no a otro sitio de la arena
+          const mover = isRoyale ? findFighter(fighters, step.f) : undefined;
+          const foe = mover ? findFighter(fighters, duelFoe.get(mover.index)) : undefined;
+          const spot = mover && foe && !foe.dead && foe.animation.container.visible
+            ? getDuelPosition(fighters, mover, foe)
+            : undefined;
+          await moveBack(fighters, step, speed, spot, app, spritesheets);
           break;
         }
         case StepType.Arrive: {
-          await arrive(app, spritesheets, fighters, step, speed);
+          await arrive(app, spritesheets, fighters, step, speed, isRoyale ? arrivalSpots : undefined);
           break;
         }
         case StepType.Leave: {
@@ -1181,12 +1192,19 @@ export const setupFight: (
       }
     } else {
       // Demo battle royale: varios turnos a la vez. Cada turno del motor (sus pasos, en orden) se anima
-      // en paralelo con otros turnos siempre que no compartan luchadores. Los pasos que afectan a
-      // muchos (bomba, diluvio, hipnosis, sabotaje, fin) esperan a que todo lo demás termine.
+      // en paralelo con otros turnos siempre que no compartan luchadores. En el motor cada brute pelea con un
+      // rival fijo (duelos, ver royaleFoe), así que todos los duelos pueden ir a la vez. Solo paran la arena
+      // el fin, el saboteador del principio y la hipnosis (fotografía toda la escena para su efecto).
       repositionControl.disabled = true;
-      // Demo: hasta 6 duelos a la vez (antes 4): el royale es un caos
-      const MAX_PARALLEL = 6;
-      const exclusiveTypes = new Set<number>([StepType.Bomb, StepType.FlashFlood, StepType.Hypnotise, StepType.Saboteur, StepType.End, StepType.Arrive, StepType.Spy]);
+      // Sin tope práctico: antes eran 6 duelos a la vez y el resto esperaba su turno
+      const MAX_PARALLEL = 64;
+      const exclusiveTypes = new Set<number>([StepType.Hypnotise, StepType.Saboteur, StepType.End, StepType.Spy]);
+      // Turnos que se miran por delante: el doble de los que siguen en pie, para que el siguiente turno de cada
+      // duelo ya esté en la cola cuando termina el anterior
+      const lookahead = () => Math.max(16, 2 * fighters.filter((f) => !f.dead).length);
+      // Las llegadas del principio van escalonadas (sin parar nada): cada uno salta este tiempo después del anterior
+      const ARRIVAL_STAGGER = 0.12;
+      const isStartStep = (st: FightStep) => st.a === StepType.Arrive || st.a === StepType.Saboteur || st.a === StepType.Spy;
       const involvedIn = (chunk: FightStep[]) => {
         const set = new Set<number>();
         for (const st of chunk) {
@@ -1216,21 +1234,22 @@ export const setupFight: (
       };
       const running = new Set<Promise<void>>();
       const busy = new Set<number>();
+      (globalThis as any).__royaleBusy = busy; // depuración: luchadores que se están animando en un turno
       let cursor = 0;
       // Los que no están en ningún duelo se mueven por su cuenta (ver royaleAmbient)
       const ambient = royaleAmbient(app, spritesheets, () => fighters, speed, (f) => busy.has(f.index));
       crowd = ambient;
-      const runChunk = async (chunk: FightStep[], start: number, involved?: Set<number>) => {
+      const runChunk = async (chunk: FightStep[], start: number, involved?: Set<number>, delay = 0) => {
+        if (delay > 0) await tween({ t: 0 }, { t: 1, duration: delay / speed.current });
         for (let k = 0; k < chunk.length; k++) {
           if (shouldAbort()) return;
           await processStep(chunk[k], start + k, involved);
         }
       };
-      // Cola de turnos ya simulados por el motor (se mira hasta LOOKAHEAD turnos por delante):
-      // se lanza cualquier turno que no comparta luchadores con lo que se está animando ni con turnos
-      // anteriores aún en cola, así cada luchador conserva el orden de sus acciones.
-      const LOOKAHEAD = 16;
-      type QueuedTurn = { chunk: FightStep[]; start: number; involved: Set<number>; exclusive: boolean };
+      // Cola de turnos ya simulados por el motor (ver `lookahead`): se lanza cualquier turno que no comparta
+      // luchadores con lo que se está animando ni con turnos anteriores aún en cola, así cada luchador conserva
+      // el orden de sus acciones.
+      type QueuedTurn = { chunk: FightStep[]; start: number; involved: Set<number>; exclusive: boolean; delay?: number };
       const queue: QueuedTurn[] = [];
       let engineDone = false;
       // Reserva a los luchadores de un turno: dejan al instante lo que hicieran por su cuenta
@@ -1240,7 +1259,7 @@ export const setupFight: (
       });
       const launch = (turn: QueuedTurn) => {
         reserve(turn.involved);
-        const p: Promise<void> = runChunk(turn.chunk, turn.start, turn.involved)
+        const p: Promise<void> = runChunk(turn.chunk, turn.start, turn.involved, turn.delay)
           .catch(console.error)
           .finally(() => {
             turn.involved.forEach((x) => busy.delete(x));
@@ -1251,28 +1270,28 @@ export const setupFight: (
       for (;;) {
         if (shouldAbort()) return;
         // Rellenar la cola con los siguientes turnos del motor
-        while (!engineDone && queue.length < LOOKAHEAD && !queue.some((q) => q.exclusive)) {
+        while (!engineDone && queue.length < lookahead() && !queue.some((q) => q.exclusive)) {
           if (cursor >= steps.length) {
             const more = demoFight.pullSteps ? await demoFight.pullSteps() : false;
             if (!more && cursor >= steps.length) { engineDone = true; break; }
             if (cursor >= steps.length) continue;
           }
           const chunk = steps.slice(cursor);
-          // Las llegadas del principio vienen todas juntas: van de una en una igual, pero separadas, así cada
-          // uno queda libre (y se mueve por su cuenta) en cuanto aterriza en vez de esperar al último
-          const pieces = chunk.length > 1 && chunk.every((st) => exclusiveTypes.has(st.a) && st.a !== StepType.End)
+          // Las llegadas del principio vienen todas juntas: van por separado, así cada uno queda libre (y se mueve
+          // por su cuenta o empieza su duelo) en cuanto aterriza en vez de esperar al último
+          const pieces = chunk.length > 1 && chunk.every(isStartStep)
             ? chunk.map((st) => [st])
             : [chunk];
           let start = cursor;
+          let arrivals = 0;
           for (const piece of pieces) {
+            const arrival = pieces.length > 1 && piece[0]?.a === StepType.Arrive;
             queue.push({
               chunk: piece,
               start,
               involved: involvedIn(piece),
-              // Un brute que entra en plena pelea (botón "Agregar") llega sin parar los demás duelos:
-              // nadie más anima a un luchador que aún no estaba
-              exclusive: piece.some((st) => exclusiveTypes.has(st.a))
-                && !piece.some((st) => (st.a as unknown) === 'demoSpawn'),
+              exclusive: piece.some((st) => exclusiveTypes.has(st.a)),
+              delay: arrival ? ARRIVAL_STAGGER * arrivals++ : 0,
             });
             start += piece.length;
           }

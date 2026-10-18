@@ -18,6 +18,8 @@ export const arrive = async (
   fighters: AnimationFighter[],
   step: ArriveStep,
   speed: React.RefObject<number>,
+  // Demo royale: sitios ya elegidos por otros que están llegando a la vez (así no caen uno encima de otro)
+  claimed?: { x: number; y: number }[],
 ) => {
   const shouldAbort = () => !app.stage || app.stage.destroyed;
 
@@ -49,7 +51,9 @@ export const arrive = async (
   }
 
   // Get random position
-  const { x, y } = getRandomPosition(fighters, fighter);
+  const spot = getRandomPosition(fighters, fighter, claimed);
+  const { x, y } = spot;
+  claimed?.push(spot);
 
   fighter.animation.once('arrive:start', () => {
     fighter.animation.pause();
@@ -83,6 +87,9 @@ export const arrive = async (
     ease: 'none',
     endPosition: { x, y, zIndex: y },
   });
+
+  // Demo: ya en el suelo cuenta como cualquier otro luchador
+  claimed?.splice(claimed.indexOf(spot), 1);
 
   if (shouldAbort()
     || fighter.animation.container.destroyed

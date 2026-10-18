@@ -63,6 +63,42 @@ export const getRoyalePosition = (
   return best;
 };
 
+// Demo battle royale (duelos): tras atacar, retrocede un poco frente a su rival en vez de irse a otro sitio de la
+// arena, así cada pareja pelea en su zona sin cruzarse con las demás. Se prueban unos puntos a los lados del rival
+// (sobre todo del suyo) y gana el más despejado.
+export const getDuelPosition = (
+  fighters: AnimationFighter[],
+  fighter: AnimationFighter,
+  foe: AnimationFighter,
+): { x: number, y: number } => {
+  const others = fighters
+    .filter((f) => f !== fighter && f !== foe && !f.dead && f.animation.container.visible
+      && f.animation.container.y >= minYPosition && f.animation.container.y <= maxYPosition)
+    .map((f) => ({ x: f.animation.container.x, y: f.animation.container.y }));
+  const { minX, maxX, minY, maxY } = royaleArena;
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+  const fx = foe.animation.container.x;
+  const fy = clamp(foe.animation.container.y, minY, maxY);
+  const side = Math.sign(fighter.animation.container.x - fx) || 1;
+  // Sin solaparse con el rival (los gigantes ocupan más)
+  const gap = (foe.animation.baseWidth + fighter.animation.baseWidth) / 2;
+  let best = { x: clamp(fx + side * (gap + 45), minX, maxX), y: fy };
+  let bestScore = -Infinity;
+  for (let k = 0; k < 12; k++) {
+    const s = Math.random() < 0.8 ? side : -side;
+    const x = clamp(fx + s * (gap + 30 + Math.random() * 40), minX, maxX);
+    const y = clamp(fy + (Math.random() - 0.5) * 30, minY, maxY);
+    // Contra un borde quedaría encima del rival
+    if (Math.abs(x - fx) < gap) continue;
+    const score = roomAt(x, y, others, 70) - Math.abs(x - fighter.animation.container.x) * 0.05;
+    if (score > bestScore) {
+      bestScore = score;
+      best = { x, y };
+    }
+  }
+  return best;
+};
+
 const getRandomPosition = (
   fighters: AnimationFighter[],
   fighter: AnimationFighter,

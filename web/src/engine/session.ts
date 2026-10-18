@@ -156,6 +156,8 @@ export class FightSession {
       winner: null,
       loser: null,
       overtime: false,
+      // Royale: duelos simultáneos (cada equipo con un rival fijo hasta que uno cae)
+      ...(royale ? { royaleFoes: {} } : {}),
     };
 
     // Llegada de todos, espionaje (1 vs 1) y saboteador, como en generateFight
