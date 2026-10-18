@@ -60,8 +60,14 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 
   Para ver una en concreto se puede forzar con la URL, por ejemplo `?fatality=aplastado`
   (`decapitacion`, `partido`, `aplastado`, `acribillado`, `latigo` o `explosion`).
-- **Battle Royale**: de 3 a 20 brutes, todos contra todos, con hasta seis duelos animados a la vez
-  por toda la arena.
+- **Battle Royale**: de 3 a 20 brutes, todos contra todos y todos peleando a la vez por toda la arena.
+  - Duelos simultáneos: cada brute (con sus mascotas) pelea contra un rival fijo hasta que uno de los dos
+    cae, y entonces busca otro (primero a quien lo esté atacando, luego a alguien libre). Así cada turno solo
+    implica a una pareja y se animan todos los duelos a la vez: si cada ataque fuera a un rival al azar entre
+    todos, la mayoría tendría que esperar a que otros terminaran. Con número impar, el que sobra se suma a un
+    duelo ajeno hasta que alguien quede libre. Bomba, Diluvio y demás técnicas solo alcanzan al rival del duelo.
+  - Tras atacar, cada uno retrocede frente a su rival (no a otra punta de la arena), así cada pareja pelea en
+    su zona. Las llegadas del principio van escalonadas, sin esperar a que aterrice el anterior.
   - Cada brute lleva encima su nombre y su vida, con un color propio que también marca su fila en la
     lista. Al pasar el ratón por una fila (o tocarla) se resalta en la arena; con un clic se queda fijo.
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea. La lista muestra los fps para ver cuántos

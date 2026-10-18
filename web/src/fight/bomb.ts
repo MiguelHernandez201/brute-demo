@@ -11,6 +11,7 @@ import { updateHp } from './updateHp';
 import { displayDamage } from './utils/displayDamage';
 import { AnimationFighter, findFighter } from './utils/findFighter';
 import { shakeStage } from './utils/stageAnimations';
+import { royaleArena } from './utils/fightPositions';
 import { untrap } from './untrap';
 import { playResistAnimation } from './resist';
 import { skillUse } from './skillActivate';
@@ -62,11 +63,20 @@ export const bomb = async (
     fighter.animation.container.y - fighter.animation.baseHeight / 2,
   );
 
-  // Get target position
-  const targetPosition = {
-    x: fighter.team === 'L' ? app.screen.width - 100 : 100,
-    y: app.screen.height * 0.75,
-  };
+  // Get target position (Demo royale: donde están sus objetivos, no al otro lado de la pantalla, porque
+  // ya no para la arena y hay más duelos alrededor)
+  const aimed = royaleArena.enabled
+    ? step.t.map((t) => findFighter(fighters, t)).filter((t): t is AnimationFighter => !!t)
+    : [];
+  const targetPosition = aimed.length
+    ? {
+      x: aimed.reduce((sum, t) => sum + t.animation.container.x, 0) / aimed.length,
+      y: aimed.reduce((sum, t) => sum + t.animation.container.y, 0) / aimed.length,
+    }
+    : {
+      x: fighter.team === 'L' ? app.screen.width - 100 : 100,
+      y: app.screen.height * 0.75,
+    };
 
   // Add bomb sprite to stage
   app.stage.addChild(bombSprite);

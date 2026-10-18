@@ -126,6 +126,46 @@ const checkAchievements = (
   }
 };
 
+// Demo battle royale: duelos simultáneos. Cada equipo (un brute con sus mascotas) pelea contra un rival fijo
+// hasta que uno de los dos cae. Así cada turno solo implica a una pareja y la animación puede mostrar todos los
+// duelos a la vez: si cada ataque fuera a un rival al azar entre todos, casi todos esperarían a que otros
+// terminaran (un luchador no puede estar en dos animaciones a la vez). Sin rival vivo, en su siguiente acción
+// busca otro: primero a quien ya lo esté atacando, luego a alguien libre, luego a quien ataque a un tercero sin
+// que le responda. Si no queda nadie así (número impar), se suma a un duelo ajeno hasta que alguien quede libre.
+const royaleTeams = (fightData: DetailedFight) => [...new Set(fightData.fighters
+  .filter((f) => f.type === 'brute' && !f.master && f.hp > 0 && !f.arrivesAtInitiative)
+  .map((f) => f.team as string))];
+
+const pickOne = <T>(items: T[]) => (items.length ? items[Math.floor(Math.random() * items.length)] : undefined);
+
+const royaleFoe = (fightData: DetailedFight, team: string) => {
+  const foes = fightData.royaleFoes;
+  if (!foes) return null;
+  const alive = new Set(royaleTeams(fightData));
+  const engaged = (t: string) => {
+    const foe = foes[t];
+    return !!foe && foe !== t && alive.has(foe);
+  };
+  const current = foes[team];
+  // Sigue con su duelo mientras los dos vivan
+  if (engaged(team) && current && foes[current] === team) return current;
+  const others = [...alive].filter((t) => t !== team);
+  const pick = pickOne(others.filter((t) => foes[t] === team))
+    ?? pickOne(others.filter((t) => !engaged(t)))
+    ?? pickOne(others.filter((t) => engaged(t) && foes[foes[t] as string] !== t));
+  if (pick) {
+    foes[team] = pick;
+    foes[pick] = team;
+    return pick;
+  }
+  // Nadie libre: sigue atacando a quien ya atacaba o se suma a un duelo ajeno
+  if (engaged(team) && current) return current;
+  const other = pickOne(others);
+  if (!other) return null;
+  foes[team] = other;
+  return other;
+};
+
 const getOpponents = ({
   fightData,
   fighter,
@@ -143,6 +183,12 @@ const getOpponents = ({
   opponents = fightData.fighters.filter((f) => !f.arrivesAtInitiative
     && f.hp > 0
     && f.team !== fighter.team);
+
+  // Demo battle royale: solo el equipo de su rival de duelo
+  if (fightData.royaleFoes) {
+    const foe = royaleFoe(fightData, fighter.team);
+    opponents = opponents.filter((f) => f.team === foe);
+  }
 
   if (bruteAndBossOnly) {
     opponents = opponents.filter((f) => f.type === 'brute' || f.type === 'boss');

@@ -133,6 +133,8 @@ export type DetailedFight = {
   winner: string | null;
   loser: string | null;
   overtime: boolean;
+  // Demo battle royale: rival de duelo de cada equipo (ver royaleFoe en fightMethods)
+  royaleFoes?: Record<string, string>;
 }
 
 export type GenerateFightResult = {
