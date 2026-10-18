@@ -68,6 +68,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     duelo ajeno hasta que alguien quede libre. Bomba, Diluvio y demás técnicas solo alcanzan al rival del duelo.
   - Tras atacar, cada uno retrocede frente a su rival (no a otra punta de la arena), así cada pareja pelea en
     su zona. Las llegadas del principio van escalonadas, sin esperar a que aterrice el anterior.
+  - Carroñero y Golosina están en desuso en el royale: aquí no hay mascotas (solo llegan comprándolas en el
+    1 vs 1), así que nunca podían usarse. Los brutes del royale reciben otra mejora en su lugar.
   - Cada brute lleva encima su nombre y su vida, con un color propio que también marca su fila en la
     lista. Al pasar el ratón por una fila (o tocarla) se resalta en la arena; con un clic se queda fijo.
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea. La lista muestra los fps para ver cuántos

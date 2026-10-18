@@ -173,13 +173,27 @@ function royaleName(used: Set<string>) {
   }
 }
 
+// Battle royale: Carroñero (come mascotas caídas) y Golosina (reanima a las propias) están en desuso en este modo.
+// Aquí no hay mascotas (solo llegan comprándolas en el 1 vs 1), así que nunca podían usarse. Si un brute sale con
+// alguna se genera otro entero: así recibe otra mejora que sí le sirva y sus estadísticas quedan coherentes
+const ROYALE_DISABLED_SKILLS = ['tamer', 'treat'];
+function makeRoyaleBrute(name: string, id: string) {
+  let brute = makeBrute(name, id);
+  for (let i = 0; i < 50 && brute.skills.some((s: string) => ROYALE_DISABLED_SKILLS.includes(s)); i++) {
+    brute = makeBrute(name, id);
+  }
+  // Por si acaso (muy improbable tras tantos intentos): sin ellas, que no dan estadísticas
+  brute.skills = brute.skills.filter((s: string) => !ROYALE_DISABLED_SKILLS.includes(s));
+  return brute;
+}
+
 export function createRoyale(count: number) {
   const modifiers = {};
   const used = new Set<string>();
   const brutes = Array.from({ length: count }, (_, i) => {
     const name = royaleName(used);
     used.add(name);
-    return makeBrute(name, `royale-${i + 1}-${++seq}`);
+    return makeRoyaleBrute(name, `royale-${i + 1}-${++seq}`);
   });
   const session = new FightSession(
     brutes.map((b) => getCalculatedBrute(b, modifiers) as any),
@@ -212,7 +226,7 @@ export function createRoyale(count: number) {
     canAddBrute: () => !session.finished,
     addBrute: () => {
       const name = royaleName(used);
-      const brute = makeBrute(name, `royale-${brutes.length + 1}-${++seq}`);
+      const brute = makeRoyaleBrute(name, `royale-${brutes.length + 1}-${++seq}`);
       const added = session.addRoyaleBrute(getCalculatedBrute(brute, modifiers) as any);
       if (!added) return null;
       used.add(name);
