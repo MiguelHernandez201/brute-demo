@@ -764,8 +764,8 @@ export const setupFight: (
       highlight?: number | null;
       onKill?: (kill: { victim: number; killer?: number; kind?: string }) => void;
     };
-    // Royale: nombre y vida sobre cada brute, con el color de su fila en la lista
-    if (isRoyale) royaleTags(app, () => fighters, speed, () => royaleFight.highlight ?? null);
+    // Royale: nombre, vida y victorias sobre cada brute, con el color de su fila en la lista
+    const tags = isRoyale ? royaleTags(app, () => fighters, speed, () => royaleFight.highlight ?? null) : null;
     // Royale: los que se mueven por su cuenta (se crea con el bucle de turnos en paralelo)
     let crowd: ReturnType<typeof royaleAmbient> | null = null;
     const royaleHud = {
@@ -958,12 +958,14 @@ export const setupFight: (
               // Queda mirando a su víctima: ese pasa a ser su lado, sin darse la vuelta de golpe
               if (!killer.animation.container.destroyed) setRoyaleSide(killer, killer.animation.container.scale.x >= 0 ? 'L' : 'R');
               royaleFight.onKill?.({ victim: victim.index, killer: killer.index, kind });
+              tags?.win(killer.index);
               break;
             }
             // Sin fatality (quien lo remató ya no puede): se cuenta igual quién fue
             const by = findFighter(fighters, lastHitBy.get(step.f));
             const byBrute = by?.master ? fighters.find((f) => f.id === by.master) : by;
             royaleFight.onKill?.({ victim: step.f, killer: byBrute?.index });
+            if (byBrute && byBrute.index !== step.f) tags?.win(byBrute.index);
           }
           // Demo royale: como en las guerras de clanes, los caídos se desvanecen para no llenar la arena
           death(fighters, step, speed, isClanWar || isRoyale);

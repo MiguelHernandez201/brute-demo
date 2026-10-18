@@ -1,7 +1,9 @@
 // Demo battle royale: cada brute lleva encima su nombre y su vida, con un color propio que también marca su fila
 // en la lista de participantes. Al pasar el ratón por una fila (o tocarla) ese luchador se resalta en la arena.
+// Junto a la barra, desde su primera victoria (cada rival que elimina), un trofeo cuenta sus victorias de la ronda.
 import { Application, Container, Graphics, Text, Ticker } from 'pixi.js';
 import { AnimationFighter } from './utils/findFighter';
+import { trophy } from './winsCounter';
 
 // Colores bien distintos entre sí y legibles sobre la arena (con el contorno oscuro del nombre)
 const PALETTE = [
@@ -32,13 +34,24 @@ const TAG_H = 14;
 // Lo recién perdido se queda claro un momento antes de bajar
 const GHOST_HOLD = 0.35;
 const GHOST_SPEED = 0.6;
+// Contador de victorias a la derecha de la barra: trofeo pequeño y número. Al sumar, salta este tiempo
+const COUNTER_X = BAR_W / 2 + 2.4;
+const COUNT_X = 6.4;
+const POP_TIME = 0.5;
 
 type Tag = {
   root: Container;
   fill: Graphics;
   ghost: Graphics;
   ring: Graphics;
-  width: number;
+  // Lo que ocupa a cada lado del centro (el contador de victorias asoma por la derecha)
+  left: number;
+  right: number;
+  nameWidth: number;
+  wins: number;
+  counter: Container | null;
+  count: Text | null;
+  pop: number;
   shown: number;
   lost: number;
   hold: number;
@@ -54,6 +67,8 @@ export const royaleTags = (
   getHighlight: () => number | null,
 ) => {
   const tags = new Map<AnimationFighter, Tag>();
+  // Victorias de cada brute en la ronda (por su número de luchador)
+  const wins = new Map<number, number>();
   // En pantallas pequeñas (móvil) el lienzo se ve reducido: las etiquetas crecen para que el nombre se siga
   // leyendo (unos 9 px reales como mínimo). Se mide de vez en cuando, no en cada fotograma
   let size = 1;
@@ -99,7 +114,31 @@ export const royaleTags = (
     ring.eventMode = 'none';
     app.stage.addChild(root, ring);
     const pct = clamp(f.hp / f.maxHp, 0, 1);
-    return { root, fill, ghost, ring, width: Math.max(BAR_W, name.width), shown: pct, lost: pct, hold: 0, lift: 0, zoom: 1, pulse: 0 };
+    const half = Math.max(BAR_W, name.width) / 2;
+    return {
+      root, fill, ghost, ring, left: half, right: half, nameWidth: name.width,
+      wins: 0, counter: null, count: null, pop: POP_TIME,
+      shown: pct, lost: pct, hold: 0, lift: 0, zoom: 1, pulse: 0,
+    };
+  };
+
+  const addCounter = (tag: Tag) => {
+    const counter = new Container();
+    const cup = trophy(1.1);
+    cup.scale.set(0.42);
+    cup.position.set(3, 0.2);
+    const count = new Text({
+      text: '',
+      style: { fontFamily: 'GameFont', fontSize: 8, fill: 0xffffff, stroke: { color: 0x1a0f08, width: 2.6, join: 'round' } },
+    });
+    count.anchor.set(0, 0.5);
+    count.position.set(COUNT_X, 0.5);
+    counter.addChild(cup, count);
+    counter.position.set(COUNTER_X, BAR_H / 2);
+    tag.root.addChild(counter);
+    tag.counter = counter;
+    tag.count = count;
+    return count;
   };
 
   const remove = (f: AnimationFighter, tag: Tag) => {
@@ -113,7 +152,7 @@ export const royaleTags = (
     const dt = (Math.min(ticker.elapsedMS, 50) / 1000) * speed.current;
     measure(Math.min(ticker.elapsedMS, 50) / 1000);
     const highlight = getHighlight();
-    const placed: { x: number; y: number; w: number }[] = [];
+    const placed: { x0: number; x1: number; y: number }[] = [];
     // De abajo arriba en la pantalla: los de delante colocan su etiqueta primero
     const brutes = getFighters()
       .filter((f) => f.type === 'brute' && !f.master)
@@ -151,19 +190,34 @@ export const royaleTags = (
       tag.fill.tint = hpColor(pct);
       tag.ghost.scale.x = Math.max(0.001, tag.lost);
 
+      // Victorias: el contador aparece con la primera y salta cada vez que suma
+      const won = wins.get(f.index) ?? 0;
+      if (won !== tag.wins) {
+        tag.wins = won;
+        const count = tag.count ?? addCounter(tag);
+        count.text = String(won);
+        tag.right = Math.max(tag.nameWidth / 2, COUNTER_X + COUNT_X + count.width);
+        tag.pop = 0;
+      }
+      if (tag.counter && tag.pop < POP_TIME) {
+        tag.pop = Math.min(POP_TIME, tag.pop + dt);
+        tag.counter.scale.set(1 + 0.8 * Math.sin((Math.PI * tag.pop) / POP_TIME));
+      }
+
       // Encima de la cabeza, sin salirse por los lados y sin taparse con la de al lado (se sube un escalón)
       const giant = f.animation.giantScale || 1;
-      const width = tag.width * size;
+      const left = tag.left * size;
+      const right = tag.right * size;
       const step = TAG_H * size;
-      const x = clamp(c.x, width / 2 + 3, 500 - width / 2 - 3);
+      const x = clamp(c.x, left + 3, 500 - right - 3);
       const y = c.y - f.animation.baseHeight * 0.98 * giant - 3;
       let lift = 0;
       for (let tries = 0; tries < 4; tries++) {
         const top = y - lift;
-        if (!placed.some((p) => Math.abs(p.x - x) < (p.w + width) / 2 && Math.abs(p.y - top) < step)) break;
+        if (!placed.some((p) => x - left < p.x1 && p.x0 < x + right && Math.abs(p.y - top) < step)) break;
         lift += step;
       }
-      placed.push({ x, y: y - lift, w: width });
+      placed.push({ x0: x - left, x1: x + right, y: y - lift });
       tag.lift += (lift - tag.lift) * Math.min(1, dt * 10);
       tag.root.position.set(x, y - tag.lift);
 
@@ -190,6 +244,10 @@ export const royaleTags = (
   return {
     stop: () => {
       app.ticker?.remove(tick);
+    },
+    // Un brute eliminó a un rival: suma una victoria
+    win: (index: number) => {
+      wins.set(index, (wins.get(index) ?? 0) + 1);
     },
   };
 };
