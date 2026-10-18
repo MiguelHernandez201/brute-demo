@@ -2,7 +2,7 @@
 import { MoveBackStep } from '@labrute/core';
 import { Application } from 'pixi.js';
 
-import { getRandomPosition, isMaxApproach, QUICK_STEP_DURATION } from './utils/fightPositions';
+import { getRandomPosition, isMaxApproach, QUICK_STEP_DURATION, royaleArena } from './utils/fightPositions';
 import { AnimationFighter, findFighter } from './utils/findFighter';
 import { playStepDust } from './utils/playVFX';
 import { Spritesheets } from './utils/spritesheet';
@@ -54,8 +54,8 @@ export const moveBack = async (
   // Invert fighter if needed
   if (invertFighter) fighter.animation.container.scale.x *= -1;
 
-  // Travel duration depends on distance
-  const duration = Math.max(0.15, travelDistance / 480);
+  // Travel duration depends on distance (Demo: en el royale se corre un 20 % más rápido)
+  const duration = Math.max(0.15, travelDistance / (royaleArena.enabled ? 580 : 480));
 
   // Demo: polvo detrás al arrancar y delante al frenar (solo en carreras de verdad)
   const dir = Math.sign(x - fighter.animation.container.x) || 1;

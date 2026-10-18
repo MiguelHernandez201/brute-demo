@@ -6,7 +6,7 @@ import { AnimationFighter, findFighter } from './utils/findFighter';
 import { repositionFighters } from './utils/repositionFighters';
 import { getHitDistance } from './utils/getHitDistance';
 import { Easing, tween } from './utils/tween';
-import { isMaxApproach, QUICK_STEP_DURATION } from './utils/fightPositions';
+import { isMaxApproach, QUICK_STEP_DURATION, royaleArena } from './utils/fightPositions';
 import { playStepDust } from './utils/playVFX';
 import { Spritesheets } from './utils/spritesheet';
 
@@ -68,8 +68,8 @@ export const moveTo = async (
     void sound.play('sfx', { sprite: `${fighter.name.replace(/\d/g, '')}` });
   }
 
-  // Travel duration depends on distance
-  const duration = Math.max(0.16, travelDistance / 430);
+  // Travel duration depends on distance (Demo: en el royale se corre un 20 % más rápido)
+  const duration = Math.max(0.16, travelDistance / (royaleArena.enabled ? 520 : 430));
 
   // Demo: polvo detrás al arrancar y delante al frenar (solo en carreras de verdad)
   const dir = Math.sign(targetX - fighter.animation.container.x) || 1;

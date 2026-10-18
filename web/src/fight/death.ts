@@ -50,7 +50,12 @@ export const death = (
         alpha: 0,
         duration: 0.5 / speed.current,
         ease: 'none',
-      });
+      }).then(() => {
+        // Demo: ya invisible, deja de animarse y de dibujarse (con muchos caídos en el royale se nota)
+        if (fighter.animation.container.destroyed) return;
+        fighter.animation.container.visible = false;
+        fighter.animation.pause();
+      }).catch(console.error);
     }
   }).catch(console.error);
 };

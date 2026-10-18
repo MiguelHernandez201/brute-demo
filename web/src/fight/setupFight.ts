@@ -20,7 +20,7 @@ import { attemptHit } from './attemptHit';
 import { block } from './block';
 import { bomb } from './bomb';
 import { death } from './death';
-import { fatality, fatalityOptions, isFatalityDeath } from './fatality';
+import { fatality, fatalityKind, fatalityOptions, isFatalityDeath } from './fatality';
 import { disarm } from './disarm';
 import { dropShield } from './dropShield';
 import { eat } from './eat';
@@ -59,6 +59,9 @@ import { displayHeal } from './utils/displayHeal';
 import { createBustImage } from './utils/createBustImage';
 import { AnimationFighter, findFighter, findHUDFocusedFighter } from './utils/findFighter';
 import { isRangedStep, repositionControl, repositionFighters } from './utils/repositionFighters';
+import { royaleArena } from './utils/fightPositions';
+import { royaleAmbient } from './royaleAmbient';
+import { royaleTags } from './royaleTags';
 import { vampirism } from './vampirism';
 import { getFighters } from './utils/getFighters';
 import { mimic } from './mimic';
@@ -598,6 +601,24 @@ export const setupFight: (
     // Get fighters animations
     if (shouldAbort()) return;
 
+    // Usos de cada habilidad del luchador (Demo: también para los que entran en plena pelea)
+    const animationSkills = (fighter: Fighter) => Object.fromEntries(Object.entries(fighter.skills).map(([skillId, tier]) => {
+      let skillUses = skills[SkillById[+skillId as SkillId]].uses?.[tier - 1] ?? 0;
+
+      // Add one fierceBrute every 30 strength
+      if (+skillId === SkillId.fierceBrute) {
+        skillUses += Math.floor(fighter.strength / 30);
+      }
+
+      return [
+        skillId,
+        {
+          tier,
+          uses: skillUses,
+        },
+      ];
+    }));
+
     const nextFighters: AnimationFighter[] = [];
 
     for (const fighter of fightFighters) {
@@ -658,22 +679,7 @@ export const setupFight: (
         teamWeaponsIllustrations: fighter.team === brute1.team ? team1Weapons : team2Weapons,
         teamSkillsIllustrations: fighter.team === brute1.team ? team1Skills : team2Skills,
         HUDFocused: fighter.id === brute2?.id || fighter.id === brute1?.id,
-        skills: Object.fromEntries(Object.entries(fighter.skills).map(([skillId, tier]) => {
-          let skillUses = skills[SkillById[+skillId as SkillId]].uses?.[tier - 1] ?? 0;
-
-          // Add one fierceBrute every 30 strength
-          if (+skillId === SkillId.fierceBrute) {
-            skillUses += Math.floor(fighter.strength / 30);
-          }
-
-          return [
-            skillId,
-            {
-              tier,
-              uses: skillUses,
-            },
-          ];
-        })),
+        skills: animationSkills(fighter),
         animation: new FighterHolder(
           app,
           fighter,
@@ -719,6 +725,8 @@ export const setupFight: (
     // Loop on steps
     // Demo battle royale (todos contra todos)
     const isRoyale = !!(fight as unknown as { royale?: boolean }).royale;
+    // Royale: sin bandos, cada uno vuelve a cualquier sitio despejado de la arena (no a su borde)
+    royaleArena.enabled = isRoyale;
     let fatalityDone = false;
     // Royale: sin HUD superior (la vida de todos está en el panel lateral). Se oculta cada fotograma
     // porque los iconos de armas/habilidades se vuelven a crear al cambiar de duelo.
@@ -733,6 +741,15 @@ export const setupFight: (
       hideHud();
       app.ticker.add(hideHud);
     }
+    // Royale: lo que la interfaz lee y avisa (resaltado desde la lista, eliminaciones)
+    const royaleFight = fight as unknown as {
+      highlight?: number | null;
+      onKill?: (kill: { victim: number; killer?: number; kind?: string }) => void;
+    };
+    // Royale: nombre y vida sobre cada brute, con el color de su fila en la lista
+    if (isRoyale) royaleTags(app, () => fighters, speed, () => royaleFight.highlight ?? null);
+    // Royale: los que se mueven por su cuenta (se crea con el bucle de turnos en paralelo)
+    let crowd: ReturnType<typeof royaleAmbient> | null = null;
     const royaleHud = {
       L: { hpBar: team1HpBar, hpBarPhantom: team1PhantomHpBar, bust: team1Bust, text: team1Text, weapons: team1Weapons, skills: team1Skills },
       R: { hpBar: team2HpBar ?? undefined, hpBarPhantom: team2PhantomHpBar ?? undefined, bust: team2Bust ?? undefined, text: team2Text ?? undefined, weapons: team2Weapons, skills: team2Skills },
@@ -755,6 +772,41 @@ export const setupFight: (
         f.HUDFocused = false;
       }
     };
+    // Royale: quién golpeó por última vez a cada uno (el que lo remate hará la fatality)
+    const lastHitBy = new Map<number, number>();
+    // Quién daña y a quién, en los pasos que quitan vida
+    const damageOf = (step: FightStep) => {
+      const s = step as unknown as { f?: number; b?: number; t?: number | number[] };
+      const by = s.f ?? s.b;
+      switch (step.a) {
+        case StepType.Hit:
+        case StepType.Poison:
+        case StepType.FlashFlood:
+        case StepType.Hammer:
+        case StepType.Vampirism:
+        case StepType.Haste:
+        case StepType.Bomb:
+          if (typeof by !== 'number') return null;
+          return { by, targets: (Array.isArray(s.t) ? s.t : [s.t]).filter((t): t is number => typeof t === 'number') };
+        default:
+          return null;
+      }
+    };
+    const trackHit = (step: FightStep) => {
+      const damage = damageOf(step);
+      damage?.targets.forEach((t) => lastHitBy.set(t, damage.by));
+    };
+    // Rematador de un brute eliminado en el royale: quien le dio el último golpe (si fue una mascota, su amo),
+    // siempre que siga en pie, libre (sin red ni aturdir) y dentro del mismo turno que se está animando
+    const royaleKiller = (victim: AnimationFighter, involved?: Set<number>) => {
+      let killer = findFighter(fighters, lastHitBy.get(victim.index));
+      if (killer?.master) killer = fighters.find((f) => f.id === killer?.master && !f.master);
+      if (!killer || killer === victim || killer.type !== 'brute' || killer.master) return null;
+      if (killer.dead || killer.hp <= 0 || killer.trapped || killer.stunned || !killer.animation.container.visible) return null;
+      if (involved && !involved.has(killer.index)) return null;
+      return killer;
+    };
+
     const royaleSides = (step: FightStep) => {
       const s = step as unknown as { f?: number; b?: number; t?: number; w?: number };
       if (step.a === StepType.End) {
@@ -782,7 +834,8 @@ export const setupFight: (
     };
     const steps = demoFight.liveSteps ?? (JSON.parse(fight.steps) as FightStep[]);
     // Procesa (anima) un paso. Extraído del bucle original para poder animar turnos en paralelo.
-    const processStep = async (step: FightStep | undefined, i: number) => {
+    // `involved`: luchadores reservados para el turno que se anima (royale con turnos en paralelo)
+    const processStep = async (step: FightStep | undefined, i: number, involved?: Set<number>) => {
 
       if (!step) {
         throw new Error('Step not found');
@@ -795,7 +848,10 @@ export const setupFight: (
 
       // Demo battle royale: la animación solo tiene dos lados; antes de cada paso se coloca
       // a quien actúa y a su objetivo en lados opuestos (según dónde estén) y se les da ese HUD
-      if (isRoyale) royaleSides(step);
+      if (isRoyale) {
+        royaleSides(step);
+        trackHit(step);
+      }
 
       // Reposition mispositionned fighters during neutral
       if (isRangedStep(step.a)) await repositionFighters(fighters, speed);
@@ -836,6 +892,9 @@ export const setupFight: (
         }
         case StepType.Hit:
         case StepType.Poison: {
+          // Royale: un crítico sobresalta a los que miran cerca
+          const struck = isRoyale && step.c ? findFighter(fighters, step.t) : undefined;
+          if (struck) crowd?.react(struck.animation.container.x, struck.animation.container.y, 85, false);
           await hit(app, spritesheets, fighters, step, speed, isClanWar);
           break;
         }
@@ -853,6 +912,28 @@ export const setupFight: (
             fatalityDone = true;
             await fatality(app, spritesheets, fighters, step, speed);
             break;
+          }
+          // Demo royale: cada brute eliminado cae con una fatality de quien lo remató, pero solo la animación
+          // sobre los personajes (sin letreros, voz, sonidos ni cámara): el resto de duelos sigue a la vez
+          if (isRoyale && isFatalityDeath(fighters, step)) {
+            const victim = findFighter(fighters, step.f);
+            const killer = victim && royaleKiller(victim, involved);
+            if (victim && killer) {
+              const kind = fatalityKind(killer);
+              await fatality(app, spritesheets, fighters, step, speed, {
+                killer,
+                // En el golpe final, los que miran cerca reaccionan
+                onImpact: () => crowd?.react(victim.animation.container.x, victim.animation.container.y, 150, true),
+              });
+              // Queda mirando a su víctima: ese pasa a ser su lado, sin darse la vuelta de golpe
+              if (!killer.animation.container.destroyed) setRoyaleSide(killer, killer.animation.container.scale.x >= 0 ? 'L' : 'R');
+              royaleFight.onKill?.({ victim: victim.index, killer: killer.index, kind });
+              break;
+            }
+            // Sin fatality (quien lo remató ya no puede): se cuenta igual quién fue
+            const by = findFighter(fighters, lastHitBy.get(step.f));
+            const byBrute = by?.master ? fighters.find((f) => f.id === by.master) : by;
+            royaleFight.onKill?.({ victim: step.f, killer: byBrute?.index });
           }
           // Demo royale: como en las guerras de clanes, los caídos se desvanecen para no llenar la arena
           death(fighters, step, speed, isClanWar || isRoyale);
@@ -996,7 +1077,8 @@ export const setupFight: (
           void sound.play('sfx', { sprite: 'equip' });
           break;
         }
-        // Demo: mascota comprada en mitad de la pelea → crear su animación (luego llega con su paso Arrive)
+        // Demo: mascota comprada (o brute agregado al royale) en mitad de la pelea → crear su animación
+        // (luego llega con su paso Arrive)
         // Demo: poción comprada → el brute bebe y recupera vida (como la Poción trágica, sin gastar habilidad)
         case 'demoPotion' as never: {
           const potionStep = step as unknown as { b: number; h: number; c: number };
@@ -1050,7 +1132,7 @@ export const setupFight: (
             teamWeaponsIllustrations: teammate?.teamWeaponsIllustrations ?? [],
             teamSkillsIllustrations: teammate?.teamSkillsIllustrations ?? [],
             HUDFocused: false,
-            skills: {},
+            skills: animationSkills(spawn),
             animation: new FighterHolder(app, spawn, speed, spawn.size),
           };
           newcomer.animation.container.x = spawn.team === 'L' ? -100 : 600;
@@ -1089,45 +1171,63 @@ export const setupFight: (
       // en paralelo con otros turnos siempre que no compartan luchadores. Los pasos que afectan a
       // muchos (bomba, diluvio, hipnosis, sabotaje, fin) esperan a que todo lo demás termine.
       repositionControl.disabled = true;
-      const MAX_PARALLEL = 4;
+      // Demo: hasta 6 duelos a la vez (antes 4): el royale es un caos
+      const MAX_PARALLEL = 6;
       const exclusiveTypes = new Set<number>([StepType.Bomb, StepType.FlashFlood, StepType.Hypnotise, StepType.Saboteur, StepType.End, StepType.Arrive, StepType.Spy]);
       const involvedIn = (chunk: FightStep[]) => {
         const set = new Set<number>();
         for (const st of chunk) {
-          for (const key of ['f', 't', 'b', 'w', 'l']) {
+          // Claves con luchadores (`p`: mascotas afectadas). `w` es el arma (o el ganador, en el paso final,
+          // que va solo): contarla reservaba al luchador con ese número sin motivo y frenaba los duelos en paralelo
+          for (const key of ['f', 't', 'b', 'p']) {
+            // En AttemptHit `b` es "escudo roto" (0/1) y en Mimic `t` es el nivel de la habilidad
+            if ((key === 'b' && st.a === StepType.AttemptHit) || (key === 't' && st.a === StepType.Mimic)) continue;
             const v = (st as unknown as Record<string, unknown>)[key];
             if (typeof v === 'number') set.add(v);
             else if (Array.isArray(v)) v.forEach((x) => { if (typeof x === 'number') set.add(x); });
           }
         }
-        // Mascotas: van con su amo (un turno de la mascota afecta al amo y al revés)
-        for (const idx of [...set]) {
-          const f = findFighter(fighters, idx);
-          const masterId = f?.master;
-          if (masterId) { const m = fighters.find((x) => x.id === masterId); if (m) set.add(m.index); }
-          fighters.filter((x) => x.master && f && x.master === f.id).forEach((x) => set.add(x.index));
+        // Las mascotas ya no arrastran a su amo (ni al revés): ningún paso anima a quien no nombra, y así
+        // amo y mascota pueden pelear en duelos distintos a la vez. Excepción: si en el turno cae un brute
+        // rematado por una mascota, la fatality la hace su amo, así que también se le reserva
+        const lastHit = new Map<number, number>();
+        for (const st of chunk) {
+          const damage = damageOf(st);
+          damage?.targets.forEach((t) => lastHit.set(t, damage.by));
+          if (st.a !== StepType.Death) continue;
+          const by = findFighter(fighters, lastHit.get(st.f));
+          const master = by?.master ? fighters.find((x) => x.id === by.master && !x.master) : undefined;
+          if (master) set.add(master.index);
         }
         return set;
       };
       const running = new Set<Promise<void>>();
       const busy = new Set<number>();
       let cursor = 0;
-      const runChunk = async (chunk: FightStep[], start: number) => {
+      // Los que no están en ningún duelo se mueven por su cuenta (ver royaleAmbient)
+      const ambient = royaleAmbient(app, spritesheets, () => fighters, speed, (f) => busy.has(f.index));
+      crowd = ambient;
+      const runChunk = async (chunk: FightStep[], start: number, involved?: Set<number>) => {
         for (let k = 0; k < chunk.length; k++) {
           if (shouldAbort()) return;
-          await processStep(chunk[k], start + k);
+          await processStep(chunk[k], start + k, involved);
         }
       };
       // Cola de turnos ya simulados por el motor (se mira hasta LOOKAHEAD turnos por delante):
       // se lanza cualquier turno que no comparta luchadores con lo que se está animando ni con turnos
       // anteriores aún en cola, así cada luchador conserva el orden de sus acciones.
-      const LOOKAHEAD = 8;
+      const LOOKAHEAD = 16;
       type QueuedTurn = { chunk: FightStep[]; start: number; involved: Set<number>; exclusive: boolean };
       const queue: QueuedTurn[] = [];
       let engineDone = false;
+      // Reserva a los luchadores de un turno: dejan al instante lo que hicieran por su cuenta
+      const reserve = (involved: Set<number>) => involved.forEach((x) => {
+        busy.add(x);
+        ambient.release(findFighter(fighters, x));
+      });
       const launch = (turn: QueuedTurn) => {
-        turn.involved.forEach((x) => busy.add(x));
-        const p: Promise<void> = runChunk(turn.chunk, turn.start)
+        reserve(turn.involved);
+        const p: Promise<void> = runChunk(turn.chunk, turn.start, turn.involved)
           .catch(console.error)
           .finally(() => {
             turn.involved.forEach((x) => busy.delete(x));
@@ -1145,12 +1245,24 @@ export const setupFight: (
             if (cursor >= steps.length) continue;
           }
           const chunk = steps.slice(cursor);
-          queue.push({
-            chunk,
-            start: cursor,
-            involved: involvedIn(chunk),
-            exclusive: chunk.some((st) => exclusiveTypes.has(st.a)),
-          });
+          // Las llegadas del principio vienen todas juntas: van de una en una igual, pero separadas, así cada
+          // uno queda libre (y se mueve por su cuenta) en cuanto aterriza en vez de esperar al último
+          const pieces = chunk.length > 1 && chunk.every((st) => exclusiveTypes.has(st.a) && st.a !== StepType.End)
+            ? chunk.map((st) => [st])
+            : [chunk];
+          let start = cursor;
+          for (const piece of pieces) {
+            queue.push({
+              chunk: piece,
+              start,
+              involved: involvedIn(piece),
+              // Un brute que entra en plena pelea (botón "Agregar") llega sin parar los demás duelos:
+              // nadie más anima a un luchador que aún no estaba
+              exclusive: piece.some((st) => exclusiveTypes.has(st.a))
+                && !piece.some((st) => (st.a as unknown) === 'demoSpawn'),
+            });
+            start += piece.length;
+          }
           cursor = steps.length;
         }
         if (!queue.length && !running.size) break;
@@ -1164,7 +1276,13 @@ export const setupFight: (
             // Barrera: solo cuando no queda nada en marcha ni nada antes en la cola
             if (q === 0 && !running.size) {
               queue.shift();
-              await runChunk(turn.chunk, turn.start);
+              // En el último turno (el del fin) ya nadie se mueve por su cuenta. En el resto (llegadas, bombas…)
+              // solo se para a los afectados: los demás siguen a lo suyo
+              const last = turn.chunk.some((st) => st.a === StepType.End);
+              if (last) ambient.stop();
+              else reserve(turn.involved);
+              await runChunk(turn.chunk, turn.start, turn.involved);
+              if (!last) turn.involved.forEach((x) => busy.delete(x));
               launched = true;
             }
             break;
@@ -1185,6 +1303,7 @@ export const setupFight: (
         }
       }
       await Promise.all(running);
+      ambient.stop();
       repositionControl.disabled = false;
       if (shouldAbort()) return;
     }

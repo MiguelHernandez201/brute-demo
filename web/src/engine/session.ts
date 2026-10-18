@@ -187,6 +187,47 @@ export class FightSession {
     });
   }
 
+  // Battle royale: entra un brute nuevo en plena pelea (botón "Agregar brute"). Forma su propio equipo, actúa
+  // enseguida y la animación lo crea y lo hace llegar como al principio. Devuelve su luchador (o null si ya acabó).
+  addRoyaleBrute(brute: CalculatedBrute) {
+    if (!this.royale || this.finished) return null;
+    const fd = this.fightData;
+    const team = this.#brutes.length + 1;
+    this.#brutes.push(brute);
+    this.#achievements[brute.id] = { userId: brute.userId, eventId: brute.eventId, achievements: {} };
+    this.#stats[brute.id] = { userId: brute.userId };
+    const own = getFighters({
+      team1: { brutes: [brute], backups: [], bosses: [] },
+      team2: { brutes: [], backups: [], bosses: [] },
+      modifiers: fd.modifiers,
+    });
+    const indices = [...fd.fighters, ...fd.initialFighters].map((f) => f.index);
+    let nextBrute = Math.max(0, ...indices) + 1;
+    let nextPet = Math.min(0, ...indices) - 1;
+    let added: DetailedFighter | null = null;
+    for (const f of own) {
+      f.team = `T${team}` as never;
+      if (f.type === 'pet') {
+        f.index = nextPet--;
+        f.id = `${f.index}`;
+      } else {
+        f.index = nextBrute++;
+        added = f;
+      }
+      // Entra a jugar enseguida
+      f.initiative = fd.initiative + 0.01 + randomBetween(0, 10) / 1000;
+      fd.fighters.push(f);
+      fd.initialFighters.push(JSON.parse(JSON.stringify(f)));
+      // Para la animación, en uno de los dos lados (como al empezar)
+      const animation = toAnimationFighter(f) as Fighter & { realTeam?: string };
+      animation.realTeam = f.team;
+      animation.team = team % 2 === 1 ? 'L' : 'R';
+      this.steps.push({ a: 'demoSpawn', fighter: animation } as never);
+      fighterArrives(fd, f);
+    }
+    return added;
+  }
+
   // Pasos generados desde la última llamada
   takeNewSteps() {
     const out = this.steps.slice(this.#emitted);

@@ -23,11 +23,53 @@ const maxLeftXPosition = () => 125 + approachOffset();
 const minRightXPosition = () => 500 - minLeftXPosition();
 const maxRightXPosition = () => 500 - maxLeftXPosition();
 
+// Demo battle royale: no hay bandos, así que vale cualquier sitio de la arena (si no, todos acaban amontonados
+// en los dos bordes). Se prueban unos puntos al azar y gana el más despejado que no obligue a cruzar media arena.
+export const royaleArena = { enabled: false, minX: 36, maxX: 464, minY: minYPosition + 1, maxY: maxYPosition - 1 };
+// Espacio libre alrededor de un punto: distancia al luchador más cercano (lo vertical cuenta el doble,
+// porque la arena es poco profunda), hasta un máximo
+export const roomAt = (x: number, y: number, others: { x: number; y: number }[], max = 120) => {
+  let room = max;
+  for (const o of others) room = Math.min(room, Math.hypot(o.x - x, (o.y - y) * 2));
+  return room;
+};
+export const getRoyalePosition = (
+  fighters: AnimationFighter[],
+  fighter: AnimationFighter,
+  takenPositions: { x: number; y: number }[] = [],
+): { x: number, y: number } => {
+  const others = [
+    ...fighters
+      .filter((f) => f !== fighter && !f.dead && f.animation.container.visible
+        && f.animation.container.y >= minYPosition && f.animation.container.y <= maxYPosition)
+      .map((f) => ({ x: f.animation.container.x, y: f.animation.container.y })),
+    ...takenPositions,
+  ];
+  const { x: fx, y: fy } = fighter.animation.container;
+  // Recién llegando (aún fuera de la arena) no cuenta lo que tenga que recorrer
+  const onStage = fy >= minYPosition && fy <= maxYPosition;
+  const { minX, maxX, minY, maxY } = royaleArena;
+  let best = { x: 250, y: (minY + maxY) / 2 };
+  let bestScore = -Infinity;
+  for (let k = 0; k < 16; k++) {
+    const x = minX + Math.random() * (maxX - minX);
+    const y = minY + Math.random() * (maxY - minY);
+    const score = roomAt(x, y, others) - (onStage ? Math.hypot(x - fx, y - fy) * 0.2 : 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = { x, y };
+    }
+  }
+  return best;
+};
+
 const getRandomPosition = (
   fighters: AnimationFighter[],
   fighter: AnimationFighter,
-  takenPositions?: { y: number }[],
+  takenPositions?: { x: number; y: number }[],
 ): { x: number, y: number } => {
+  if (royaleArena.enabled) return getRoyalePosition(fighters, fighter, takenPositions);
+
   // Get fighter min and max x position
   const minXPosition = fighter.team === 'L' ? minLeftXPosition() : minRightXPosition();
   const maxXPosition = fighter.team === 'L' ? maxLeftXPosition() : maxRightXPosition();

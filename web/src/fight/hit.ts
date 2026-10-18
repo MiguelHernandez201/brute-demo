@@ -9,14 +9,17 @@ import { Application, Ticker } from 'pixi.js';
 import { sound } from '@pixi/sound';
 import { displayDamage } from './utils/displayDamage';
 import { AnimationFighter, findFighter } from './utils/findFighter';
+import { royaleArena } from './utils/fightPositions';
+import { getRealKnockBack } from './utils/knockBack';
 import { isFightDisposing } from './utils/lifecycle';
 import { shakeStage } from './utils/stageAnimations';
 import { stagger } from './stagger';
 import { updateHp } from './updateHp';
 import { untrap } from './untrap';
-import { playHitEffect } from './utils/playVFX';
+import { playHitEffect, playStepDust } from './utils/playVFX';
 import { playResistAnimation } from './resist';
 import { Spritesheets } from './utils/spritesheet';
+import { tween } from './utils/tween';
 
 const POISON_OUTLINE_FILTER_CONFIG = {
   thickness: 1,
@@ -62,6 +65,40 @@ const impact = async (
     ticker.add(tick);
   });
   if (!container.destroyed) container.filters = (container.filters || []).filter((f) => f !== flash);
+};
+
+// Demo royale: un crítico lanza por los aires al que lo recibe. Vuela hacia atrás, cae levantando polvo y derrapa
+const launch = async (
+  app: Application,
+  spritesheets: Spritesheets,
+  target: AnimationFighter,
+  speed: React.RefObject<number>,
+  unsignedDistance: number,
+) => {
+  const c = target.animation.container;
+  const distance = getRealKnockBack(target, unsignedDistance);
+  const x0 = c.x;
+  const y0 = c.y;
+  const height = Math.min(26, 10 + Math.abs(distance) * 0.2) * (target.animation.giantScale || 1);
+  const flight = { p: 0 };
+  target.animation.setAirborn(true);
+  await tween(flight, {
+    p: 1,
+    duration: 0.36 / speed.current,
+    ease: 'none',
+    onUpdate: () => {
+      if (c.destroyed) return;
+      const h = height * 4 * flight.p * (1 - flight.p);
+      c.x = x0 + distance * 0.85 * flight.p;
+      c.y = y0 - h;
+      target.animation.shadow.y = h;
+    },
+  });
+  if (c.destroyed) return;
+  c.y = y0;
+  target.animation.setAirborn(false);
+  playStepDust(app, spritesheets, target, speed, 0, 0.7);
+  await tween(c, { x: x0 + distance, duration: 0.14 / speed.current, ease: 'power2.out' });
 };
 
 export const hit = async (
@@ -175,8 +212,12 @@ export const hit = async (
     await impact(app, fighter, target, step, speed);
   }
 
-  // Stagger with knockBack
-  await stagger(target, speed, knockBack);
+  // Stagger with knockBack (Demo royale: con un crítico sale volando, con espacio de sobra en la arena)
+  if (royaleArena.enabled && step.c && step.a !== StepType.Poison) {
+    await launch(app, spritesheets, target, speed, Math.min(85, knockBack * 1.8 + 18));
+  } else {
+    await stagger(target, speed, knockBack);
+  }
 
   // Remove poison filter
   if (step.a === StepType.Poison) {

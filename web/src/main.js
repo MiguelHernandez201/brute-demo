@@ -10,13 +10,15 @@ import { createFight, createRoyale } from './sim.ts';
 import { StepType } from '@labrute/core';
 import { createRenderer } from './renderer.ts';
 import { setupFight } from './fight/setupFight.ts';
-import { fatalityOptions } from './fight/fatality.ts';
+import { FATALITY_VERBS, fatalityOptions } from './fight/fatality.ts';
+import { royaleColorCss } from './fight/royaleTags.ts';
 import { setFightDisposing } from './fight/utils/lifecycle.ts';
 import { renderQuality } from './fight/FighterHolder.ts';
 import { fightApproach } from './fight/utils/fightPositions.ts';
 import { sound } from '@pixi/sound';
 import { sfx, sounds } from './sfx.ts';
 import { renderShop, setCurrentGear, setShopNames, takePurchases } from './shop.js';
+import { playPromotionalTrailer } from './trailer.ts';
 
 const $ = (id) => document.getElementById(id);
 const renderer = createRenderer();
@@ -155,38 +157,116 @@ async function startRoyale(count) {
   await playFight(id, fight);
 }
 
-// Lista de participantes del royale: se actualiza con cada caída según avanza la animación
+// Fotogramas por segundo (se muestran en la lista del royale para ver cuántos brutes aguanta la pantalla)
+let fpsText = '';
+let fpsClass = '';
+(() => {
+  let frames = 0;
+  let since = performance.now();
+  const loop = (now) => {
+    frames += 1;
+    if (now - since >= 1000) {
+      const fps = Math.round((frames * 1000) / (now - since));
+      frames = 0;
+      since = now;
+      fpsText = `${fps} fps`;
+      fpsClass = fps >= 50 ? 'fps-good' : fps >= 30 ? 'fps-ok' : 'fps-bad';
+      const el = $('rosterFps');
+      if (el) {
+        el.textContent = fpsText;
+        el.className = fpsClass;
+      }
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+})();
+
+// Lista de participantes del royale: cada uno con el color de su etiqueta en la arena (pasar el ratón por una fila,
+// o tocarla, lo resalta), vida en vivo, eliminaciones, quién eliminó a quién y botones para agregar brutes en plena
+// pelea. Se actualiza con cada caída según avanza la animación.
 let rosterFight = null;
 function renderRoster(fight) {
   rosterFight = fight;
   const fighters = JSON.parse(fight.fighters).filter((f) => f.type === 'brute' && !f.master);
-  const total = fighters.length;
   const state = new Map(fighters.map((f) => [f.index, { name: f.name, out: 0, hp: f.hp, maxHp: f.maxHp }]));
   let fallen = 0;
   let winner;
+  // Fila fijada con un clic (se queda resaltada al quitar el ratón)
+  let pinned = null;
+  const kills = [];
   const esc = (s) =>
     String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const hpColor = (pct) => (pct > 50 ? '#4ade80' : pct > 25 ? '#facc15' : '#ef4444');
+  const who = (index) =>
+    `<i class="dot" style="background:${royaleColorCss(index)}"></i><span class="who">${esc(state.get(index)?.name ?? '?')}</span>`;
+  const canAdd = () => !winner && !!fight.canAddBrute?.();
   const draw = () => {
+    const total = state.size;
     const rows = [...state.entries()]
       // En pie primero; los eliminados después, del último en caer al primero
       .sort(([, a], [, b]) => (a.out === 0 ? -1 : b.out === 0 ? 1 : b.out - a.out))
       .map(([index, s]) => {
         const status = index === winner ? '🏆 Ganador' : s.out ? `Eliminado · puesto ${total - s.out + 1}` : '';
         const pct = s.out ? 0 : Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100));
-        return `<li data-index="${index}" class="${index === winner ? 'win' : s.out ? 'out' : ''}">
-          <div class="roster-top"><span>${esc(s.name)}</span><small class="hp-text">${s.out ? '' : `${Math.max(0, Math.round(s.hp))}/${s.maxHp}`}</small></div>
+        const classes = [index === winner ? 'win' : s.out ? 'out' : '', index === pinned ? 'lit' : ''].join(' ');
+        return `<li data-index="${index}" class="${classes}" style="--c:${royaleColorCss(index)}">
+          <div class="roster-top">${who(index)}<small class="hp-text">${s.out ? '' : `${Math.max(0, Math.round(s.hp))}/${s.maxHp}`}</small></div>
           <div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div>
           ${status ? `<small>${status}</small>` : ''}
         </li>`;
       })
       .join('');
+    const feed = kills
+      .slice(0, 3)
+      .map(({ victim, killer, kind }) =>
+        killer !== undefined && state.has(killer)
+          ? `<li>${who(killer)} ${kind ? FATALITY_VERBS[kind] : 'eliminó a'} ${who(victim)}</li>`
+          : `<li>${who(victim)} cayó</li>`,
+      )
+      .join('');
+    const disabled = canAdd() ? '' : 'disabled';
     $('roster').innerHTML = `<div class="shop-name">Battle Royale</div>
-      <div class="shop-label">${total - fallen} de ${total} en pie</div><ol class="roster">${rows}</ol>`;
+      <div class="shop-label roster-stats"><span>${total - fallen} de ${total} en pie</span><span id="rosterFps" class="${fpsClass}">${fpsText}</span></div>
+      <div class="roster-add"><button data-add="1" title="Agregar un brute a la pelea" ${disabled}>➕ Agregar</button><button data-add="5" title="Agregar 5 brutes" ${disabled}>+5</button></div>
+      <ol class="roster">${rows}</ol>
+      ${feed ? `<ul class="kill-feed">${feed}</ul>` : ''}`;
+  };
+  // Agregar brutes en plena pelea: entran con su propio color y aparecen en la lista
+  const add = (count) => {
+    for (let k = 0; k < count; k++) {
+      const brute = fight.addBrute?.();
+      if (!brute) break;
+      state.set(brute.index, { name: brute.name, out: 0, hp: brute.hp, maxHp: brute.maxHp });
+    }
+    draw();
+  };
+  // Resaltar en la arena: al pasar el ratón por una fila, o fijándola con un clic
+  $('roster').onmouseover = (e) => {
+    const li = e.target.closest?.('ol.roster li[data-index]');
+    fight.highlight = li ? +li.dataset.index : pinned;
+  };
+  $('roster').onmouseleave = () => {
+    fight.highlight = pinned;
+  };
+  $('roster').onclick = (e) => {
+    const button = e.target.closest?.('[data-add]');
+    if (button) return add(+button.dataset.add);
+    const li = e.target.closest?.('ol.roster li[data-index]');
+    if (!li) return;
+    pinned = pinned === +li.dataset.index ? null : +li.dataset.index;
+    fight.highlight = pinned;
+    draw();
+  };
+  fight.onKill = (kill) => {
+    kills.unshift(kill);
+    draw();
   };
   // Vida en vivo: se lee de los luchadores de la animación (así va al ritmo de los golpes que se ven)
   const tick = setInterval(() => {
     if (rosterFight !== fight) return clearInterval(tick);
+    // Ya no se puede agregar (la pelea terminó en el motor): botones apagados
+    if (!canAdd()) document.querySelectorAll('#roster [data-add]').forEach((b) => (b.disabled = true));
     const live = fight.liveFighters?.();
     if (!live) return;
     for (const f of live) {
@@ -308,6 +388,50 @@ function scheduleAutoChallenge(id) {
   }, 1000);
 }
 
+let promoDownloadUrl = null;
+let promoDownloadExt = 'webm';
+
+async function startTrailer() {
+  const id = ++run;
+  await destroyApp();
+  $('again').disabled = true;
+  $('downloadPromo').style.display = 'none';
+  setFightDisposing(false);
+  const spritesheets = {
+    thrownWeapons: await loadSheet(
+      `${import.meta.env.BASE_URL}images/game/thrown-weapons.json`,
+      'fight/thrownWeapons/',
+    ),
+    misc: await loadSheet(`${import.meta.env.BASE_URL}images/game/misc.json`, 'fight/misc/'),
+    skills: await loadSheet(`${import.meta.env.BASE_URL}images/game/skills.json`, 'fight/skills/'),
+  };
+  if (id !== run) return;
+  setupSounds();
+  try {
+    await document.fonts.load('20px GameFont');
+  } catch {
+    /* usa la fuente por defecto */
+  }
+  const result = await playPromotionalTrailer(
+    $('canvas'),
+    spritesheets,
+    (msg) => {
+      if (id === run) $('status').textContent = msg;
+    },
+    () => id !== run,
+  );
+  if (id === run) {
+    $('again').disabled = false;
+    if (result.url) {
+      if (promoDownloadUrl) URL.revokeObjectURL(promoDownloadUrl);
+      promoDownloadUrl = result.url;
+      promoDownloadExt = result.ext || 'webm';
+      $('downloadPromo').textContent = `⬇ Descargar Video (.${promoDownloadExt})`;
+      $('downloadPromo').style.display = 'inline-block';
+    }
+  }
+}
+
 let names = ['', ''];
 const showError = (e) => {
   console.error(e);
@@ -315,13 +439,17 @@ const showError = (e) => {
 };
 const begin = (keep) => startFight(...names, keep).catch(showError);
 const beginRoyale = () => startRoyale(royaleCount).catch(showError);
+const beginTrailer = () => startTrailer().catch(showError);
 function enterArena(newMode) {
   mode = newMode;
   $('arena').classList.toggle('royale', mode === 'royale');
-  $('again').dataset.label = mode === 'royale' ? '👑 Nueva ronda' : '⚔️ Desafiar';
+  $('arena').classList.toggle('trailer', mode === 'trailer');
+  $('downloadPromo').style.display = 'none';
+  $('again').dataset.label =
+    mode === 'royale' ? '👑 Nueva ronda' : mode === 'trailer' ? '🎬 Repetir Tráiler' : '⚔️ Desafiar';
   $('again').textContent = $('again').dataset.label;
   $('autoLabel').textContent = mode === 'royale' ? 'Rondas continuas' : 'Desafiar continuamente';
-  $('back').textContent = mode === 'royale' ? 'Volver al menú' : 'Cambiar nombres';
+  $('back').textContent = mode === '1v1' ? 'Cambiar nombres' : 'Volver al menú';
   $('setup').style.display = 'none';
   $('arena').style.display = 'block';
 }
@@ -332,7 +460,7 @@ $('go').onclick = () => {
   begin();
 };
 $('royaleGo').onclick = () => {
-  royaleCount = Math.max(3, Math.min(10, +$('royaleCount').value || 6));
+  royaleCount = Math.max(3, Math.min(20, +$('royaleCount').value || 6));
   try {
     localStorage.setItem('brute-demo-royale-count', String(royaleCount));
   } catch {
@@ -340,6 +468,19 @@ $('royaleGo').onclick = () => {
   }
   enterArena('royale');
   beginRoyale();
+};
+$('trailerGo').onclick = () => {
+  enterArena('trailer');
+  beginTrailer();
+};
+$('downloadPromo').onclick = () => {
+  if (!promoDownloadUrl) return;
+  const a = document.createElement('a');
+  a.href = promoDownloadUrl;
+  a.download = `video-promocional-labrute.${promoDownloadExt}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 };
 try {
   $('royaleCount').value = localStorage.getItem('brute-demo-royale-count') || '6';
@@ -354,6 +495,7 @@ $('royaleCountValue').textContent = $('royaleCount').value;
 // En el royale: nueva ronda con brutes nuevos.
 $('again').onclick = () => {
   cancelAutoChallenge();
+  if (mode === 'trailer') return beginTrailer();
   if (mode === 'royale') return beginRoyale();
   if (!last) return begin();
   const [b1, b2] = last.brutes;
@@ -464,6 +606,11 @@ $('approach').oninput = (e) => {
 };
 
 renderShop();
+
+const trailerParam = new URLSearchParams(location.search).get('trailer');
+if (trailerParam) {
+  $('trailerGo').click();
+}
 
 const royaleParam = new URLSearchParams(location.search).get('royale');
 if (royaleParam) {

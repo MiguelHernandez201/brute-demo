@@ -165,10 +165,22 @@ const ROYALE_NAMES = [
   'Zarpa',
 ];
 
+// Un nombre libre de la lista; si ya se usaron todos (al agregar muchos brutes) se repiten con número: "Rayo 2"
+function royaleName(used: Set<string>) {
+  for (let n = 1; ; n++) {
+    const options = ROYALE_NAMES.map((base) => (n === 1 ? base : `${base} ${n}`)).filter((name) => !used.has(name));
+    if (options.length) return options[Math.floor(Math.random() * options.length)]!;
+  }
+}
+
 export function createRoyale(count: number) {
   const modifiers = {};
-  const names = [...ROYALE_NAMES].sort(() => Math.random() - 0.5).slice(0, count);
-  const brutes = names.map((name, i) => makeBrute(name, `royale-${i + 1}-${++seq}`));
+  const used = new Set<string>();
+  const brutes = Array.from({ length: count }, (_, i) => {
+    const name = royaleName(used);
+    used.add(name);
+    return makeBrute(name, `royale-${i + 1}-${++seq}`);
+  });
   const session = new FightSession(
     brutes.map((b) => getCalculatedBrute(b, modifiers) as any),
     { modifiers, royale: true },
@@ -195,6 +207,19 @@ export function createRoyale(count: number) {
       }
       fight.liveSteps.push(...session.takeNewSteps());
       return true;
+    },
+    // Botón "Agregar brute": entra uno nuevo en plena pelea. Devuelve sus datos para la lista (null si ya acabó)
+    canAddBrute: () => !session.finished,
+    addBrute: () => {
+      const name = royaleName(used);
+      const brute = makeBrute(name, `royale-${brutes.length + 1}-${++seq}`);
+      const added = session.addRoyaleBrute(getCalculatedBrute(brute, modifiers) as any);
+      if (!added) return null;
+      used.add(name);
+      brutes.push(brute);
+      // Sus pasos (aparecer y llegar) van solos, antes del siguiente turno
+      fight.liveSteps.push(...session.takeNewSteps());
+      return { index: added.index, name: added.name, hp: added.hp, maxHp: added.maxHp };
     },
   };
 

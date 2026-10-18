@@ -4,6 +4,9 @@
 //   de estocada → acribillado · látigo → arrancacabezas · puños y arrojadizas → explosión
 // y al final el letrero "FATALITY". Para probar una en concreto: ?fatality=aplastado (u otra).
 // Todo se anima con el ticker de la pelea: se detiene con la pausa y respeta la velocidad (x1 / x2).
+// En el battle royale (`royale`) solo se anima lo que les pasa a los personajes, con los sonidos del remate:
+// sin letreros, voz, cámara (acercamiento ni temblor), fondo oscurecido ni destellos, porque el resto de duelos
+// sigue a la vez.
 import { DeathStep } from '@labrute/core';
 import { sound } from '@pixi/sound';
 import {
@@ -67,9 +70,22 @@ const KIND_TITLES: Record<Kind, string> = {
   latigo: 'ARRANCACABEZAS',
   explosion: 'EXPLOSIÓN',
 };
+// Para contarlo en la lista del royale: "Mazo decapitó a Brasa"
+export const FATALITY_VERBS: Record<Kind, string> = {
+  decapitacion: 'decapitó a',
+  partido: 'partió en dos a',
+  aplastado: 'aplastó a',
+  acribillado: 'acribilló a',
+  latigo: 'le arrancó la cabeza a',
+  explosion: 'hizo explotar a',
+};
 
 const GRAVITY = 540;
 const MAX_SPLATS = 240;
+// En el royale puede haber muchas: menos manchas por cada una
+const ROYALE_MAX_SPLATS = 140;
+// Royale: los restos se desvanecen pasado un rato (la sangre del suelo se queda)
+const ROYALE_REMAINS_SECONDS = 2.6;
 const BLOOD = [0x4a0000, 0x7a0000, 0xa30000, 0xc81010, 0xe01818];
 // Radio de los círculos de sangre compartidos (cada gota o mancha los escala a su tamaño)
 const DROP_RADIUS = 4;
@@ -100,7 +116,7 @@ export const isFatalityDeath = (fighters: AnimationFighter[], step: DeathStep) =
   return !!fighter && fighter.type === 'brute' && !fighter.master;
 };
 
-const fatalityKind = (killer: AnimationFighter): Kind => {
+export const fatalityKind = (killer: AnimationFighter): Kind => {
   try {
     const forced = new URLSearchParams(location.search).get('fatality');
     if (forced && forced in KIND_TITLES) return forced as Kind;
@@ -234,12 +250,16 @@ export const fatality = async (
   fighters: AnimationFighter[],
   step: DeathStep,
   speed: React.RefObject<number>,
+  // Battle royale: quién remata (el último que lo golpeó), versión sin cine y aviso en el golpe final
+  royale?: { killer: AnimationFighter; onImpact?: () => void },
 ) => {
+  const cinematic = !royale;
   const victim = findFighter(fighters, step.f);
-  const killer = fighters.find((f) => f.type === 'brute' && !f.master && f.team !== victim?.team && !f.dead);
+  const killer = royale?.killer
+    ?? fighters.find((f) => f.type === 'brute' && !f.master && f.team !== victim?.team && !f.dead);
   const { stage, ticker } = app;
   if (!victim || !killer || !stage || !ticker) {
-    death(fighters, step, speed, false);
+    death(fighters, step, speed, !cinematic);
     return;
   }
   // Muerto desde ya: así ninguna animación pendiente lo vuelve a poner en reposo
@@ -259,6 +279,13 @@ export const fatality = async (
   const elapsed = (tk: Ticker) => (Math.min(tk.elapsedMS, 50) / 1000) * speed.current;
   // A x2 el anunciador también habla algo más deprisa
   const voiceRate = (rate: number) => rate * (speed.current > 1 ? 1.15 : 1);
+  // Efectos de sonido (también en el royale: el remate suena)
+  const sfx = (sprite: string) => {
+    void sound.play('sfx', { sprite });
+  };
+  // Royale: restos (piezas y sus sombras) que se desvanecen al final, y fotos cuya textura se libera después
+  const remains: Container[] = [];
+  const photos: Photo[] = [];
 
   // Anima durante `seconds` (tiempo de pelea) llamando a update(p) con p de 0 a 1
   const animate = (seconds: number, update: (p: number) => void) =>
@@ -315,13 +342,17 @@ export const fatality = async (
     screen.scale.set(1 / camera.z);
     screen.position.set(px - hw, py - hh);
   };
-  ticker.add(applyCamera);
-  const shake = (intensity: number, seconds: number) =>
-    animate(seconds, (p) => {
+  // Royale: la cámara no se toca (ni acercamientos ni temblores)
+  if (cinematic) ticker.add(applyCamera);
+  const shake = (intensity: number, seconds: number) => {
+    if (!cinematic) return Promise.resolve();
+    return animate(seconds, (p) => {
       camera.shake = intensity * (1 - p);
     });
+  };
   // Con un Súper gigante en escena se acerca menos, para que quepa en el encuadre
   const moveCamera = (z: number, fx: number, fy: number, seconds: number, ease = easeInOutCubic) => {
+    if (!cinematic) return Promise.resolve();
     const from = { ...camera };
     const to = 1 + (z - 1) / Math.max(giant, killerGiant);
     return animate(seconds, (p) => {
@@ -340,14 +371,23 @@ export const fatality = async (
   const flash = new Graphics().rect(0, 0, W, H).fill(0xffffff);
   flash.alpha = 0;
   screen.addChild(flash);
-  stage.addChild(shade, screen);
+  if (cinematic) stage.addChild(shade, screen);
+  // El destello marca el golpe final. En el royale no hay destello: se avisa (una vez) para que reaccionen
+  // los que están cerca
+  let impacted = false;
   const flashTo = (color: number, alpha: number, seconds: number) => {
+    if (!cinematic) {
+      if (!impacted) royale?.onImpact?.();
+      impacted = true;
+      return Promise.resolve();
+    }
     flash.clear().rect(0, 0, W, H).fill(color);
     return animate(seconds, (p) => {
       flash.alpha = alpha * (1 - p);
     });
   };
   const fadeShade = (to: number, seconds: number) => {
+    if (!cinematic) return Promise.resolve();
     const from = shade.alpha;
     return animate(seconds, (p) => {
       shade.alpha = lerp(from, to, p);
@@ -358,6 +398,7 @@ export const fatality = async (
   const hud = stage.children.filter((c) => isHudLayer(c.zIndex) && !fighters.some((f) => f.animation.container === c));
   const hudAlpha = new Map(hud.map((c) => [c, c.alpha]));
   const fadeHud = (to: number, seconds: number) => {
+    if (!cinematic) return Promise.resolve();
     const from = new Map(hud.map((c) => [c, c.alpha]));
     return animate(seconds, (p) => {
       hud.forEach((c) => {
@@ -380,7 +421,7 @@ export const fatality = async (
   let splats = 0;
   const groundY = V.y;
   const splat = (x: number, y: number, r: number, color: number) => {
-    if (splats >= MAX_SPLATS) return;
+    if (splats >= (cinematic ? MAX_SPLATS : ROYALE_MAX_SPLATS)) return;
     splats += 1;
     const g = new Graphics(splatShapes.get(color));
     g.scale.set((r * rand(1.8, 3.5)) / DROP_RADIUS, (r * rand(0.45, 0.85)) / DROP_RADIUS);
@@ -389,7 +430,9 @@ export const fatality = async (
     g.eventMode = 'none';
     stage.addChild(g);
   };
-  every((dt) => {
+  // El ticker de las gotas solo corre mientras hay alguna en el aire (en el royale caen varias fatalities)
+  let dropsTicking = false;
+  const updateDrops = (dt: number) => {
     for (let i = drops.length - 1; i >= 0; i--) {
       const d = drops[i] as Drop;
       d.vy += GRAVITY * dt;
@@ -405,7 +448,9 @@ export const fatality = async (
         drops.splice(i, 1);
       }
     }
-  });
+    dropsTicking = drops.length > 0;
+    return dropsTicking;
+  };
   // Chorro de sangre en una dirección (ángulo en radianes: 0 = derecha, -π/2 = arriba)
   const spray = (x: number, y: number, count: number, angle: number, cone: number, velocity: [number, number]) => {
     for (let i = 0; i < count; i++) {
@@ -420,6 +465,10 @@ export const fatality = async (
       g.eventMode = 'none';
       stage.addChild(g);
       drops.push({ g, r, color, vx: Math.cos(a) * v, vy: Math.sin(a) * v, ground: groundY + rand(-6, 10) });
+      if (!dropsTicking) {
+        dropsTicking = true;
+        every(updateDrops);
+      }
     }
   };
   // Chorro a latidos desde un punto que puede moverse; devuelve la función que lo corta
@@ -473,6 +522,7 @@ export const fatality = async (
     g.zIndex = 1;
     g.eventMode = 'none';
     stage.addChild(g);
+    remains.push(g);
     return g;
   };
 
@@ -513,7 +563,12 @@ export const fatality = async (
     }).then(() => g.destroy());
   };
 
-  const towards = Math.sign(V.x - K.x) || 1; // del ganador hacia el perdedor
+  // Del ganador hacia el perdedor. Si por ese lado no cabe (perdedor contra un borde, algo que en el royale pasa),
+  // remata desde el otro
+  const reach = kind === 'latigo' ? 105 : 45;
+  const fits = (side: number) => V.x - side * reach >= 16 && V.x - side * reach <= W - 16;
+  const natural = Math.sign(V.x - K.x) || 1;
+  const towards = fits(natural) ? natural : -natural;
   const bodyHeight = victim.animation.baseHeight * 0.82;
   const killerHeight = killer.animation.baseHeight * 0.82;
   const baseScaleX = V.scale.x;
@@ -584,7 +639,8 @@ export const fatality = async (
     animationSpeed = 0.7,
   ) => {
     void moveCamera(zoom, fx, fy, 0.28, easeOutCubic);
-    timeScale = 0.4;
+    // Royale: a velocidad normal, como el resto de la arena
+    if (cinematic) timeScale = 0.4;
     await strike(animation, animationSpeed);
   };
 
@@ -624,7 +680,7 @@ export const fatality = async (
       const tex = app.renderer.generateTexture({ target: V, frame, resolution: res });
       const { pixels, width, height } = app.renderer.extract.pixels({ target: tex });
       restore();
-      return {
+      const photo: Photo = {
         tex,
         frame,
         minX: lb.minX,
@@ -636,6 +692,8 @@ export const fatality = async (
         pw: width,
         ph: height,
       };
+      photos.push(photo);
+      return photo;
     } catch (e) {
       console.warn('fatality: sin foto del perdedor', e);
       restore();
@@ -651,7 +709,7 @@ export const fatality = async (
     victim.animation.shadow.visible = true;
     victim.animation.animationSpeed = 1;
     victim.animation.play();
-    death(fighters, step, speed, false);
+    death(fighters, step, speed, !cinematic);
   };
 
   // Cuello: la fila más angosta de la silueta (cerca del eje del cuerpo) dentro de la franja esperada,
@@ -779,6 +837,7 @@ export const fatality = async (
     piece.zIndex = V.y;
     piece.eventMode = 'none';
     stage.addChild(piece);
+    remains.push(piece);
     // Convierte coordenadas locales del perdedor a las de la pieza
     const at = (x: number, y: number) => new Point(x - pivot.x, y - pivot.y);
     return { piece, inner, sprite, at };
@@ -822,7 +881,7 @@ export const fatality = async (
             piece.y = ground;
             if (o.bleed) spray(piece.x, groundY - 2, 6, -Math.PI / 2, 2.3, [25, 85]);
             if (vy > 85) {
-              if (o.noisy) void sound.play('sfx', { sprite: 'blunt1' });
+              if (o.noisy) sfx('blunt1');
               vy = -vy * 0.36;
               vx *= 0.68;
               spin *= 0.6;
@@ -858,7 +917,7 @@ export const fatality = async (
       c.rotation = lerp(fromRot, to, easeInCubic(p));
       c.y = lerp(fromY, groundY - 1 + dropToGround, easeInQuad(p));
     });
-    void sound.play('sfx', { sprite: 'blunt3' });
+    sfx('blunt3');
     void shake(5, 0.28);
     await animate(0.14, (p) => {
       c.rotation = to - Math.sign(to) * 0.055 * Math.sin(p * Math.PI);
@@ -918,13 +977,14 @@ export const fatality = async (
 
   // El ganador se pone de cara y se acerca (con el látigo se queda a distancia)
   K.scale.x = Math.abs(K.scale.x) * towards;
-  const gap = Math.abs(V.x - K.x);
+  // Distancia por el lado desde el que remata (negativa si está al otro lado)
+  const gap = (V.x - K.x) * towards;
   const targetX =
     kind === 'latigo'
       ? gap >= 80 && gap <= 140
         ? K.x
         : V.x - towards * 105
-      : V.x - towards * Math.max(kind === 'acribillado' ? 42 : 32, getHitDistance(killer, victim) * 0.8);
+      : clamp(V.x - towards * Math.max(kind === 'acribillado' ? 42 : 32, getHitDistance(killer, victim) * 0.8), 16, W - 16);
   const approach = async () => {
     const start = { x: K.x, y: K.y };
     const distance = Math.hypot(targetX - start.x, groundY + 1 - start.y);
@@ -937,35 +997,40 @@ export const fatality = async (
     if (alive()) killer.animation.setAnimation('idle');
   };
 
-  void fadeHud(0, 0.25);
-  void fadeShade(0.62, 0.4);
-  void moveCamera(1.25, (V.x + targetX) / 2, groundY - 40, 0.5);
-  void sound.play('sfx', { sprite: 'hammer' });
-  // La voz tarda un poco en arrancar: se pide a la vez que aparece el letrero
-  announce(victim.gender === 'female' ? 'Finish her!' : 'Finish him!', voiceRate(0.85));
-  const finish = bigText(victim.gender === 'female' ? 'FINISH HER!' : 'FINISH HIM!', 40, [
-    '#fff3a0',
-    '#ff8a00',
-    '#a31000',
-  ]);
-  finish.anchor.set(0.5);
-  finish.position.set(W / 2, H * 0.3);
-  finish.alpha = 0;
-  screen.addChild(finish);
-  await animate(0.22, (p) => {
-    finish.scale.set(lerp(2.6, 1, easeOutBack(p)));
-    finish.alpha = Math.min(1, p * 2.5);
-  });
-  void shake(5, 0.35);
-  const approached = approach();
-  await animate(0.5, (p) => {
-    finish.scale.set(1 + Math.sin(p * Math.PI * 2) * 0.03);
-  });
-  await animate(0.18, (p) => {
-    finish.alpha = 1 - p;
-  });
-  finish.destroy();
-  await approached;
+  const finishHim = async () => {
+    void fadeHud(0, 0.25);
+    void fadeShade(0.62, 0.4);
+    void moveCamera(1.25, (V.x + targetX) / 2, groundY - 40, 0.5);
+    sfx('hammer');
+    // La voz tarda un poco en arrancar: se pide a la vez que aparece el letrero
+    announce(victim.gender === 'female' ? 'Finish her!' : 'Finish him!', voiceRate(0.85));
+    const finish = bigText(victim.gender === 'female' ? 'FINISH HER!' : 'FINISH HIM!', 40, [
+      '#fff3a0',
+      '#ff8a00',
+      '#a31000',
+    ]);
+    finish.anchor.set(0.5);
+    finish.position.set(W / 2, H * 0.3);
+    finish.alpha = 0;
+    screen.addChild(finish);
+    await animate(0.22, (p) => {
+      finish.scale.set(lerp(2.6, 1, easeOutBack(p)));
+      finish.alpha = Math.min(1, p * 2.5);
+    });
+    void shake(5, 0.35);
+    const approached = approach();
+    await animate(0.5, (p) => {
+      finish.scale.set(1 + Math.sin(p * Math.PI * 2) * 0.03);
+    });
+    await animate(0.18, (p) => {
+      finish.alpha = 1 - p;
+    });
+    finish.destroy();
+    await approached;
+  };
+  // Royale: sin letrero ni voz. El perdedor se tambalea mareado mientras el ganador llega corriendo
+  if (cinematic) await finishHim();
+  else await Promise.all([approach(), wait(0.35)]);
   if (!alive()) return;
 
   // ===== 2. El remate =====
@@ -1045,7 +1110,7 @@ export const fatality = async (
       await strike('slash', 1.7);
       if (!alive()) return;
       const cy = groundY - bodyHeight * cut.y;
-      void sound.play('sfx', { sprite: pick(['sharp1', 'sharp3', 'sharp5', 'sword']) });
+      sfx(pick(['sharp1', 'sharp3', 'sharp5', 'sword']));
       slashFx(V.x, cy, cut.angle, 54 * giant, 5.5);
       spray(V.x, cy, 22, away(-0.4), 1.2, [75, 215]);
       flinch(6);
@@ -1055,8 +1120,8 @@ export const fatality = async (
     await finalStrike('slash', 1.85, V.x - towards * 12, groundY - bodyHeight * 0.52);
     if (!alive()) return;
     stopSway();
-    void sound.play('sfx', { sprite: 'broadsword1' });
-    void sound.play('sfx', { sprite: 'hammer' });
+    sfx('broadsword1');
+    sfx('hammer');
     void flashTo(0xffffff, 0.9, 0.25);
     void shake(7.5, 0.45);
     await behead(1);
@@ -1065,7 +1130,7 @@ export const fatality = async (
   const latigo = async () => {
     await strike('whip', 1.4);
     if (!alive()) return;
-    void sound.play('sfx', { sprite: 'whip' });
+    sfx('whip');
     const cy = groundY - bodyHeight * 0.48;
     slashFx(V.x, cy, rand(-0.35, 0.35), 46 * giant, 4.5);
     spray(V.x, cy, 20, away(-0.4), 1.2, [65, 195]);
@@ -1078,8 +1143,8 @@ export const fatality = async (
     stopSway();
     recoil();
 
-    void sound.play('sfx', { sprite: 'whip' });
-    void sound.play('sfx', { sprite: 'chaining' });
+    sfx('whip');
+    sfx('chaining');
 
     // El látigo trenzado se enrolla en el cuello y se tensa con un tirón hacia atrás
     const neckY = groundY - bodyHeight * 0.58;
@@ -1130,8 +1195,8 @@ export const fatality = async (
     // ¡Tirón mortal!
     K.rotation = 0;
     V.rotation = 0;
-    void sound.play('sfx', { sprite: 'hammer' });
-    void sound.play('sfx', { sprite: 'whip' });
+    sfx('hammer');
+    sfx('whip');
     void flashTo(0xffffff, 0.85, 0.25);
     void shake(7, 0.4);
     await behead(-1, (head) => {
@@ -1151,7 +1216,7 @@ export const fatality = async (
   const partido = async () => {
     await strike('slash', 1.45);
     if (!alive()) return;
-    void sound.play('sfx', { sprite: pick(['axe1', 'axe2', 'hatchet1']) });
+    sfx(pick(['axe1', 'axe2', 'hatchet1']));
     const cy = groundY - bodyHeight * 0.45;
     slashFx(V.x, cy, -0.45, 56 * giant, 6);
     spray(V.x, cy, 24, away(-0.4), 1.2, [75, 215]);
@@ -1161,8 +1226,8 @@ export const fatality = async (
     await finalStrike('slash', 1.65, V.x, groundY - bodyHeight * 0.5);
     if (!alive()) return;
     stopSway();
-    void sound.play('sfx', { sprite: 'broadsword1' });
-    void sound.play('sfx', { sprite: 'hammer' });
+    sfx('broadsword1');
+    sfx('hammer');
     void flashTo(0xffffff, 0.9, 0.28);
     void shake(8.5, 0.45);
 
@@ -1231,7 +1296,7 @@ export const fatality = async (
   const aplastado = async () => {
     await strike('slash', 1.45);
     if (!alive()) return;
-    void sound.play('sfx', { sprite: pick(['blunt2', 'blunt4', 'blunt6']) });
+    sfx(pick(['blunt2', 'blunt4', 'blunt6']));
     spray(V.x, groundY - bodyHeight * 0.65, 16, away(-0.55), 1.2, [65, 180]);
     flinch(7);
     void shake(3.5, 0.18);
@@ -1258,7 +1323,7 @@ export const fatality = async (
     if (!alive()) return;
 
     // Cae en picado descargando el golpe
-    timeScale = 0.55;
+    if (cinematic) timeScale = 0.55;
     killer.animation.play();
     killer.animation.animationSpeed = 1.4;
     await animate(0.12, (p) => airborne(lerp(startX, landX, 0.85 + 0.15 * p), apex * (1 - easeInQuad(p))));
@@ -1271,8 +1336,8 @@ export const fatality = async (
     airborne(landX, 0);
     recoil();
 
-    void sound.play('sfx', { sprite: 'hammer' });
-    void sound.play('sfx', { sprite: 'bomb' });
+    sfx('hammer');
+    sfx('bomb');
     void flashTo(0xffffff, 0.85, 0.25);
     void shake(11, 0.55);
     shockwave(V.x, groundY, 62 * giant, 0xffd27a, 0.35);
@@ -1314,9 +1379,11 @@ export const fatality = async (
     K.zIndex = groundY + 5;
     killer.animation.setAnimation('evade');
     void moveCamera(1.65, V.x - towards * 18, groundY - 22, 0.4);
-    await animate(0.32, (p) => airborne(landX - towards * 68 * p, 38 * Math.sin(p * Math.PI)));
+    // Sin salirse de la arena
+    const backX = clamp(landX - towards * 68, 16, W - 16);
+    await animate(0.32, (p) => airborne(lerp(landX, backX, p), 38 * Math.sin(p * Math.PI)));
     killer.animation.setAirborn(false);
-    airborne(landX - towards * 68, 0);
+    airborne(backX, 0);
     killer.animation.setAnimation('idle');
     await wait(0.3);
   };
@@ -1341,7 +1408,7 @@ export const fatality = async (
     for (const [i, stabSpeed] of [1.4, 1.6, 2, 2.2, 2.4].entries()) {
       await strike('estoc', stabSpeed);
       if (!alive()) return;
-      void sound.play('sfx', { sprite: pick(['sharp2', 'sharp4', 'sharp6', 'sharp8']) });
+      sfx(pick(['sharp2', 'sharp4', 'sharp6', 'sharp8']));
       const h = hole(rand(-6, 6) * giant, -bodyHeight * rand(0.28, 0.62), 2.3 * giant);
       const p = toStage(h);
       slashFx(p.x, p.y, towards * rand(-0.18, 0.18), 44 * giant, 3.8);
@@ -1362,8 +1429,8 @@ export const fatality = async (
     await finalStrike('estoc', 1.7, V.x - towards * 10, groundY - bodyHeight * 0.45);
     if (!alive()) return;
     stopSway();
-    void sound.play('sfx', { sprite: 'sword' });
-    void sound.play('sfx', { sprite: 'hammer' });
+    sfx('sword');
+    sfx('hammer');
     void flashTo(0xffffff, 0.85, 0.25);
     void shake(7.5, 0.45);
 
@@ -1399,7 +1466,7 @@ export const fatality = async (
     }).then(() => holes.forEach((h) => h.destroy()));
     victim.animation.animationSpeed = 1;
     victim.animation.play();
-    death(fighters, step, speed, false);
+    death(fighters, step, speed, !cinematic);
     await wait(0.35);
     if (!alive()) return;
     spray(V.x + towards * 10 * giant, groundY - 2, 18, -Math.PI / 2, 2.2, [30, 110]);
@@ -1412,7 +1479,7 @@ export const fatality = async (
     for (const punchSpeed of [1.25, 1.4, 2]) {
       await strike('fist', punchSpeed);
       if (!alive()) return;
-      void sound.play('sfx', { sprite: pick(['fist1', 'fist2', 'fist3']) });
+      sfx(pick(['fist1', 'fist2', 'fist3']));
       spray(V.x, groundY - bodyHeight * 0.62, 10, away(-0.45), 1, [65, 175]);
       flinch(6);
       void shake(2.8, 0.12);
@@ -1422,7 +1489,7 @@ export const fatality = async (
     if (!alive()) return;
     stopSway();
     recoil();
-    void sound.play('sfx', { sprite: 'hammer' });
+    sfx('hammer');
     void flashTo(0xffffff, 0.75, 0.25);
     void shake(6, 0.35);
 
@@ -1447,8 +1514,8 @@ export const fatality = async (
       V.scale.set(baseScaleX, baseScaleY);
       return plainDeath();
     }
-    void sound.play('sfx', { sprite: 'bomb' });
-    void sound.play('sfx', { sprite: 'hammer' });
+    sfx('bomb');
+    sfx('hammer');
     void flashTo(0xffffff, 0.95, 0.35);
     void shake(12, 0.6);
     const center = new Point(V.x, groundY - bodyHeight * 0.5 * swell);
@@ -1512,9 +1579,43 @@ export const fatality = async (
   };
   await kills[kind]();
   if (!alive()) return;
+  timeScale = 1;
+
+  // Royale: sin letrero. El ganador saca músculo y sigue peleando; los restos se desvanecen pasado un rato
+  // (la sangre del suelo se queda), como los caídos normales
+  if (!cinematic) {
+    screen.destroy({ children: true });
+    shade.destroy();
+    if (!killer.trapped && !killer.stunned) {
+      killer.animation.setAnimation('strengthen');
+      killer.animation.once('strengthen:end', () => {
+        if (!K.destroyed && killer.animation.animation === 'strengthen') killer.animation.setAnimation('idle');
+      });
+    }
+    // Aplastado: el cuerpo chafado sigue siendo el perdedor (los que caen con su animación ya se desvanecen solos)
+    const flattened = V.visible && victim.animation.animation !== 'death';
+    void wait(ROYALE_REMAINS_SECONDS)
+      .then(() =>
+        animate(0.6, (p) => {
+          remains.forEach((c) => {
+            if (!c.destroyed) c.alpha = 1 - p;
+          });
+          if (flattened) V.alpha = 1 - p;
+        }),
+      )
+      .then(() => {
+        if (stage.destroyed) return;
+        remains.forEach((c) => {
+          if (!c.destroyed) c.destroy({ children: true });
+        });
+        photos.forEach((photo) => photo.tex.destroy(true));
+        // El chafado ya no se ve: que no se siga dibujando
+        if (flattened && !V.destroyed) V.visible = false;
+      });
+    return;
+  }
 
   // ===== 3. "FATALITY" (y el nombre del remate) =====
-  timeScale = 1;
   const title = bigText('FATALITY', 60, ['#ff5a4a', '#d40000', '#5a0000']);
   title.anchor.set(0.5);
   title.position.set(W / 2, H * 0.42);
@@ -1538,7 +1639,7 @@ export const fatality = async (
   });
   if (!alive()) return;
   // Impacto del letrero
-  void sound.play('sfx', { sprite: 'bomb' });
+  sfx('bomb');
   void flashTo(0xff0000, 0.45, 0.35);
   void animate(0.3, (p) => {
     camera.z = 1 + 0.06 * Math.sin(p * Math.PI);

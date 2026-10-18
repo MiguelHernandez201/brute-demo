@@ -60,7 +60,20 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 
   Para ver una en concreto se puede forzar con la URL, por ejemplo `?fatality=aplastado`
   (`decapitacion`, `partido`, `aplastado`, `acribillado`, `latigo` o `explosion`).
-- **Battle Royale**: de 3 a 10 brutes, todos contra todos, con varios duelos animados a la vez.
+- **Battle Royale**: de 3 a 20 brutes, todos contra todos, con hasta seis duelos animados a la vez
+  por toda la arena.
+  - Cada brute lleva encima su nombre y su vida, con un color propio que también marca su fila en la
+    lista. Al pasar el ratón por una fila (o tocarla) se resalta en la arena; con un clic se queda fijo.
+  - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea. La lista muestra los fps para ver cuántos
+    aguanta la pantalla: en un PC de escritorio va fluido hasta unos 35 en pie, baja a unos 40 fps con 45
+    y a unos 25 fps con 60.
+  - Los que esperan su turno no se quedan quietos: trotan, cruzan la arena a la carrera, rondan y amagan
+    a un rival, saltan, se ponen en guardia o sacan músculo. Se sobresaltan con los críticos de al lado,
+    y los críticos lanzan por los aires a quien los recibe.
+  - Cada eliminado cae con la fatality del arma de quien lo remató: solo la animación sobre los personajes
+    y sus sonidos (sin letreros, voz ni cámara), mientras el resto sigue peleando y los que miran
+    reaccionan. Sus restos se desvanecen al rato y la sangre se queda en el suelo. La lista cuenta quién
+    eliminó a quién ("Mazo decapitó a Brasa").
 
 ## Estructura (`web/src`)
 
