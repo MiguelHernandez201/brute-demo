@@ -28,6 +28,7 @@ import { death } from './death';
 import { untrap } from './untrap';
 import { AnimationFighter, findFighter } from './utils/findFighter';
 import { getHitDistance } from './utils/getHitDistance';
+import { stampGround } from './utils/groundLayer';
 import { isHudLayer } from './utils/hud';
 import { Spritesheets } from './utils/spritesheet';
 
@@ -426,9 +427,8 @@ export const fatality = async (
     const g = new Graphics(splatShapes.get(color));
     g.scale.set((r * rand(1.8, 3.5)) / DROP_RADIUS, (r * rand(0.45, 0.85)) / DROP_RADIUS);
     g.position.set(x, y);
-    g.zIndex = 1;
-    g.eventMode = 'none';
-    stage.addChild(g);
+    // Se pinta una vez en la capa del suelo (ver groundLayer): miles de manchas no pesan en cada fotograma
+    stampGround(app, g);
   };
   // El ticker de las gotas solo corre mientras hay alguna en el aire (en el royale caen varias fatalities)
   let dropsTicking = false;
@@ -512,8 +512,11 @@ export const fatality = async (
     g.scale.set(0.15);
     g.eventMode = 'none';
     stage.addChild(g);
+    // Crece y, ya quieto, pasa a la capa del suelo
     void animate(1.8, (p) => {
       if (!g.destroyed) g.scale.set(lerp(0.15, 1, easeOutCubic(p)));
+    }).then(() => {
+      if (!g.destroyed) stampGround(app, g);
     });
   };
   const groundShadow = (x: number, width: number) => {
@@ -1356,7 +1359,7 @@ export const fatality = async (
         .lineTo(Math.cos(ang) * len, Math.sin(ang) * len * 0.28)
         .stroke({ width: 1.4, color: 0x26160c, alpha: 0.75 });
     }
-    stage.addChild(cracks);
+    stampGround(app, cracks);
 
     await animate(0.07, (p) => {
       V.scale.set(baseScaleX * lerp(1, 1.72, p), baseScaleY * lerp(1, 0.16, p));
