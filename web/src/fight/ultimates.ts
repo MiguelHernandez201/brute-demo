@@ -1,8 +1,9 @@
 // Demo battle royale: animaciones de las ultimates (ver engine/ultimates). Reutilizan los gráficos y sonidos de las
 // técnicas en las que se inspiran (Diluvio, Bomba, Prisa y Súper gigante), pero sobre varios rivales a la vez.
 // Cada golpe se anima por su cuenta (ver el planificador del royale en setupFight): solo espera a que su objetivo
-// quede libre, así la ultimate se ve enseguida aunque los demás estén a mitad de un turno. El letrero y el brillo de
-// quien la lanza son solo efectos encima: no le paran lo que esté haciendo.
+// quede libre, así la ultimate se ve enseguida aunque los demás estén a mitad de un turno (los de la onda del Súper
+// gigante, ni eso: llegan todos a la vez, ver giantStomp). El letrero y el brillo de quien la lanza son solo efectos
+// encima: no le paran lo que esté haciendo.
 import { randomBetween, WeaponById } from '@labrute/core';
 import { WeaponName } from '@labrute/prisma';
 import { sound } from '@pixi/sound';
@@ -253,26 +254,34 @@ export const ultimateHaste = async (
 };
 
 // Súper gigante: tras cada ataque da un pisotón que suelta una onda desde sus pies, tan grande como haga falta para
-// llegar a los que alcanza (`v`). Sus golpes van aparte (ultimateCleaveHit): a cada uno cuando le llega la onda o, si
-// estaba ocupado, en cuanto queda libre
-const rings = new Map<number, { x: number; y: number; at: number; radius: number }>();
-const RING_SECONDS = 0.55;
-export const ultimateRing = async (
+// llegar a los que alcanza (`hits`, con lo que le quita a cada uno), y les golpea a todos a la vez que su golpe (la onda
+// es rápida). Quien está libre lo encaja como cualquier golpe (`reserve` lo aparta de lo demás mientras, ver
+// setupFight); quien está a mitad de su turno lo recibe sin pararlo: destello, chispa, daño y vida
+const RING_SECONDS = 0.3;
+export type Reserve = {
+  free: (f: AnimationFighter) => boolean;
+  hold: (f: AnimationFighter) => void;
+  release: (f: AnimationFighter) => void;
+};
+export const giantStomp = (
   app: Application,
   spritesheets: Spritesheets,
   fighters: AnimationFighter[],
-  step: { f: number; v?: number[] },
+  index: number,
+  hits: { t: number; d: number }[],
   speed: Speed,
+  reserve: Reserve,
 ) => {
-  const giant = findFighter(fighters, step.f);
+  const giant = findFighter(fighters, index);
   if (!giant || pos(giant).destroyed) return;
   const g = pos(giant);
   // Lo vertical cuenta el doble (la arena es poco profunda): la onda es una elipse el doble de ancha que de alta
-  const radius = Math.max(70, ...(step.v ?? []).map((index) => {
-    const victim = findFighter(fighters, index);
-    return victim && !pos(victim).destroyed ? Math.hypot(pos(victim).x - g.x, (pos(victim).y - g.y) * 2) + 20 : 0;
-  }));
-  rings.set(giant.index, { x: g.x, y: g.y, at: performance.now(), radius });
+  const distance = (f: AnimationFighter) => Math.hypot(pos(f).x - g.x, (pos(f).y - g.y) * 2);
+  const victims = hits.flatMap(({ t, d }) => {
+    const victim = findFighter(fighters, t);
+    return victim && !pos(victim).destroyed ? [{ victim, d }] : [];
+  });
+  const radius = Math.max(70, ...victims.map(({ victim }) => distance(victim) + 20));
   const ring = new Graphics()
     .ellipse(0, 0, 40, 20)
     .stroke({ width: 5, color: 0xffd23f, alpha: 0.9 })
@@ -283,31 +292,37 @@ export const ultimateRing = async (
   ring.scale.set(0.3);
   app.stage.addChild(ring);
   void tween(ring.scale, { x: radius / 40, y: radius / 40, duration: RING_SECONDS / speed.current, ease: 'none' });
-  void tween(ring, { alpha: 0, duration: RING_SECONDS / speed.current, ease: 'power2.in' }).then(() => ring.destroy());
+  void tween(ring, { alpha: 0, duration: (RING_SECONDS + 0.15) / speed.current, ease: 'power2.in' })
+    .then(() => ring.destroy());
   void sound.play('sfx', { sprite: 'hammer' });
   void shakeStage(app, speed, 7, 300);
   playStepDust(app, spritesheets, giant, speed, 0, 1.2);
-  await wait(0.3, speed);
-};
-
-// Golpe de la onda del Súper gigante a uno de los que alcanza: espera a que le llegue (si no le ha llegado ya)
-export const ultimateCleaveHit = async (
-  app: Application,
-  spritesheets: Spritesheets,
-  fighters: AnimationFighter[],
-  step: { f: number; t: number; d: number },
-  speed: Speed,
-) => {
-  const victim = findFighter(fighters, step.t);
-  if (!victim || pos(victim).destroyed) return;
-  const ring = rings.get(step.f);
-  if (ring) {
-    const distance = Math.hypot(pos(victim).x - ring.x, (pos(victim).y - ring.y) * 2);
-    const arrives = (RING_SECONDS * Math.min(1, distance / ring.radius)) / speed.current;
-    const left = arrives - (performance.now() - ring.at) / 1000;
-    if (left > 0) await wait(left * speed.current, speed);
+  for (const { victim, d } of victims) {
+    // A cada uno cuando le llega la onda
+    wait(RING_SECONDS * Math.min(1, distance(victim) / radius), speed)
+      .then(async () => {
+        if (pos(victim).destroyed || victim.dead) return;
+        if (reserve.free(victim)) {
+          reserve.hold(victim);
+          try {
+            await struck(app, spritesheets, fighters, victim, d, speed, 22);
+          } finally {
+            reserve.release(victim);
+          }
+          return;
+        }
+        const c = pos(victim);
+        const flash = new ColorOverlayFilter({ color: 0xffffff, alpha: 0.85 });
+        c.filters = [...(c.filters || []), flash];
+        void tween(flash, { alpha: 0, duration: 0.35 / speed.current }).then(() => {
+          if (!c.destroyed) c.filters = (c.filters || []).filter((f) => f !== flash);
+        });
+        playHitEffect(app, spritesheets, giant, victim, speed);
+        displayDamage({ app, target: victim, damage: d, speed, criticalHit: 0 });
+        updateHp(fighters, victim, -d, speed, false);
+      })
+      .catch(console.error);
   }
-  await struck(app, spritesheets, fighters, victim, step.d, speed, 22);
 };
 
 // Cuenta los segundos del Súper gigante desde que crece (con el reloj de la pelea: se para con la pausa y va más
@@ -355,5 +370,4 @@ export const clearUltimates = () => {
     if (c && !c.destroyed) c.filters = (c.filters || []).filter((f) => !run.filters.includes(f));
   }
   hasteRuns.clear();
-  rings.clear();
 };

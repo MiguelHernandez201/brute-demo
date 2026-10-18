@@ -64,8 +64,7 @@ import { royaleAmbient } from './royaleAmbient';
 import { royaleTags } from './royaleTags';
 import { royaleClock } from './royaleClock';
 import {
-  clearUltimates, giantShrink, giantTimer, ultimateBomb, ultimateCast, ultimateCleaveHit, ultimateFlood, ultimateHaste,
-  ultimateRing,
+  clearUltimates, giantShrink, giantStomp, giantTimer, ultimateBomb, ultimateCast, ultimateFlood, ultimateHaste,
 } from './ultimates';
 import { resetBakeBudget, setCrowdLevel, updateCrowdQuality } from './crowdQuality';
 import { vampirism } from './vampirism';
@@ -812,7 +811,6 @@ export const setupFight: (
         case 'demoFlood' as never: // Demo royale: golpes de las ultimates
         case 'demoBomb' as never:
         case 'demoHaste' as never:
-        case 'demoCleaveHit' as never:
           if (typeof by !== 'number') return null;
           return { by, targets: (Array.isArray(s.t) ? s.t : [s.t]).filter((t): t is number => typeof t === 'number') };
         default:
@@ -821,10 +819,10 @@ export const setupFight: (
     };
     // Los que recibieron su último golpe de una ultimate: caen sin fatality (así no se alarga, con tantos a la vez)
     const ultimateVictims = new Set<number>();
-    const ULTIMATE_HITS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste', 'demoCleaveHit']);
+    const ULTIMATE_HITS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste']);
     // Pasos de ultimates que son efectos encima de los demás: no colocan a nadie de lado (quien la lanza puede estar a
     // mitad de otra cosa) ni se reserva para ellos a quien la lanza (ver involvedIn)
-    const ULTIMATE_OVERLAYS = new Set<unknown>(['demoUltimate', 'demoFlood', 'demoBomb', 'demoCleaveHit']);
+    const ULTIMATE_OVERLAYS = new Set<unknown>(['demoUltimate', 'demoFlood', 'demoBomb']);
     const trackHit = (step: FightStep) => {
       const damage = damageOf(step);
       damage?.targets.forEach((t) => {
@@ -844,10 +842,12 @@ export const setupFight: (
       return killer;
     };
 
+    // Royale: luchadores que se están animando en un turno (ver el planificador, más abajo)
+    const busy = new Set<number>();
     // Royale: Súper gigantes (ultimate) y cuándo soltaron su última onda (una por ataque, aunque encadene golpes).
-    // Alcanza a los más cercanos en ese momento, menos a quien ataca (ese ya se lleva su golpe)
+    // Alcanza a los más cercanos en ese momento, menos a quien ataca (ese ya se lleva su golpe), y a todos a la vez
     const stompers = new Map<number, number>();
-    const giantStomp = (index: number, target?: number) => {
+    const stomp = (index: number, target?: number) => {
       const giant = findFighter(fighters, index);
       const last = stompers.get(index);
       if (last === undefined || !giant || giant.dead || giant.animation.container.destroyed) return;
@@ -862,8 +862,19 @@ export const setupFight: (
         .map((f) => ({ f, d: Math.hypot(f.animation.container.x - g.x, (f.animation.container.y - g.y) * 2) }))
         .sort((a, b) => a.d - b.d)
         .map(({ f }) => f.index);
-      const hit = demoFight.cleave?.(index, candidates) ?? [];
-      void ultimateRing(app, spritesheets, fighters, { f: index, v: hit }, speed);
+      const hits = demoFight.cleave?.(index, candidates) ?? [];
+      giantStomp(app, spritesheets, fighters, index, hits, speed, {
+        // Libre: no está en ningún turno (si lo está, recibe el golpe sin pararlo). Mientras lo encaja no empieza otro
+        free: (f) => !busy.has(f.index),
+        hold: (f) => {
+          busy.add(f.index);
+          crowd?.release(f);
+        },
+        release: (f) => {
+          busy.delete(f.index);
+          demoFight.wake?.();
+        },
+      });
     };
 
     // Royale (duelos): a quién atacó cada uno por última vez, para retroceder frente a él (ver getDuelPosition)
@@ -895,8 +906,8 @@ export const setupFight: (
     // `drained`: ya se animó todo lo anterior. En el royale, con uno solo en pie, devuelve null ("espera").
     // Royale: `finishing` es el botón "Finalizar" (cuenta atrás en la arena, ver royaleClock), `timeUp` que se acabó el
     // tiempo y `endNow` cierra la pelea con el ganador que se le diga. Ultimates (ver ultimates): `cleave` es la onda
-    // de un Súper gigante (alcanza a los primeros de los que se le dan, devuelve a quiénes) y `endGiant` se lo pasa;
-    // aquí se pone `wake` (hay pasos nuevos: botón de una ultimate, onda)
+    // de un Súper gigante (alcanza a los primeros de los que se le dan, devuelve a quiénes y cuánto les quita) y
+    // `endGiant` se lo pasa; aquí se pone `wake` (hay pasos nuevos: botón de una ultimate)
     const demoFight = fight as unknown as {
       liveSteps?: FightStep[];
       pullSteps?: (drained?: boolean) => Promise<boolean | null>;
@@ -904,7 +915,7 @@ export const setupFight: (
       timeLeft?: number | null;
       timeUp?: boolean;
       endNow?: (winnerIndex: number) => boolean;
-      cleave?: (index: number, candidates: number[]) => number[];
+      cleave?: (index: number, candidates: number[]) => { t: number; d: number }[];
       endGiant?: (index: number) => boolean;
       wake?: () => void;
     };
@@ -973,7 +984,7 @@ export const setupFight: (
         case StepType.AttemptHit: {
           await attemptHit(app, spritesheets, fighters, step, speed);
           // Demo royale: el Súper gigante (ultimate) suelta su onda al atacar
-          if (isRoyale) giantStomp(step.f, step.t);
+          if (isRoyale) stomp(step.f, step.t);
           break;
         }
         case StepType.Hit:
@@ -1237,10 +1248,6 @@ export const setupFight: (
           await ultimateHaste(app, spritesheets, fighters, step as never, speed);
           break;
         }
-        case 'demoCleaveHit' as never: {
-          await ultimateCleaveHit(app, spritesheets, fighters, step as never, speed);
-          break;
-        }
         case 'demoGiantEnd' as never: {
           await giantShrink(app, spritesheets, fighters, step as never, speed);
           break;
@@ -1340,7 +1347,6 @@ export const setupFight: (
         return set;
       };
       const running = new Set<Promise<void>>();
-      const busy = new Set<number>();
       (globalThis as any).__royaleBusy = busy; // depuración: luchadores que se están animando en un turno
       let cursor = 0;
       // Los que no están en ningún duelo se mueven por su cuenta (ver royaleAmbient)
@@ -1413,9 +1419,9 @@ export const setupFight: (
         running.add(p);
       };
       // Golpes de ultimates (ver arriba) y cuánto esperan al letrero y entre uno y otro (segundos)
-      const SERIES_STEPS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste', 'demoCleaveHit']);
+      const SERIES_STEPS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste']);
       const SERIES_TIMING: Record<string, [number, number]> = { demoFlood: [0.45, 0.2], demoBomb: [0.45, 0.38] };
-      // Reparte en piezas un trozo con ultimates (lanzadas con su botón, la onda de un Súper gigante o que encoja).
+      // Reparte en piezas un trozo con ultimates (lanzadas con su botón, o que el Súper gigante crezca o encoja).
       // Null si no tiene
       const splitUltimates = (chunk: FightStep[], from: number): QueuedTurn[] | null => {
         const visual = (st: FightStep) => (st.a as unknown) === 'demoGiant' || (st.a as unknown) === 'demoGiantEnd';
@@ -1479,8 +1485,8 @@ export const setupFight: (
           }
         });
         main.push(...before);
-        // El resto va junto: un turno del motor que coincidiera (con la onda del gigante), o que el gigante crezca o
-        // encoja (solo se ve, ver `jump`)
+        // El resto va junto: lo que el motor pusiera aparte de los golpes, o que el gigante crezca o encoja (solo se
+        // ve, ver `jump`)
         if (main.length) {
           const look = main.every((x) => visual(x.st));
           heads.push(piece(main, {

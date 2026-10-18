@@ -209,15 +209,10 @@ export class FightSession {
   }
 
   // Battle royale: la onda del Súper gigante `index` alcanza a los primeros de `candidates` que pueda (la animación
-  // la suelta cuando le ve atacar). Devuelve a quiénes
+  // la suelta cuando le ve atacar). Devuelve a quiénes y cuánto les quita (no remata a nadie)
   cleave(index: number, candidates: number[]) {
     if (!this.royale || this.winner) return [];
-    const fd = this.fightData;
-    const hit = cleave(fd, this.#stats, this.#achievements, index, candidates);
-    if (!hit.length) return hit;
-    checkDeaths(fd, this.#stats);
-    this.#royaleEliminations();
-    return hit;
+    return cleave(this.fightData, this.#stats, this.#achievements, index, candidates);
   }
 
   // Battle royale: se acaba el Súper gigante (ultimate) del brute `index`

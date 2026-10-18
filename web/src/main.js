@@ -208,7 +208,7 @@ const ULTIMATE_INFO = {
   giant: {
     icon: '💪',
     name: 'Súper gigante',
-    text: 'crece 15 s (daño x2 y recibe la mitad) y tras cada ataque suelta una onda que alcanza a los más cercanos',
+    text: 'crece 15 s (daño x2 y recibe la mitad) y tras cada ataque suelta una onda que golpea a la vez a los más cercanos',
   },
 };
 // Tras verse, la ultimate de un brute se recarga en este tiempo (corre con la pelea: se para con la pausa)
