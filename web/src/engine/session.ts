@@ -174,15 +174,10 @@ export class FightSession {
 
   get finished() { return !!this.fightData.loser; }
 
-  // Battle royale: el motor va por delante de la animación, así que cuando queda uno en pie todavía se ve pelear a
-  // varios. Por eso la pelea no se cierra (paso End) hasta que la animación lo ha mostrado todo y llama a esto:
-  // mientras tanto se pueden seguir agregando brutes y la pelea sigue con el que quedaba en pie.
-  closeRoyale() {
-    if (this.royale && this.finished && !this.winner) this.#finish();
-  }
-
-  // Battle royale: fin por tiempo (botón "Finalizar"). Gana quien diga la animación (el que más victorias lleva de
-  // los que siguen en pie): el motor va por delante y lo que jugó y aún no se vio ya no cuenta
+  // Battle royale: la ronda no termina sola. Con uno solo en pie el motor se queda esperando (`finished` sin ganador)
+  // a que entre otro brute, y solo se cierra al acabarse el tiempo de "Finalizar", con esto. Gana quien diga la
+  // animación (el que más victorias lleva de los que siguen en pie): el motor va por delante y lo que jugó y aún no
+  // se vio ya no cuenta
   endRoyaleNow(winnerIndex: number) {
     if (!this.royale || this.winner) return false;
     const fd = this.fightData;
@@ -199,7 +194,7 @@ export class FightSession {
   }
 
   // Si se puede agregar un brute al royale: hasta su paso End, con alguien en pie con quien pelear
-  // (si los dos últimos caen en el mismo turno gana el último en caer y ya no entra nadie)
+  // (si los dos últimos caen a la vez ya no entra nadie y la ronda se cierra)
   canAddRoyaleBrute() {
     return this.royale && !this.winner
       && this.fightData.fighters.some((f) => f.type === 'brute' && !f.master && f.hp > 0);
@@ -225,7 +220,7 @@ export class FightSession {
   addRoyaleBrute(brute: CalculatedBrute) {
     if (!this.canAddRoyaleBrute()) return null;
     const fd = this.fightData;
-    // Si ya solo quedaba uno en pie (sin cerrar la pelea, ver closeRoyale), sigue contra el que llega
+    // Si ya solo quedaba uno en pie (esperando retador), sigue contra el que llega
     fd.loser = null;
     // El tiempo extra (veneno para todos pasados 1000 turnos) cuenta desde el último que entró: si no, al mantener
     // la pelea agregando brutes un buen rato, los que entraban caían envenenados en cuatro turnos
@@ -333,7 +328,7 @@ export class FightSession {
       this.#turn += 1;
     }
 
-    // El royale se cierra después, con closeRoyale
+    // El royale no se cierra solo (ver endRoyaleNow)
     if (fd.loser && !this.winner && !this.royale) this.#finish();
     return true;
   }
@@ -362,26 +357,15 @@ export class FightSession {
     }
   }
 
+  // Fin del 1 vs 1 (el royale se cierra con endRoyaleNow)
   #finish() {
     const fd = this.fightData;
-    let loser = fd.fighters.find((f) => f.id === fd.loser);
+    const loser = fd.fighters.find((f) => f.id === fd.loser);
     if (!loser) throw new Error('No loser found');
     const [b1, b2] = this.#brutes;
-    // Royale: si los dos últimos caen en el mismo turno, gana el último en caer
-    if (this.royale && !fd.fighters.some((f) => f.type === 'brute' && !f.master && f.hp > 0)) {
-      const n = this.eliminated.length;
-      const survivor = this.eliminated[n - 1];
-      if (survivor) {
-        this.eliminated.pop();
-        loser = this.eliminated[n - 2] ?? loser;
-        survivor.hp = 1;
-      }
-    }
-    const winner = this.royale
-      ? fd.fighters.find((f) => f.type === 'brute' && !f.master && f.hp > 0)
-      : loser.team === 'L'
-        ? fd.fighters.find((f) => f.team === 'R' && f.id === b2.id)
-        : fd.fighters.find((f) => f.team === 'L' && f.id === b1.id);
+    const winner = loser.team === 'L'
+      ? fd.fighters.find((f) => f.team === 'R' && f.id === b2.id)
+      : fd.fighters.find((f) => f.team === 'L' && f.id === b1.id);
     if (!winner) throw new Error('No winner found');
     fd.winner = winner.id;
     this.winner = winner;
