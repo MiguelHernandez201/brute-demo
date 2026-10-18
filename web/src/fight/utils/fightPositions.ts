@@ -10,10 +10,14 @@ const maxYPosition = 281;
 // Demo: acercamiento ajustable (0 = distancia original del juego, 100 = lo más cerca posible)
 export const fightApproach = { value: 0 };
 const MAX_APPROACH_OFFSET = 100;
-// Al 100 %: los desplazamientos son un salto corto, sin animación de correr
-export const isMaxApproach = () => fightApproach.value >= 100;
+// Al 100 %: los desplazamientos son un salto corto, sin animación de correr.
+// En el battle royale no se aplica (ni se muestra): no hay bandos, cada uno se coloca por toda la arena y corre
+// como siempre. La preferencia guardada sigue valiendo para el 1 vs 1
+export const isMaxApproach = () => !royaleArena.enabled && fightApproach.value >= 100;
 export const QUICK_STEP_DURATION = 0.08;
-const approachOffset = () => (Math.max(0, Math.min(100, fightApproach.value)) / 100) * MAX_APPROACH_OFFSET;
+const approachOffset = () => (royaleArena.enabled
+  ? 0
+  : (Math.max(0, Math.min(100, fightApproach.value)) / 100) * MAX_APPROACH_OFFSET);
 
 // Left X positions
 const minLeftXPosition = () => 40 + approachOffset();
