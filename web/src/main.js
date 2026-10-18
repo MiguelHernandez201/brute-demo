@@ -12,6 +12,7 @@ import { createRenderer } from './renderer.ts';
 import { setupFight } from './fight/setupFight.ts';
 import { FATALITY_VERBS, fatalityOptions } from './fight/fatality.ts';
 import { royaleColorCss } from './fight/royaleTags.ts';
+import { crowdQuality } from './fight/crowdQuality.ts';
 import { setFightDisposing } from './fight/utils/lifecycle.ts';
 import { renderQuality } from './fight/FighterHolder.ts';
 import { fightApproach } from './fight/utils/fightPositions.ts';
@@ -157,7 +158,11 @@ async function startRoyale(count) {
   await playFight(id, fight);
 }
 
-// Fotogramas por segundo (se muestran en la lista del royale para ver cuántos brutes aguanta la pantalla)
+// Fotogramas por segundo (se muestran en la lista del royale para ver cuántos brutes aguanta la pantalla),
+// con el nivel de la calidad automática: con muchos brutes se ahorra trabajo sin que se note
+const QUALITY_LABELS = ['', ' · multitud', ' · multitud+'];
+const QUALITY_TITLE =
+  'Calidad automática: con muchos brutes en pie el sombreado y las sombras se precalculan, y con más todavía los que esperan respiran a menos fotogramas';
 let fpsText = '';
 let fpsClass = '';
 (() => {
@@ -169,7 +174,7 @@ let fpsClass = '';
       const fps = Math.round((frames * 1000) / (now - since));
       frames = 0;
       since = now;
-      fpsText = `${fps} fps`;
+      fpsText = `${fps} fps${QUALITY_LABELS[crowdQuality.level] ?? ''}`;
       fpsClass = fps >= 50 ? 'fps-good' : fps >= 30 ? 'fps-ok' : 'fps-bad';
       const el = $('rosterFps');
       if (el) {
@@ -227,7 +232,7 @@ function renderRoster(fight) {
       .join('');
     const disabled = canAdd() ? '' : 'disabled';
     $('roster').innerHTML = `<div class="shop-name">Battle Royale</div>
-      <div class="shop-label roster-stats"><span>${total - fallen} de ${total} en pie</span><span id="rosterFps" class="${fpsClass}">${fpsText}</span></div>
+      <div class="shop-label roster-stats"><span>${total - fallen} de ${total} en pie</span><span id="rosterFps" class="${fpsClass}" title="${QUALITY_TITLE}">${fpsText}</span></div>
       <div class="roster-add"><button data-add="1" title="Agregar un brute a la pelea" ${disabled}>➕ Agregar</button><button data-add="5" title="Agregar 5 brutes" ${disabled}>+5</button></div>
       <ol class="roster">${rows}</ol>
       ${feed ? `<ul class="kill-feed">${feed}</ul>` : ''}`;
@@ -611,6 +616,11 @@ const trailerParam = new URLSearchParams(location.search).get('trailer');
 if (trailerParam) {
   $('trailerGo').click();
 }
+
+// Calidad fija para comparar: ?calidad=0 (completa), 1 o 2 (la de las multitudes); sin el parámetro, automática
+const qualityParam = new URLSearchParams(location.search).get('calidad');
+if (qualityParam !== null && ['0', '1', '2'].includes(qualityParam)) crowdQuality.forced = +qualityParam;
+globalThis.__crowdQuality = crowdQuality; // depuración
 
 const royaleParam = new URLSearchParams(location.search).get('royale');
 if (royaleParam) {
