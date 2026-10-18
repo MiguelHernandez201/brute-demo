@@ -396,7 +396,9 @@ export const skills: Record<SkillName, Skill> = {
   },
   [SkillName.cryOfTheDamned]: {
     name: 'cryOfTheDamned',
-    odds: 4,
+    // Demo: en desuso en los dos modos. Con probabilidad 0 ningún brute lo recibe al crearse ni al subir de nivel
+    // (y la tienda no lo ofrece), así que tampoco llega a usarse en la pelea
+    odds: 0,
     type: 'super',
     toss: [8, 10, 12],
     uses: [2, 3, 4],

@@ -41,6 +41,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   (si aún no puede usarse, como Ladrón con el rival desarmado, se reintenta hasta 3 turnos).
   Además hay un power-up propio de la demo, **Súper gigante**: el brute crece al triple de su tamaño y durante el resto
   de la pelea hace el doble de daño y recibe la mitad.
+  El **Grito maldito** está en desuso en los dos modos: ningún brute lo recibe y la tienda no lo ofrece.
   El ganador sigue (sin curarse) al *Desafiar*.
   Cuando cae el perdedor, la pelea se remata con una **fatality**: "FINISH HIM!", el ganador se acerca
   y lo remata según el arma que lleva, y luego el letrero "FATALITY" (con voz del navegador si los
