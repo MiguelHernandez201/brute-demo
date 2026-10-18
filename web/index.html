@@ -432,16 +432,14 @@
       .roster-top .ult:disabled {
         box-shadow: none;
       }
-      /* No se pudo lanzar: tiembla */
-      .roster-top .ult.nope {
-        animation: ult-nope 0.35s;
+      /* En cola: sale en cuanto se pueda */
+      .roster-top .ult.queued {
+        animation: ult-queued 1s ease-in-out infinite;
       }
-      @keyframes ult-nope {
-        25% {
-          transform: translateX(-3px);
-        }
-        75% {
-          transform: translateX(3px);
+      @keyframes ult-queued {
+        50% {
+          box-shadow: 0 0 10px rgba(255, 209, 102, 0.9);
+          border-color: #fff3c4;
         }
       }
       /* Victorias de la ronda (rivales eliminados), junto a la vida; salta al sumar una */

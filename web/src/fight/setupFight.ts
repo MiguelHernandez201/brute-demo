@@ -63,8 +63,10 @@ import { getDuelPosition, royaleArena } from './utils/fightPositions';
 import { royaleAmbient } from './royaleAmbient';
 import { royaleTags } from './royaleTags';
 import { royaleClock } from './royaleClock';
+import { multiKills } from './multiKill';
 import {
-  clearUltimates, giantShrink, giantStomp, giantTimer, ultimateBomb, ultimateCast, ultimateFlood, ultimateHaste,
+  clearUltimates, giantShrink, giantStomp, giantTimer, ultimateBomb, ultimateCast, ultimateCleaveHit, ultimateFlood,
+  ultimateHaste,
 } from './ultimates';
 import { resetBakeBudget, setCrowdLevel, updateCrowdQuality } from './crowdQuality';
 import { vampirism } from './vampirism';
@@ -770,6 +772,8 @@ export const setupFight: (
     };
     // Royale: nombre, vida y victorias sobre cada brute, con el color de su fila en la lista
     const tags = isRoyale ? royaleTags(app, () => fighters, speed, () => royaleFight.highlight ?? null) : null;
+    // Royale: varias eliminaciones seguidas del mismo brute → ¡MULTI KILL! (ver multiKill)
+    const multiKill = isRoyale ? multiKills(app, speed) : null;
     // Royale: los que se mueven por su cuenta (se crea con el bucle de turnos en paralelo)
     let crowd: ReturnType<typeof royaleAmbient> | null = null;
     const royaleHud = {
@@ -811,6 +815,7 @@ export const setupFight: (
         case 'demoFlood' as never: // Demo royale: golpes de las ultimates
         case 'demoBomb' as never:
         case 'demoHaste' as never:
+        case 'demoCleaveHit' as never:
           if (typeof by !== 'number') return null;
           return { by, targets: (Array.isArray(s.t) ? s.t : [s.t]).filter((t): t is number => typeof t === 'number') };
         default:
@@ -819,10 +824,10 @@ export const setupFight: (
     };
     // Los que recibieron su último golpe de una ultimate: caen sin fatality (así no se alarga, con tantos a la vez)
     const ultimateVictims = new Set<number>();
-    const ULTIMATE_HITS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste']);
+    const ULTIMATE_HITS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste', 'demoCleaveHit']);
     // Pasos de ultimates que son efectos encima de los demás: no colocan a nadie de lado (quien la lanza puede estar a
     // mitad de otra cosa) ni se reserva para ellos a quien la lanza (ver involvedIn)
-    const ULTIMATE_OVERLAYS = new Set<unknown>(['demoUltimate', 'demoFlood', 'demoBomb']);
+    const ULTIMATE_OVERLAYS = new Set<unknown>(['demoUltimate', 'demoFlood', 'demoBomb', 'demoCleaveHit']);
     const trackHit = (step: FightStep) => {
       const damage = damageOf(step);
       damage?.targets.forEach((t) => {
@@ -1026,13 +1031,17 @@ export const setupFight: (
               if (!killer.animation.container.destroyed) setRoyaleSide(killer, killer.animation.container.scale.x >= 0 ? 'L' : 'R');
               royaleFight.onKill?.({ victim: victim.index, killer: killer.index, kind });
               tags?.win(killer.index);
+              multiKill?.(killer);
               break;
             }
             // Sin fatality (quien lo remató ya no puede): se cuenta igual quién fue
             const by = findFighter(fighters, lastHitBy.get(step.f));
             const byBrute = by?.master ? fighters.find((f) => f.id === by.master) : by;
             royaleFight.onKill?.({ victim: step.f, killer: byBrute?.index });
-            if (byBrute && byBrute.index !== step.f) tags?.win(byBrute.index);
+            if (byBrute && byBrute.index !== step.f) {
+              tags?.win(byBrute.index);
+              multiKill?.(byBrute);
+            }
           }
           // Demo royale: como en las guerras de clanes, los caídos se desvanecen para no llenar la arena
           death(fighters, step, speed, isClanWar || isRoyale);
@@ -1237,15 +1246,19 @@ export const setupFight: (
           break;
         }
         case 'demoFlood' as never: {
-          await ultimateFlood(app, spritesheets, fighters, step as never, speed);
+          await ultimateFlood(app, spritesheets, fighters, step as never, speed, involved);
           break;
         }
         case 'demoBomb' as never: {
-          await ultimateBomb(app, spritesheets, fighters, step as never, speed);
+          await ultimateBomb(app, spritesheets, fighters, step as never, speed, involved);
           break;
         }
         case 'demoHaste' as never: {
           await ultimateHaste(app, spritesheets, fighters, step as never, speed);
+          break;
+        }
+        case 'demoCleaveHit' as never: {
+          await ultimateCleaveHit(app, spritesheets, fighters, step as never, speed, involved);
           break;
         }
         case 'demoGiantEnd' as never: {
@@ -1361,16 +1374,21 @@ export const setupFight: (
       // acabaran lo que tenían en cola. Así que cada golpe (y la caída de quien muera por él) va en su propia pieza, que
       // solo espera a su objetivo y a que salga su letrero: `after` es esa señal y `signal`, el paso que la da.
       // `extra`: pieza que no es un turno del motor (no cuenta para `lookahead`).
-      // `jump`: puede ir antes que lo que sus luchadores tengan en cola (en cuanto queden libres): los golpes que no
-      // matan (da igual en qué orden recibe cada uno sus golpes, la vida que le quitan es la misma; los que matan
-      // esperan su turno, para que caiga justo después) y que el Súper gigante crezca o encoja (solo se ve).
+      // `jump`: puede ir antes que lo que sus luchadores tengan en cola (en cuanto queden libres): las embestidas de la
+      // Prisa (da igual en qué orden recibe cada uno sus golpes, la vida que le quitan es la misma) y que el Súper
+      // gigante crezca o encoja (solo se ve). `overlay`: lo que cae del cielo y la onda que remata: sale a su hora
+      // aunque sus objetivos estén ocupados (estos lo reciben sin pararse, `light`). `finisher`: la caída de quien
+      // muere por una ultimate: en cuanto queda libre, lo que tuviera antes en cola se da por visto (sin animarlo, solo
+      // se ajusta la vida, ver `skip`), así los que caen a la vez caen casi juntos. `killer`: quien le remató (la
+      // ultimate es suya aunque lo último que se viera fuera otro golpe de lo que ya estaba animándose).
       // `owner`: el de la Prisa en cadena, que no hace otra cosa mientras le queden embestidas, aunque estas pueden ir
       // en otro orden (a por el primero que quede libre). `timing`: espera al letrero y entre golpes seguidos, y cuál
       // es este. `indices`: número de cada paso (si no van seguidos)
       type Signal = { reached: boolean; at: number };
       type QueuedTurn = {
         chunk: FightStep[]; start: number; involved: Set<number>; exclusive: boolean; delay?: number;
-        extra?: boolean; after?: Signal; signal?: { step: FightStep; token: Signal }; jump?: boolean; owner?: number;
+        extra?: boolean; after?: Signal; signal?: { step: FightStep; token: Signal }; jump?: boolean;
+        overlay?: boolean; light?: number[]; finisher?: Set<number>; killer?: number; owner?: number;
         timing?: [number, number, number]; indices?: number[];
       };
       const queue: QueuedTurn[] = [];
@@ -1400,26 +1418,103 @@ export const setupFight: (
         busy.add(x);
         ambient.release(findFighter(fighters, x));
       });
+      // Golpes seguidos de una serie: cuánto falta (s) para su hora, que cuenta desde el letrero
+      const dueIn = (turn: QueuedTurn) => {
+        if (!turn.timing || !turn.after) return 0;
+        const [first, gap, k] = turn.timing;
+        return first + gap * k - ((performance.now() - turn.after.at) / 1000) * speed.current;
+      };
+      // Quienes están recibiendo un golpe sin pararse (`light`): su caída espera a que acabe
+      const hitting = new Map<number, number>();
       const launch = (turn: QueuedTurn) => {
-        // Golpes seguidos de una serie: cada uno a su tiempo desde el letrero (si su objetivo estaba ocupado, ya)
-        if (turn.timing && turn.after) {
-          const [first, gap, k] = turn.timing;
-          const elapsed = ((performance.now() - turn.after.at) / 1000) * speed.current;
-          turn.delay = Math.max(0, first + gap * k - elapsed);
+        turn.delay = Math.max(turn.delay ?? 0, dueIn(turn));
+        const { killer } = turn;
+        if (killer !== undefined) {
+          turn.finisher?.forEach((v) => {
+            lastHitBy.set(v, killer);
+            ultimateVictims.add(v);
+          });
         }
         reserve(turn.involved);
+        turn.light?.forEach((x) => hitting.set(x, (hitting.get(x) ?? 0) + 1));
         const p: Promise<void> = runChunk(turn)
           .catch(console.error)
           .finally(() => {
             // Si no llegó a dar su señal (algo falló), lo que espera por ella no se queda colgado
             if (turn.signal) fire(turn.signal.token);
             turn.involved.forEach((x) => busy.delete(x));
+            turn.light?.forEach((x) => hitting.set(x, (hitting.get(x) ?? 1) - 1));
             running.delete(p);
           });
         running.add(p);
       };
+      // Despertar al bucle cuando le llega la hora al próximo golpe (el más cercano)
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let timerAt = Infinity;
+      const wakeIn = (seconds: number) => {
+        const at = performance.now() + (seconds * 1000) / speed.current;
+        if (timer !== undefined && at >= timerAt) return;
+        clearTimeout(timer);
+        timerAt = at;
+        timer = setTimeout(() => {
+          timer = undefined;
+          timerAt = Infinity;
+          nudge();
+        }, Math.max(10, at - performance.now()));
+      };
+      // Lo que un paso cambia la vida a cada uno, para darlo por visto sin animarlo (ver `finisher`)
+      const hpChanges = (st: FightStep): [number, number][] => {
+        const s = st as unknown as { b?: number; f?: number; t?: number | number[]; d?: unknown; h?: number };
+        const by = (t: number) => (s.d && typeof s.d === 'object' ? (s.d as Record<number, number>)[t] ?? 0 : 0);
+        switch (st.a) {
+          case StepType.Hit:
+          case StepType.Poison:
+          case StepType.FlashFlood:
+          case StepType.Hammer:
+          case StepType.Haste:
+          case 'demoFlood' as never:
+          case 'demoHaste' as never:
+          case 'demoCleaveHit' as never:
+            return typeof s.t === 'number' && typeof s.d === 'number' ? [[s.t, -s.d]] : [];
+          case StepType.Bomb:
+          case 'demoBomb' as never:
+            return Array.isArray(s.t) ? s.t.map((t) => [t, -by(t)]) : [];
+          case StepType.Vampirism:
+            return [[s.t as number, -(s.d as number)], [s.b as number, s.h ?? 0]];
+          case StepType.Heal:
+          case StepType.Eat:
+            return [[s.b as number, s.h ?? 0]];
+          case StepType.Regeneration:
+            return [[s.f as number, s.h ?? 0]];
+          default:
+            return [];
+        }
+      };
+      // Da por visto lo que el que cae (`finisher` de `turn`) tenía en cola antes que su caída, salvo los golpes de
+      // ultimates. No se puede si en eso cae alguien o para la arena (entonces cae en su turno)
+      const fastForward = (turn: QueuedTurn) => {
+        const at = queue.indexOf(turn);
+        const earlier = queue.slice(0, at).filter((e) => !e.extra
+          && [...e.involved].some((x) => turn.finisher?.has(x)));
+        if (earlier.some((e) => e.exclusive || e.chunk.some((st) => st.a === StepType.Death))) return false;
+        earlier.forEach((e) => {
+          queue.splice(queue.indexOf(e), 1);
+          skip(e);
+        });
+        return true;
+      };
+      const skip = (turn: QueuedTurn) => {
+        for (const st of turn.chunk) {
+          for (const [index, change] of hpChanges(st)) {
+            const f = findFighter(fighters, index);
+            if (f && change) updateHp(fighters, f, change, speed, false);
+          }
+          const survivor = st.a === StepType.Survive ? findFighter(fighters, st.b) : undefined;
+          if (survivor) updateHp(fighters, survivor, 1, speed, false, true);
+        }
+      };
       // Golpes de ultimates (ver arriba) y cuánto esperan al letrero y entre uno y otro (segundos)
-      const SERIES_STEPS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste']);
+      const SERIES_STEPS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste', 'demoCleaveHit']);
       const SERIES_TIMING: Record<string, [number, number]> = { demoFlood: [0.45, 0.2], demoBomb: [0.45, 0.38] };
       // Reparte en piezas un trozo con ultimates (lanzadas con su botón, o que el Súper gigante crezca o encoja).
       // Null si no tiene
@@ -1437,9 +1532,14 @@ export const setupFight: (
           extra: true,
           ...extra,
         });
-        const victims = new Set<number>();
-        chunk.forEach((st) => { if (SERIES_STEPS.has(st.a)) damageOf(st)?.targets.forEach((t) => victims.add(t)); });
-        const lethal = new Set(chunk.flatMap((st) => (st.a === StepType.Death && victims.has(st.f) ? [st.f] : [])));
+        // Golpeados por la ultimate y quién les dio el último golpe
+        const victims = new Map<number, number>();
+        chunk.forEach((st) => {
+          const damage = SERIES_STEPS.has(st.a) ? damageOf(st) : null;
+          damage?.targets.forEach((t) => victims.set(t, damage.by));
+        });
+        // (si alguno aún no ha llegado a la arena, todo en orden: después de llegar)
+        const arrived = (t: number) => !!findFighter(fighters, t)?.animation.container.visible;
         const heads: QueuedTurn[] = [];
         const tail: QueuedTurn[] = [];
         const main: Item[] = [];
@@ -1456,11 +1556,11 @@ export const setupFight: (
           if (SERIES_STEPS.has(a)) {
             const s = st as unknown as { k?: number; b?: number };
             const timing = SERIES_TIMING[a as string];
+            const ready = (damageOf(st)?.targets ?? []).every(arrived);
             tail.push(piece([...before, item], {
               after: token,
-              // (si alguno aún no ha llegado a la arena, después de llegar)
-              jump: !damageOf(st)?.targets.some((t) => lethal.has(t)
-                || !findFighter(fighters, t)?.animation.container.visible),
+              jump: ready && a === 'demoHaste',
+              overlay: ready && a !== 'demoHaste',
               owner: a === 'demoHaste' ? s.b : undefined,
               timing: timing && [timing[0], timing[1], s.k ?? 0],
             }));
@@ -1475,7 +1575,7 @@ export const setupFight: (
             last.chunk.push(st);
             last.indices?.push(item.i);
           } else if (st.a === StepType.Death && victims.has(st.f)) {
-            tail.push(piece([item], {}));
+            tail.push(piece([item], { finisher: arrived(st.f) ? new Set([st.f]) : undefined, killer: victims.get(st.f) }));
           } else if (a === 'demoUltimate') {
             // Su letrero: no espera a nadie y da la señal a sus golpes
             token = { reached: false, at: 0 };
@@ -1539,6 +1639,9 @@ export const setupFight: (
           const ultimate = splitUltimates(chunk, cursor);
           if (ultimate) {
             queue.push(...ultimate);
+            // Los que caen por ella ya no siguen con lo que tenían en cola (se da por visto): así caen en cuanto
+            // acaban lo que están animando y les llegan sus golpes
+            ultimate.forEach((turn) => turn.finisher && fastForward(turn));
             cursor = steps.length;
             continue;
           }
@@ -1580,27 +1683,45 @@ export const setupFight: (
           break;
         }
 
-        // Lanzar todo lo que se pueda: primero lo que puede adelantarse (ver `jump`), luego en orden
+        // Lanzar todo lo que se pueda: primero lo que va por delante (ver `jump`, `overlay` y `finisher`), luego en orden
         let launched = false;
         // Objetivos de una Prisa en cadena que solo espera a que quede libre quien la lanza: le esperan sin empezar
         // otra cosa (si no, cuando él quedara libre ellos podrían estar a mitad de un turno)
         const claimed = new Set<number>();
-        if (!queue.some((q) => q.exclusive)) {
-          for (let q = 0; q < queue.length; q++) {
-            const turn = queue[q]!;
-            if (!turn.jump || (turn.after && !turn.after.reached) || running.size >= MAX_PARALLEL) continue;
-            const waits = [...turn.involved].filter((x) => busy.has(x));
+        // (nada pasa por delante de una barrera: solo lo que está antes de ella)
+        for (let q = 0; q < queue.length && !queue[q]!.exclusive; q++) {
+          const turn = queue[q]!;
+          if ((!turn.jump && !turn.overlay && !turn.finisher) || (turn.after && !turn.after.reached)
+            || running.size >= MAX_PARALLEL) continue;
+          const { finisher } = turn;
+          if (turn.overlay) {
+            // A su hora, estén como estén sus objetivos: los libres lo encajan (se reservan) y los demás, sin pararse
+            const left = dueIn(turn);
+            if (left > 0.02) {
+              wakeIn(left);
+              continue;
+            }
+            turn.light = [...turn.involved].filter((x) => busy.has(x));
+            turn.involved = new Set([...turn.involved].filter((x) => !busy.has(x)));
+          } else {
+            const waits = [...turn.involved].filter((x) => busy.has(x) || (finisher && hitting.get(x)));
             if (waits.length) {
               if (waits.every((x) => x === turn.owner)) {
                 turn.involved.forEach((x) => { if (x !== turn.owner) claimed.add(x); });
               }
               continue;
             }
-            queue.splice(q, 1);
-            q -= 1;
-            launch(turn);
-            launched = true;
           }
+          if (finisher) {
+            // Antes, los golpes de ultimates que aún tenga en cola; si quedara algo más, se intenta dar por visto
+            const earlier = queue.slice(0, q).filter((e) => [...e.involved].some((x) => finisher.has(x)));
+            if (earlier.some((e) => e.extra) || !fastForward(turn)) continue;
+            q = queue.indexOf(turn);
+          }
+          queue.splice(q, 1);
+          q -= 1;
+          launch(turn);
+          launched = true;
         }
         const blocked = new Set<number>();
         // El de una Prisa en cadena con embestidas aún en cola: solo puede seguir con las de esa serie (aunque tuviera
@@ -1624,10 +1745,10 @@ export const setupFight: (
             }
             break;
           }
-          const free = running.size < MAX_PARALLEL
+          const free = running.size < MAX_PARALLEL && !turn.overlay
             && (!turn.after || turn.after.reached)
             && ![...turn.involved].some((x) => busy.has(x) || blocked.has(x) || claimed.has(x)
-              || (held.has(x) && held.get(x) !== turn.after));
+              || (turn.finisher && hitting.get(x)) || (held.has(x) && held.get(x) !== turn.after));
           if (free) {
             queue.splice(q, 1);
             q -= 1;

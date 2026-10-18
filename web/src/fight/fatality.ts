@@ -174,7 +174,7 @@ try {
 }
 
 // Solo si los efectos están activos. Un `rate` menor que 1 alarga la palabra, como el anunciador del juego
-const announce = (text: string, rate: number) => {
+export const announce = (text: string, rate: number) => {
   try {
     if (!sound.exists('sfx') || !sound.volume('sfx') || !('speechSynthesis' in window)) return;
     if (announcerVoice === undefined) announcerVoice = pickAnnouncerVoice();
@@ -192,7 +192,7 @@ const announce = (text: string, rate: number) => {
 };
 
 // Letrero grande al estilo del juego (degradado, contorno y sombra)
-const bigText = (text: string, fontSize: number, colors: [string, string, string]) =>
+export const bigText = (text: string, fontSize: number, colors: [string, string, string]) =>
   new Text({
     text,
     style: {
