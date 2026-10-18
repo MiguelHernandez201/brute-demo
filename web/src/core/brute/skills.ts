@@ -354,7 +354,8 @@ export const skills: Record<SkillName, Skill> = {
   },
   [SkillName.thief]: {
     name: 'thief',
-    odds: 2.5,
+    // Demo: en desuso en los dos modos (como el Grito maldito): ningún brute lo recibe
+    odds: 0,
     type: 'super',
     toss: [8, 10, 12],
     uses: [2, 3, 4],
