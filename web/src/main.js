@@ -160,7 +160,7 @@ async function startRoyale(count) {
 
 // Fotogramas por segundo (se muestran en la lista del royale para ver cuántos brutes aguanta la pantalla),
 // con el nivel de la calidad automática: con muchos brutes se ahorra trabajo sin que se note
-const QUALITY_LABELS = ['', ' · multitud', ' · multitud+'];
+const QUALITY_LABELS = ['', ' ⚡', ' ⚡⚡'];
 const QUALITY_TITLE =
   'Calidad automática: con muchos brutes en pie el sombreado y las sombras se precalculan, y con más todavía los que esperan respiran a menos fotogramas';
 let fpsText = '';
