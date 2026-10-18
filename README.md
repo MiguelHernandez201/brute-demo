@@ -84,9 +84,11 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     1 vs 1), así que nunca podían usarse. Los brutes del royale reciben otra mejora en su lugar.
   - Cada brute lleva encima su nombre y su vida, con un color propio que también marca su fila en la
     lista. Al pasar el ratón por una fila (o tocarla) se resalta en la arena; con un clic se queda fijo.
+    La lista solo muestra a los que siguen en pie: los eliminados cuentan en "X de Y en pie" y en las
+    últimas eliminaciones, debajo.
   - Junto a esa barra de vida, un trofeo cuenta las victorias de cada brute en la ronda (cada rival que
     elimina). Aparece con la primera, para no llenar la arena de ceros, y salta cada vez que suma. La lista
-    también lo muestra junto a la vida de cada fila (los eliminados conservan las suyas).
+    también lo muestra junto a la vida de cada fila.
   - La ronda no termina sola: si queda uno en pie, se queda **esperando retador** y mientras tanto hace el tonto
     (entrena, merienda, bebe, baila, hace piruetas, da vueltas a la arena, boxea con el aire, presume o se
     duerme), con frases en un globo. En cuanto entra alguien, vuelve a pelear.

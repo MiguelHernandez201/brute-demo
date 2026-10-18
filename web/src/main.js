@@ -231,16 +231,16 @@ function renderRoster(fight) {
   const draw = () => {
     const total = state.size;
     const rows = [...state.entries()]
-      // En pie primero; los eliminados después, del último en caer al primero
-      .sort(([, a], [, b]) => (a.out === 0 ? -1 : b.out === 0 ? 1 : b.out - a.out))
+      // Solo los que siguen en pie: los eliminados cuentan en "X de Y en pie" y en las últimas eliminaciones
+      .filter(([, s]) => !s.out)
       .map(([index, s]) => {
-        const status = index === winner ? '🏆 Ganador' : s.out ? `Eliminado · puesto ${total - s.out + 1}` : '';
-        const pct = s.out ? 0 : Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100));
-        const classes = [index === winner ? 'win' : s.out ? 'out' : '', index === pinned ? 'lit' : ''].join(' ');
+        const status = index === winner ? '🏆 Ganador' : '';
+        const pct = Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100));
+        const classes = [index === winner ? 'win' : '', index === pinned ? 'lit' : ''].join(' ');
         // Victorias de la ronda (rivales que eliminó), junto a la vida: desde la primera
         const wins = s.wins ? `<b class="wins${index === popped ? ' pop' : ''}">🏆${s.wins}</b>` : '';
         return `<li data-index="${index}" class="${classes}" style="--c:${royaleColorCss(index)}">
-          <div class="roster-top">${who(index)}${wins}<small class="hp-text">${s.out ? '' : `${Math.max(0, Math.round(s.hp))}/${s.maxHp}`}</small></div>
+          <div class="roster-top">${who(index)}${wins}<small class="hp-text">${Math.max(0, Math.round(s.hp))}/${s.maxHp}</small></div>
           <div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div>
           ${status ? `<small>${status}</small>` : ''}
         </li>`;
@@ -336,6 +336,11 @@ function renderRoster(fight) {
     if (step.a === StepType.Death && state.has(step.f) && !state.get(step.f).out) {
       fallen += 1;
       state.get(step.f).out = fallen;
+      // Su fila desaparece: si estaba fijada, deja de resaltarse
+      if (pinned === step.f) {
+        pinned = null;
+        fight.highlight = null;
+      }
       draw();
     } else if (step.a === StepType.End) {
       const w = state.get(step.w);
