@@ -13,24 +13,26 @@ const CUP_Y = 12.5;
 const CUP_SCALE = 1.3;
 const BASELINE = 23;
 
-// Copa dorada (las hojas del juego no traen un icono de trofeo)
-const trophy = () => {
-  const cup = new Graphics()
-    // Asas
-    .circle(-4.6, -3.2, 2.3)
-    .circle(4.6, -3.2, 2.3)
-    .stroke({ color: 0xe0a91b, width: 1.4 })
-    // Copa, pie y base
-    .moveTo(-4.8, -6)
-    .lineTo(4.8, -6)
-    .quadraticCurveTo(4.8, 1.2, 0, 1.2)
-    .quadraticCurveTo(-4.8, 1.2, -4.8, -6)
-    .rect(-1, 1, 2, 2.6)
-    .roundRect(-3.6, 3.4, 7.2, 2.4, 0.8)
-    .fill(0xffd23f)
-    // Brillo
-    .rect(-2.8, -5, 1.1, 3.6)
-    .fill(0xfff3b0);
+// Copa dorada (las hojas del juego no traen un icono de trofeo). `outline`: grosor de un contorno oscuro dibujado,
+// para cuando no lleva filtro de contorno (las etiquetas del royale, que con muchos brutes no pueden pagar filtros)
+const handles = (g: Graphics) => g.circle(-4.6, -3.2, 2.3).circle(4.6, -3.2, 2.3);
+const cupShape = (g: Graphics) => g
+  .moveTo(-4.8, -6)
+  .lineTo(4.8, -6)
+  .quadraticCurveTo(4.8, 1.2, 0, 1.2)
+  .quadraticCurveTo(-4.8, 1.2, -4.8, -6)
+  .rect(-1, 1, 2, 2.6)
+  .roundRect(-3.6, 3.4, 7.2, 2.4, 0.8);
+export const trophy = (outline = 0) => {
+  const cup = new Graphics();
+  if (outline) {
+    handles(cup).stroke({ color: 0x1a0f08, width: 1.4 + 2 * outline });
+    cupShape(cup).stroke({ color: 0x1a0f08, width: 2 * outline, join: 'round' });
+  }
+  // Asas, copa con pie y base, y brillo
+  handles(cup).stroke({ color: 0xe0a91b, width: 1.4 });
+  cupShape(cup).fill(0xffd23f);
+  cup.rect(-2.8, -5, 1.1, 3.6).fill(0xfff3b0);
   return cup;
 };
 
