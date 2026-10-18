@@ -181,6 +181,23 @@ export class FightSession {
     if (this.royale && this.finished && !this.winner) this.#finish();
   }
 
+  // Battle royale: fin por tiempo (botón "Finalizar"). Gana quien diga la animación (el que más victorias lleva de
+  // los que siguen en pie): el motor va por delante y lo que jugó y aún no se vio ya no cuenta
+  endRoyaleNow(winnerIndex: number) {
+    if (!this.royale || this.winner) return false;
+    const fd = this.fightData;
+    const brutes = fd.fighters.filter((f) => f.type === 'brute' && !f.master);
+    const winner = brutes.find((f) => f.index === winnerIndex);
+    const loser = this.eliminated[this.eliminated.length - 1] ?? brutes.find((f) => f !== winner);
+    if (!winner || !loser) return false;
+    fd.winner = winner.id;
+    fd.loser = loser.id;
+    this.winner = winner;
+    this.loser = loser;
+    this.steps.push({ a: StepType.End, w: winner.index, l: loser.index });
+    return true;
+  }
+
   // Si se puede agregar un brute al royale: hasta su paso End, con alguien en pie con quien pelear
   // (si los dos últimos caen en el mismo turno gana el último en caer y ya no entra nadie)
   canAddRoyaleBrute() {

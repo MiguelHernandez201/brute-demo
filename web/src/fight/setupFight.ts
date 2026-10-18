@@ -851,10 +851,13 @@ export const setupFight: (
 
     // Demo: los pasos pueden llegar poco a poco (pelea simulada turno a turno).
     // `liveSteps` crece cuando se llama a `pullSteps`, que juega el siguiente turno del motor.
-    // `drained`: ya se animó todo lo anterior (el royale espera a eso para cerrar la pelea; mientras, devuelve null)
+    // `drained`: ya se animó todo lo anterior (el royale espera a eso para cerrar la pelea; mientras, devuelve null).
+    // Royale: `timeUp` se acabó el tiempo de "Finalizar" y `endNow` cierra la pelea con el ganador que se le diga
     const demoFight = fight as unknown as {
       liveSteps?: FightStep[];
       pullSteps?: (drained?: boolean) => Promise<boolean | null>;
+      timeUp?: boolean;
+      endNow?: (winnerIndex: number) => boolean;
     };
     const steps = demoFight.liveSteps ?? (JSON.parse(fight.steps) as FightStep[]);
     // Procesa (anima) un paso. Extraído del bucle original para poder animar turnos en paralelo.
@@ -1280,8 +1283,25 @@ export const setupFight: (
           });
         running.add(p);
       };
+      let timeOver = false;
       for (;;) {
         if (shouldAbort()) return;
+        // Fin por tiempo (botón "Finalizar"): lo que el motor jugó y aún no se vio no cuenta. Se termina lo que está
+        // en pantalla y gana quien más victorias lleva de los que siguen en pie (a igualdad, el que tiene más vida)
+        // (Si la pelea ya se había cerrado sola, con el último en pie, sigue ese final)
+        if (demoFight.timeUp && !timeOver && !fight.winner) {
+          timeOver = true;
+          queue.length = 0;
+          cursor = steps.length;
+          await Promise.all(running);
+          if (shouldAbort()) return;
+          const score = (f: AnimationFighter) => (tags?.winsOf(f.index) ?? 0) + f.hp / f.maxHp / 2;
+          const brutes = fighters.filter((f) => f.type === 'brute' && !f.master);
+          const standing = brutes.filter((f) => !f.dead && f.hp > 0 && f.animation.container.visible);
+          // Si no queda nadie en pie (cayeron los últimos a la vez), gana el que más victorias lleve
+          const best = (standing.length ? standing : brutes).sort((a, b) => score(b) - score(a))[0];
+          if (best) demoFight.endNow?.(best.index);
+        }
         // Rellenar la cola con los siguientes turnos del motor
         let waiting = false;
         while (!engineDone && queue.length < lookahead() && !queue.some((q) => q.exclusive)) {
@@ -1322,8 +1342,12 @@ export const setupFight: (
           cursor = steps.length;
         }
         if (!queue.length && !running.size) {
-          // Ya se vio todo: en la siguiente vuelta el motor cierra la pelea
-          if (waiting) continue;
+          // Ya se vio todo y queda uno solo en pie: espera (haciendo el tonto, ver royaleAmbient) a que entre alguien
+          // o a que se finalice la pelea
+          if (waiting) {
+            await new Promise((resolve) => { setTimeout(resolve, 150); });
+            continue;
+          }
           break;
         }
 

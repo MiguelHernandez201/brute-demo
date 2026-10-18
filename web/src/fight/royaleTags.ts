@@ -249,5 +249,6 @@ export const royaleTags = (
     win: (index: number) => {
       wins.set(index, (wins.get(index) ?? 0) + 1);
     },
+    winsOf: (index: number) => wins.get(index) ?? 0,
   };
 };
