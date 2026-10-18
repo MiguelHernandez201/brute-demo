@@ -12,7 +12,7 @@ import { sound } from '@pixi/sound';
 import dayjs from 'dayjs';
 import { TFunction } from 'react-i18next';
 import {
-  AnimatedSprite, Application, Color, Container, Graphics, Sprite, Text, Texture
+  AnimatedSprite, Application, Color, Container, Graphics, Sprite, Text, Texture, UPDATE_PRIORITY
 } from 'pixi.js';
 import { RendererContextInterface } from '../../hooks/useRenderer';
 import { arrive } from './arrive';
@@ -62,6 +62,7 @@ import { isRangedStep, repositionControl, repositionFighters } from './utils/rep
 import { royaleArena } from './utils/fightPositions';
 import { royaleAmbient } from './royaleAmbient';
 import { royaleTags } from './royaleTags';
+import { resetBakeBudget, setCrowdLevel, updateCrowdQuality } from './crowdQuality';
 import { vampirism } from './vampirism';
 import { getFighters } from './utils/getFighters';
 import { mimic } from './mimic';
@@ -600,6 +601,18 @@ export const setupFight: (
 
     // Get fighters animations
     if (shouldAbort()) return;
+
+    // Demo: calidad dinámica según cuántos hay en pie (ver crowdQuality). Va antes que los luchadores en cada
+    // fotograma: renueva el cupo de horneado y, cada medio segundo, ajusta el nivel
+    setCrowdLevel(0);
+    let qualityClock = 0;
+    app.ticker.add((ticker) => {
+      resetBakeBudget();
+      qualityClock += ticker.elapsedMS;
+      if (qualityClock < 500) return;
+      qualityClock = 0;
+      updateCrowdQuality(fighters.filter((f) => !f.dead && f.animation.container.visible).length);
+    }, undefined, UPDATE_PRIORITY.HIGH);
 
     // Usos de cada habilidad del luchador (Demo: también para los que entran en plena pelea)
     const animationSkills = (fighter: Fighter) => Object.fromEntries(Object.entries(fighter.skills).map(([skillId, tier]) => {

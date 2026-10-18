@@ -32,11 +32,12 @@ import {
 import {
   Application,
   Assets,
-  BlurFilter, Container, Filter, Graphics, Matrix, Sprite, Texture,
+  BlurFilter, Container, Filter, Graphics, Matrix, Point, Rectangle, Renderer, Sprite, Texture,
   Ticker
 } from 'pixi.js';
 import { RefObject } from 'react';
 import { createColorOffsetFilter } from '../pixi/createColorOffsetFilter';
+import { crowdQuality } from './crowdQuality';
 
 const ANIMATIONS: Record<
   Gender | 'dog' | 'bear' | 'panther',
@@ -459,6 +460,60 @@ const multiplyMatrices = (left: Matrix, right: Matrix) => new Matrix(
   left.b * right.tx + left.d * right.ty + left.ty,
 );
 
+// Demo: las transformaciones de cada pieza vienen de datos fijos. Se descomponen una sola vez (como hace
+// setFromMatrix) y se reutilizan, en vez de crear y descomponer matrices en cada fotograma de cada luchador
+type Decomposed = { x: number; y: number; sx: number; sy: number; rotation: number; kx: number; ky: number };
+const decomposedCache = new WeakMap<object, Map<string, Decomposed>>();
+const decomposeTarget = { position: new Point(), scale: new Point(), pivot: new Point(), skew: new Point(), rotation: 0 };
+const cachedTransform = (source: object, key: string, makeMatrix: () => Matrix): Decomposed => {
+  let bySize = decomposedCache.get(source);
+  if (!bySize) {
+    bySize = new Map();
+    decomposedCache.set(source, bySize);
+  }
+  let decomposed = bySize.get(key);
+  if (!decomposed) {
+    makeMatrix().decompose(decomposeTarget as never);
+    decomposed = {
+      x: decomposeTarget.position.x,
+      y: decomposeTarget.position.y,
+      sx: decomposeTarget.scale.x,
+      sy: decomposeTarget.scale.y,
+      rotation: decomposeTarget.rotation,
+      kx: decomposeTarget.skew.x,
+      ky: decomposeTarget.skew.y,
+    };
+    bySize.set(key, decomposed);
+  }
+  return decomposed;
+};
+const applyTransform = (target: Container, d: Decomposed) => {
+  target.position.set(d.x, d.y);
+  target.scale.set(d.sx, d.sy);
+  target.rotation = d.rotation;
+  target.skew.set(d.kx, d.ky);
+};
+
+// Demo: una pieza sombreada se puede hornear (dibujar una vez a una imagen) si lo que contiene no cambia de un
+// fotograma a otro: nada de animaciones dentro. Las armas y el escudo cambian, pero van en la clave del horneado
+const bakeableCache = new WeakMap<object, boolean>();
+const isBakeable = (symbol: LaBruteSymbol | Svg, animationNames: string[]): boolean => {
+  const cached = bakeableCache.get(symbol);
+  if (cached !== undefined) return cached;
+  let bakeable = true;
+  if (symbol.type !== 'svg') {
+    if (animationNames.includes(symbol.name) || symbol.name === 'Symbol526') {
+      bakeable = false;
+    } else {
+      bakeable = (symbol.parts ?? []).every((part) => isBakeable(part, animationNames));
+    }
+  }
+  bakeableCache.set(symbol, bakeable);
+  return bakeable;
+};
+// Sombreado de la pantera (el mismo para todas sus piezas)
+const PANTHER_OFFSET: [number, number, number] = [-82, -97, -82];
+
 export class FighterHolder {
   // Shared across all FighterHolder instances to avoid reloading/reparsing the same SVG
   // textures for each dojo pupil.
@@ -544,6 +599,22 @@ export class FighterHolder {
 
   #isDestroyed = false;
 
+  // Demo: calidad dinámica en multitudes (ver crowdQuality)
+  #renderer: Renderer;
+
+  // Piezas sombreadas ya horneadas (imagen con su sombreado aplicado) por clave, y el sprite que las muestra
+  #baked = new Map<string, { texture: Texture; x: number; y: number }>();
+
+  #bakedSprites = new Map<Container, Sprite>();
+
+  // Sombra normal (desenfocada en vivo) y sombra ya desenfocada
+  #shadowSprite: Sprite;
+
+  #bakedShadow: Sprite | null = null;
+
+  // Para repartir entre luchadores los fotogramas del reposo que se saltan
+  #lodTick = Math.floor(Math.random() * 2);
+
   loaded = false;
 
   // Events
@@ -558,6 +629,7 @@ export class FighterHolder {
     scale = 1,
   ) {
     this.type = fighter.type;
+    this.#renderer = app.renderer;
     this.name = fighter.name;
     this.shield = fighter.shield;
     this.weapon = null;
@@ -658,6 +730,7 @@ export class FighterHolder {
 
     // Blur shadow depending on it's size
     shadowSprite.filters = [new BlurFilter({ strength: this.baseWidth * 0.065 })];
+    this.#shadowSprite = shadowSprite;
     // Add shadowSprite to shadow container
     this.shadow.addChild(shadowSprite);
     this.shadow.alpha = 0;
@@ -745,6 +818,17 @@ export class FighterHolder {
           this.container.zIndex = this.container.y;
         }
 
+        // Demo: calidad dinámica (crowdQuality). Sombra en vivo o ya desenfocada según cuántos hay en pie, y al
+        // volver a pocos se liberan las piezas horneadas y se vuelve a dibujar con el sombreado en vivo
+        this.#applyShadowQuality();
+        if (!crowdQuality.bakeShading && this.#baked.size) {
+          this.#releaseBaked();
+          this.#prepareFrameRender();
+          this.#usedSvgs = {};
+          this.#usedMaskSvgs = {};
+          this.#displayFrame(this.#renderContainer, this.#animationSymbol);
+        }
+
         // Demo: hit-stop. El fotograma se queda quieto un instante al dar o recibir un golpe
         if (this.#frozenMs > 0) {
           this.#frozenMs -= (this.#appTicker?.elapsedMS) ?? 0;
@@ -767,12 +851,17 @@ export class FighterHolder {
             this.#frame = loopStart;
           }
 
-          this.#prepareFrameRender();
+          // Demo: en multitudes el reposo se redibuja a la mitad de fotogramas (respira al mismo ritmo)
+          const resting = this.animation === 'idle' || this.animation === 'monk';
+          const skip = resting && crowdQuality.idleEvery > 1 && (this.#lodTick++ % crowdQuality.idleEvery) !== 0;
+          if (!skip) {
+            this.#prepareFrameRender();
 
-          // Display frame
-          this.#usedSvgs = {};
-          this.#usedMaskSvgs = {};
-          this.#displayFrame(this.#renderContainer, this.#animationSymbol);
+            // Display frame
+            this.#usedSvgs = {};
+            this.#usedMaskSvgs = {};
+            this.#displayFrame(this.#renderContainer, this.#animationSymbol);
+          }
 
           const currentFrame = Math.floor(this.#frame);
           const frameChanged = currentFrame !== this.#previousFrame;
@@ -1205,19 +1294,20 @@ export class FighterHolder {
         throw new Error(`SVG data ${symbol.name} not found`);
       }
 
-      // Apply transform from timeline placement.
+      // Apply transform from timeline placement (Demo: descompuesta una sola vez)
       if (frameTransform) {
         const size = SCALE * this.#scale;
-        const frameMatrix = matrixFromObject(frameTransform, size);
-        const baseMatrix = new Matrix(
-          size,
-          0,
-          0,
-          size,
-          -((svgData.offset?.x ?? 0) * size),
-          -((svgData.offset?.y ?? 0) * size),
-        );
-        sprite.setFromMatrix(multiplyMatrices(frameMatrix, baseMatrix));
+        applyTransform(sprite, cachedTransform(frameTransform, `${size}|${symbol.name}`, () => multiplyMatrices(
+          matrixFromObject(frameTransform, size),
+          new Matrix(
+            size,
+            0,
+            0,
+            size,
+            -((svgData.offset?.x ?? 0) * size),
+            -((svgData.offset?.y ?? 0) * size),
+          ),
+        )));
       }
 
       if (frameAlpha !== undefined) {
@@ -1242,17 +1332,19 @@ export class FighterHolder {
 
         if (maskFramePart?.transform) {
           const size = SCALE * this.#scale;
-          const maskMatrix = matrixFromObject(maskFramePart.transform, size);
+          const maskTransform = maskFramePart.transform;
           const maskSvgData = this.#svgDataByLabel.get(maskName);
-          const maskBaseMatrix = new Matrix(
-            size,
-            0,
-            0,
-            size,
-            -((maskSvgData?.offset?.x ?? 0) * size),
-            -((maskSvgData?.offset?.y ?? 0) * size),
-          );
-          maskSprite.setFromMatrix(multiplyMatrices(maskMatrix, maskBaseMatrix));
+          applyTransform(maskSprite, cachedTransform(maskTransform, `${size}|${maskName}`, () => multiplyMatrices(
+            matrixFromObject(maskTransform, size),
+            new Matrix(
+              size,
+              0,
+              0,
+              size,
+              -((maskSvgData?.offset?.x ?? 0) * size),
+              -((maskSvgData?.offset?.y ?? 0) * size),
+            ),
+          )));
         }
 
         // Keep mask sprites in the graph for masking, but do not draw them.
@@ -1363,29 +1455,49 @@ export class FighterHolder {
         );
         usedContainers[framePart.name] = usedContainerCount + 1;
 
-        // Apply transform
+        // Apply transform (Demo: descompuesta una sola vez por pieza y tamaño)
         if (framePart.transform) {
           const size = SCALE * this.#scale;
-          framePartContainer.setFromMatrix(matrixFromObject(framePart.transform, size));
+          const partTransform = framePart.transform;
+          applyTransform(framePartContainer, cachedTransform(partTransform, `${size}`, () => matrixFromObject(partTransform, size)));
         }
 
         // Apply color offset
+        const childColorIdx = framePartSymbol.colorIdx ?? colorIdx;
+        let offset: [number, number, number] | null = null;
         if (framePart.colorOffset) {
-          const colorFilter = this.type === 'pet' && this.name === 'panther'
-            ? this.#getColorOffsetFilter(framePartContainer, -82, -97, -82)
-            : this.#getColorOffsetFilter(
-              framePartContainer,
-              framePart.colorOffset.r ?? 0,
-              framePart.colorOffset.g ?? 0,
-              framePart.colorOffset.b ?? 0,
-            );
-
-          if (framePartContainer.filters?.[0] !== colorFilter
-            || framePartContainer.filters?.length !== 1) {
-            framePartContainer.filters = [colorFilter];
+          offset = this.type === 'pet' && this.name === 'panther'
+            ? PANTHER_OFFSET
+            : [framePart.colorOffset.r ?? 0, framePart.colorOffset.g ?? 0, framePart.colorOffset.b ?? 0];
+        }
+        // Demo: en multitudes (crowdQuality) la pieza sombreada ya horneada se muestra como una sola imagen,
+        // sin filtro ni subpiezas. Con pocos luchadores se dibuja como siempre
+        const bakeKey = offset && crowdQuality.bakeShading
+          && isBakeable(framePartSymbol, ANIMATION_SYMBOL_NAMES[this.#animationType])
+          ? `${framePartSymbol.name}|${childColorIdx ?? ''}|${offset.join(',')}|${this.weapon ?? ''}|${this.shield ? 1 : 0}|${this.giantScale}`
+          : null;
+        const baked = bakeKey ? this.#baked.get(bakeKey) : undefined;
+        if (baked) {
+          if (framePartContainer.filters) framePartContainer.filters = null;
+          this.#showBaked(framePartContainer, baked);
+          // Lo que haría la pieza al dibujarse: su desplazamiento propio
+          if (framePartSymbol.offset) {
+            framePartContainer.x = this.#scale * SCALE * (framePartSymbol.offset.x ?? 0);
+            framePartContainer.y = this.#scale * SCALE * (framePartSymbol.offset.y ?? 0);
           }
-        } else if (framePartContainer.filters) {
-          framePartContainer.filters = null;
+        } else {
+          const bakedSprite = this.#bakedSprites.get(framePartContainer);
+          if (bakedSprite) bakedSprite.visible = false;
+          if (offset) {
+            const colorFilter = this.#getColorOffsetFilter(framePartContainer, ...offset);
+
+            if (framePartContainer.filters?.[0] !== colorFilter
+              || framePartContainer.filters?.length !== 1) {
+              framePartContainer.filters = [colorFilter];
+            }
+          } else if (framePartContainer.filters) {
+            framePartContainer.filters = null;
+          }
         }
 
         // Apply alpha
@@ -1412,19 +1524,142 @@ export class FighterHolder {
         // Apply visibility
         framePartContainer.visible = true;
 
+        // Ya horneada: sus subpiezas no hacen falta
+        if (baked) continue;
+
         // Handle children
         this.#displayFrame(
           framePartContainer,
           framePartSymbol,
-          framePartSymbol.colorIdx ?? colorIdx,
+          childColorIdx,
           undefined,
           undefined,
           undefined,
           undefined,
           framePartByName,
         );
+
+        // Demo: se hornea ahora, ya armada con su sombreado (con un cupo por fotograma entre todos)
+        if (bakeKey && crowdQuality.bakeBudget > 0) {
+          crowdQuality.bakeBudget -= 1;
+          const entry = this.#bake(framePartContainer, bakeKey);
+          if (entry) {
+            framePartContainer.filters = null;
+            this.#showBaked(framePartContainer, entry);
+          }
+        }
       }
     }
+  };
+
+  // Demo: dibuja una vez la pieza ya armada (con su filtro de sombreado) a una imagen, en su propio espacio,
+  // a la resolución con la que se ve en pantalla. Su transparencia y su máscara siguen aplicándose en vivo
+  #bake = (container: Container, key: string) => {
+    const previous = this.#bakedSprites.get(container);
+    if (previous) previous.visible = false;
+    const { alpha, mask } = container;
+    container.alpha = 1;
+    container.mask = null;
+    try {
+      const bounds = container.getLocalBounds();
+      if (!(bounds.maxX > bounds.minX && bounds.maxY > bounds.minY)) return null;
+      const x = Math.floor(bounds.minX) - 1;
+      const y = Math.floor(bounds.minY) - 1;
+      const frame = new Rectangle(x, y, Math.ceil(bounds.maxX - x) + 1, Math.ceil(bounds.maxY - y) + 1);
+      const world = container.getGlobalTransform(new Matrix(), false);
+      const scale = Math.max(Math.hypot(world.a, world.b), Math.hypot(world.c, world.d), 0.25);
+      const resolution = Math.min(8, this.#renderer.resolution * scale);
+      const wasRenderGroup = container.isRenderGroup;
+      const texture = this.#renderer.generateTexture({ target: container, frame, resolution });
+      if (!wasRenderGroup) container.disableRenderGroup();
+      const entry = { texture, x, y };
+      this.#baked.set(key, entry);
+      // Este fotograma ya se ve horneada: fuera las subpiezas (salvo la máscara de la propia pieza)
+      for (const child of container.children) {
+        if (child !== mask && child !== previous) child.visible = false;
+      }
+      return entry;
+    } catch (e) {
+      console.warn('No se pudo hornear una pieza', e);
+      return null;
+    } finally {
+      container.alpha = alpha;
+      container.mask = mask;
+    }
+  };
+
+  #showBaked = (container: Container, entry: { texture: Texture; x: number; y: number }) => {
+    let sprite = this.#bakedSprites.get(container);
+    if (!sprite) {
+      sprite = new Sprite();
+      sprite.label = 'baked';
+      this.#bakedSprites.set(container, sprite);
+    }
+    if (sprite.parent !== container) container.addChild(sprite);
+    sprite.texture = entry.texture;
+    sprite.position.set(entry.x, entry.y);
+    sprite.zIndex = 0;
+    sprite.visible = true;
+  };
+
+  // Demo: sombra ya desenfocada. Se dibuja una vez una copia de la sombra con su desenfoque
+  #bakeShadow = () => {
+    const source = this.#shadowSprite;
+    const holder = new Container();
+    const copy = new Sprite(source.texture);
+    copy.anchor.copyFrom(source.anchor);
+    copy.position.copyFrom(source.position);
+    copy.scale.copyFrom(source.scale);
+    copy.filters = source.filters ? [...source.filters] : null;
+    holder.addChild(copy);
+    try {
+      const bounds = holder.getLocalBounds();
+      const blur = source.filters?.[0];
+      const pad = (blur?.padding ?? 8) + 2;
+      const x = Math.floor(bounds.minX - pad);
+      const y = Math.floor(bounds.minY - pad);
+      const frame = new Rectangle(x, y, Math.ceil(bounds.maxX + pad - x) + 1, Math.ceil(bounds.maxY + pad - y) + 1);
+      const texture = this.#renderer.generateTexture({ target: holder, frame, resolution: this.#renderer.resolution });
+      const sprite = new Sprite(texture);
+      sprite.position.set(x, y);
+      sprite.visible = false;
+      this.shadow.addChildAt(sprite, 0);
+      return sprite;
+    } catch (e) {
+      console.warn('No se pudo hornear la sombra', e);
+      return null;
+    } finally {
+      copy.filters = null;
+      holder.destroy({ children: true });
+    }
+  };
+
+  // Sombra en vivo (pocos luchadores) o ya desenfocada (multitudes)
+  #applyShadowQuality = () => {
+    if (crowdQuality.bakeShadows && !this.#bakedShadow && crowdQuality.bakeBudget > 0) {
+      crowdQuality.bakeBudget -= 1;
+      this.#bakedShadow = this.#bakeShadow();
+    }
+    const baked = crowdQuality.bakeShadows && !!this.#bakedShadow;
+    this.#shadowSprite.visible = !baked;
+    if (this.#bakedShadow) this.#bakedShadow.visible = baked;
+  };
+
+  // Al volver a pocos luchadores (o al cambiar de tamaño) se liberan las piezas horneadas
+  #releaseBaked = () => {
+    for (const sprite of this.#bakedSprites.values()) {
+      sprite.visible = false;
+      sprite.texture = Texture.EMPTY;
+    }
+    for (const { texture } of this.#baked.values()) texture.destroy(true);
+    this.#baked.clear();
+  };
+
+  #releaseBakedShadow = () => {
+    if (!this.#bakedShadow) return;
+    this.#bakedShadow.destroy({ texture: true, textureSource: true });
+    this.#bakedShadow = null;
+    this.#shadowSprite.visible = true;
   };
 
   once = (event: string, callback: (e: string) => void) => {
@@ -1487,6 +1722,9 @@ export class FighterHolder {
   setGiantScale = (value: number) => {
     const ratio = value / this.giantScale;
     this.giantScale = value;
+    // Lo horneado se hizo a otro tamaño: se vuelve a hornear con el nuevo
+    this.#releaseBaked();
+    this.#releaseBakedShadow();
     this.#renderContainer.scale.set(this.#renderContainer.scale.x * ratio, this.#renderContainer.scale.y * ratio);
     for (const child of this.shadow.children) child.scale.set(child.scale.x * ratio, child.scale.y * ratio);
     this.baseWidth *= ratio;
@@ -1511,6 +1749,10 @@ export class FighterHolder {
     this.#isDestroyed = true;
 
     this.pause();
+
+    // Demo: imágenes horneadas (calidad dinámica)
+    this.#releaseBaked();
+    this.#releaseBakedShadow();
 
     // Remove ticker handler to avoid leaked callbacks
     if (this.#appTicker && this.#tickerHandler) {
