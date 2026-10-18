@@ -13,10 +13,8 @@ export const updateHp = (
   const { hpBar, hpBarPhantom } = fighter;
   let { maxHp } = fighter;
 
-  if (!hpBar || !hpBarPhantom) {
-    return;
-  }
-
+  // Demo: la vida se lleva siempre, aunque el luchador no tenga barra en el HUD. Los brutes agregados al royale
+  // nacen sin ella y no recibían los golpes hasta cambiar de lado, y su etiqueta y la lista leen esta vida
   if (fix) {
     // Hp is set to fixed value
     fighter.hp = hp;
@@ -36,6 +34,10 @@ export const updateHp = (
 
     // Keep track of HP
     fighter.hp += realHpChange;
+  }
+
+  if (!hpBar || !hpBarPhantom) {
+    return;
   }
 
   let currentHP = 0;
