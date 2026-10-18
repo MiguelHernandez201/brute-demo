@@ -210,17 +210,16 @@ export function createRoyale(count: number) {
     winner: null,
     loser: null,
     winnerId: null,
-    // Botón "Finalizar": con él activo, al quedar uno solo en pie gana él; sin él, espera a que entre otro
+    // Botón "Finalizar": activa el reloj de la arena (royaleClock), que deja en `timeLeft` los segundos que quedan y
+    // marca `timeUp` al llegar a cero. Solo entonces termina la ronda (ver endNow)
     finishing: false,
-    // Se acabó el tiempo de "Finalizar": lo marca la interfaz y la animación cierra la pelea (ver endNow)
+    timeLeft: null,
     timeUp: false,
-    // `drained`: la animación ya mostró todo lo anterior. Con uno solo en pie la pelea no se cierra (paso End) hasta
-    // entonces, y solo si se está finalizando: si no, devuelve null ("todavía no") y se siguen pudiendo agregar brutes
-    pullSteps: async (drained = true) => {
+    // La ronda no termina sola: con uno solo en pie el motor espera (null) a que entre otro brute o se acabe el tiempo
+    pullSteps: async () => {
       if (session.winner) return false;
-      if (!session.finished) session.playTurn();
-      else if (drained && fight.finishing) session.closeRoyale();
-      else return null;
+      if (session.finished) return null;
+      session.playTurn();
       takeResult();
       return true;
     },

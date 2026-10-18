@@ -195,9 +195,8 @@ let fpsClass = '';
 // Lista de participantes del royale: cada uno con el color de su etiqueta en la arena (pasar el ratón por una fila,
 // o tocarla, lo resalta), vida en vivo, eliminaciones, quién eliminó a quién y botones para agregar brutes en plena
 // pelea. Se actualiza con cada caída según avanza la animación.
-// La ronda no termina sola: si queda uno en pie, espera a que entre alguien. "Finalizar" la cierra en 3 minutos
-// (gana quien más victorias tenga), o antes si queda uno solo en pie.
-const FINISH_SECONDS = 180;
+// La ronda no termina sola: si queda uno en pie, espera a que entre alguien. "Finalizar" pone un reloj de 3 minutos
+// en la arena y la ronda termina al llegar a cero: gana quien más victorias tenga de los que siguen en pie.
 let rosterFight = null;
 // Activa "Finalizar" en la ronda en curso (las rondas continuas lo hacen solas)
 let royaleFinish = null;
@@ -209,16 +208,14 @@ function renderRoster(fight) {
   let winner;
   // Fila que acaba de sumar una victoria (su trofeo salta en ese dibujo)
   let popped = null;
-  // Segundos que le quedan a "Finalizar" (null: sin activar). Corre con la pelea: se para con la pausa
-  let finishLeft = null;
-  let lastTick = performance.now();
+  // "Finalizar" activa el reloj de la arena (royaleClock), que lleva la cuenta atrás; el botón la muestra también
   const finishLabel = () => {
-    if (finishLeft === null || (winner && !fight.timeUp)) return '🏁 Finalizar';
-    const secs = Math.max(0, Math.ceil(finishLeft));
+    const left = fight.timeLeft;
+    if (!fight.finishing || left == null || (winner && !fight.timeUp)) return '🏁 Finalizar';
+    const secs = Math.max(0, Math.ceil(left));
     return `🏁 ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
   };
   const setFinish = (on) => {
-    finishLeft = on ? FINISH_SECONDS : null;
     fight.finishing = on;
     draw();
   };
@@ -259,20 +256,13 @@ function renderRoster(fight) {
       .join('');
     const disabled = canAdd() ? '' : 'disabled';
     const alive = total - fallen;
-    const note = winner
-      ? fight.timeUp
-        ? ' · fin por tiempo'
-        : ''
-      : alive === 1 && finishLeft === null
-        ? ' · esperando retador'
-        : '';
-    const finishTitle =
-      finishLeft === null
-        ? 'Termina la pelea en 3 minutos: gana quien más victorias tenga, o antes el último en pie'
-        : 'Cancelar el final';
+    const note = winner ? (fight.timeUp ? ' · fin por tiempo' : '') : alive === 1 ? ' · esperando retador' : '';
+    const finishTitle = fight.finishing
+      ? 'Cancelar el final'
+      : 'Pone un reloj de 3 minutos en la arena: al acabar gana quien más victorias tenga de los que siguen en pie';
     $('roster').innerHTML = `<div class="shop-name">Battle Royale</div>
       <div class="shop-label roster-stats"><span>${alive} de ${total} en pie${note}</span><span id="rosterFps" class="${fpsClass}" title="${QUALITY_TITLE}">${fpsText}</span></div>
-      <div class="roster-add"><button data-add="1" title="Agregar un brute a la pelea" ${disabled}>➕ Agregar</button><button data-add="5" title="Agregar 5 brutes" ${disabled}>+5</button><button data-finish class="${finishLeft === null ? '' : 'on'}" title="${finishTitle}" ${winner || fight.timeUp ? 'disabled' : ''}>${finishLabel()}</button></div>
+      <div class="roster-add"><button data-add="1" title="Agregar un brute a la pelea" ${disabled}>➕ Agregar</button><button data-add="5" title="Agregar 5 brutes" ${disabled}>+5</button><button data-finish class="${fight.finishing ? 'on' : ''}" title="${finishTitle}" ${winner || fight.timeUp ? 'disabled' : ''}>${finishLabel()}</button></div>
       <ol class="roster">${rows}</ol>
       ${feed ? `<ul class="kill-feed">${feed}</ul>` : ''}`;
   };
@@ -296,7 +286,7 @@ function renderRoster(fight) {
   $('roster').onclick = (e) => {
     const button = e.target.closest?.('[data-add]');
     if (button) return add(+button.dataset.add);
-    if (e.target.closest?.('[data-finish]')) return setFinish(finishLeft === null);
+    if (e.target.closest?.('[data-finish]')) return setFinish(!fight.finishing);
     const li = e.target.closest?.('ol.roster li[data-index]');
     if (!li) return;
     pinned = pinned === +li.dataset.index ? null : +li.dataset.index;
@@ -317,18 +307,13 @@ function renderRoster(fight) {
   // Vida en vivo: se lee de los luchadores de la animación (así va al ritmo de los golpes que se ven)
   const tick = setInterval(() => {
     if (rosterFight !== fight) return clearInterval(tick);
-    // Cuenta atrás de "Finalizar" (en tiempo real, parada con la pausa): al acabar, la animación cierra la pelea
-    const now = performance.now();
-    if (finishLeft !== null && !winner && !fight.timeUp && app?.ticker?.started) {
-      finishLeft -= (now - lastTick) / 1000;
-      if (finishLeft <= 0) fight.timeUp = true;
-      const finish = $('roster').querySelector('[data-finish]');
-      if (finish) {
-        finish.textContent = finishLabel();
-        finish.disabled = fight.timeUp;
-      }
+    // Cuenta atrás de "Finalizar": la lleva el reloj de la arena, aquí se copia al botón
+    const finish = $('roster').querySelector('[data-finish]');
+    if (finish && fight.finishing) {
+      const text = finishLabel();
+      if (finish.textContent !== text) finish.textContent = text;
+      finish.disabled = !!(winner || fight.timeUp);
     }
-    lastTick = now;
     // Ya no se puede agregar (la pelea se cerró: solo queda el final por ver): botones apagados
     if (!canAdd()) document.querySelectorAll('#roster [data-add]').forEach((b) => (b.disabled = true));
     const live = fight.liveFighters?.();
@@ -363,7 +348,7 @@ function renderRoster(fight) {
     }
   };
   royaleFinish = () => {
-    if (rosterFight === fight && finishLeft === null && !winner) setFinish(true);
+    if (rosterFight === fight && !fight.finishing && !winner) setFinish(true);
   };
   draw();
   // Rondas continuas: cada ronda se finaliza sola (si no, con uno en pie esperaría para siempre)
