@@ -118,18 +118,25 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - **Potenciadores**: cada brute tiene tres botones en su fila de la lista, **+300**, **+1000** y **+3000**. Los tres
     lanzan su poder (su ultimate, ver abajo; el botón no dice cuál es) y además:
     - **+300**: le cura o le suma 300 PV y le da un arma sencilla (espada ancha, cuchillo, bastón, lanza o hachuela)
-      que equipa al momento. Se recargan en 30 s.
+      que equipa al momento.
     - **+1000**: 1000 PV, un arma poderosa (hacha, espada, mayal, lucero del alba, alabarda o maza, de nivel 2) y un
-      **aura de ki** al estilo Dragon Ball durante un minuto: llamas doradas y translúcidas que le envuelven y suben,
-      con chispas, mientras hace el triple de daño (con el Súper gigante, x6). Se recargan en 60 s.
+      **aura de ki** al estilo Dragon Ball para el resto de la pelea: llamas doradas y translúcidas que le envuelven y
+      suben, con chispas, y hace el triple de daño (con el Súper gigante, x6).
     - **+3000**: 3000 PV, un arma poderosa de nivel 3, el aura de ki (esta con rayos, como el Súper Saiyajin 2) y una
-      **mascota** (perro, pantera u oso) que pelea con él durante un minuto y luego se va. Se recargan en 90 s.
+      **mascota** (perro, pantera u oso) que pelea con él durante un minuto y luego se va.
 
     "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV (y se le
-    quita el veneno). Bebe una poción, sale el número en verde y la vida de su etiqueta y de la lista lo reflejan. La
-    que llevaba en la mano vuelve con sus armas. El aura y la mascota cuentan su minuto desde que se ven (se para con
-    la pausa y va al doble a x2); el aura se apaga al momento si cae. Los tres botones se recargan a la vez, el tiempo
-    del que se usó: así el aura no se puede encadenar.
+    quita el veneno). Bebe una poción, sale el número en verde y la vida de su etiqueta y de la lista lo reflejan.
+    - Sin recarga: en cuanto se ve su poder, los botones se pueden volver a pulsar (antes se recargaban 30, 60 o
+      90 s). Cada pulsación vuelve a lanzar su poder y le suma la vida; si ya tenía el aura, estalla otra vez (y la del
+      +1000 pasa a la de rayos con un +3000), y cada +3000 trae otra mascota.
+    - El aura no se apaga en toda la pelea (antes duraba un minuto); solo si cae, y al momento. La mascota cuenta su
+      minuto desde que llega (se para con la pausa y va al doble a x2).
+    - **Quien usa un potenciador ya no pierde nunca el arma que lleva**: no se la quitan (desarmes al golpearle o al
+      contraatacar, el Martillo, el Ladrón), no la lanza (ni sola ni con el Diluvio, que tira las que tenga guardadas)
+      y no la cambia por otra. Antes, al rato, acababan peleando a puñetazos. La que llevaba en la mano al recibir el
+      arma vuelve con las suyas, y un potenciador menor no le cambia el arma de uno mayor: se la guarda (un +300 no le
+      quita el arma poderosa de un +3000).
   - **Ultimates** (el poder que lanza cada potenciador): una versión mucho más fuerte y de área de una técnica del
     juego, hecha para eliminar a varios de golpe, que alcanza a rivales de cualquier duelo. Se reparten por igual
     (salen de una bolsa con las cuatro):
@@ -140,10 +147,10 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       golpea a la vez a los 3 rivales más cercanos.
 
     Están equilibradas: en 300 royales de 10 simulados, cada una quita de media unos 470-490 PV en total (el
-    gigante, contando lo que pega de más y lo que deja de recibir) y elimina a unos 2 rivales (el aura de ki de los
-    potenciadores 2 y 3 se enciende después, así que no la multiplica). Mientras se recargan, los segundos que faltan
-    salen encima de los botones. Quien cae por una ultimate no tiene fatality (son muchos a la vez), pero la victoria
-    es para quien la lanzó.
+    gigante, contando lo que pega de más y lo que deja de recibir) y elimina a unos 2 rivales. El aura de ki de los
+    potenciadores 2 y 3 se enciende después de su poder, así que ese no lo multiplica; los siguientes, con el aura ya
+    encendida, pegan el triple. Quien cae por una ultimate no tiene fatality (son muchos a la vez), pero la victoria es
+    para quien la lanzó.
     - Si ahora no se puede lanzar (no queda a quién darle, está atrapado en una red o aturdido, en el motor ya ha
       caído aunque aún no se vea, o es un brute recién agregado que aún no ha aparecido en la arena), el potenciador
       queda **en cola** entero (⏳ en su botón, que late) y sale solo en cuanto se pueda, por ejemplo al entrar otro

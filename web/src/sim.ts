@@ -166,7 +166,7 @@ export function createRoyale(count: number) {
     },
     // Potenciadores de cada brute (los tres botones de su fila, ver engine/ultimates.boost): lanzan su ultimate y le dan
     // vida, arma, aura de ki y mascota según el nivel. Se juegan ya en el motor y la animación los muestra en cuanto
-    // puede (`wake` la avisa, ver setupFight). El aura y la mascota duran un minuto: la animación avisa al acabar
+    // puede (`wake` la avisa, ver setupFight). La mascota dura un minuto: la animación avisa al acabar
     ultimateOf: (index: number) => ultimates.get(index),
     castBoost: (index: number, tier: BoostTier) => {
       const kind = ultimates.get(index);
@@ -175,7 +175,6 @@ export function createRoyale(count: number) {
       fight.wake?.();
       return true;
     },
-    endKi: (index: number) => session.endKi(index),
     endPet: (index: number) => {
       if (fight.timeUp || !session.endPet(index)) return false;
       fight.liveSteps.push(...session.takeNewSteps());

@@ -13,7 +13,7 @@ import {
   Stats, activateSuper, checkDeaths, fighterArrives, orderFighters, playFighterTurn, royalePace, saboteur,
 } from './fightMethods';
 import {
-  BoostTier, Ultimate, boost, castUltimate as playUltimate, cleave, endGiant, endKi,
+  BoostTier, Ultimate, boost, castUltimate as playUltimate, cleave, endGiant,
 } from './ultimates';
 import { PetName } from '@labrute/prisma';
 
@@ -216,9 +216,9 @@ export class FightSession {
   }
 
   // Battle royale: potenciador `tier` del brute `index` (botones de la lista, ver ultimates.boost). Lanza su ultimate y,
-  // si sale, le cura (o le suma) vida, le da un arma, le enciende el aura de ki (niveles 2 y 3) y le trae una mascota
-  // (nivel 3) que pelea con él hasta que la animación la despide (ver endPet). Si la ultimate no puede salir, no se
-  // hace nada (el botón lo deja en cola, ver main.js)
+  // si sale, le cura (o le suma) vida, le da un arma que ya no pierde, le enciende el aura de ki (niveles 2 y 3) y le
+  // trae una mascota (nivel 3) que pelea con él hasta que la animación la despide (ver endPet). Si la ultimate no
+  // puede salir, no se hace nada (el botón lo deja en cola, ver main.js)
   castBoost(index: number, kind: Ultimate, tier: BoostTier) {
     if (!this.castUltimate(index, kind)) return false;
     const fd = this.fightData;
@@ -241,11 +241,6 @@ export class FightSession {
       this.steps.push({ a: 'demoPet', f: pet.index } as never);
     }
     return true;
-  }
-
-  // Battle royale: se apaga el aura de ki del brute `index` (la animación avisa cuando pasa su minuto)
-  endKi(index: number) {
-    return this.royale && !this.winner && endKi(this.fightData, index);
   }
 
   // Battle royale: se va la mascota de un potenciador (la animación avisa cuando pasa su minuto): sale de la arena

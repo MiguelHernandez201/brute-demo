@@ -32,6 +32,9 @@ const KEEP_WEAPON_CHANCE = 0.85;
 const KEEP_WEAPON_DECAY = 0.85;
 // Demo battle royale: el aura de ki (potenciadores 2 y 3, ver ultimates.boost) multiplica por tanto el daño que hace
 export const KI_DAMAGE = 3;
+// Demo battle royale: quien ha usado un potenciador (ver ultimates.boost) no pierde nunca el arma que lleva: ni se la
+// quitan (desarmes, Martillo, robo), ni la lanza (sola o con el Diluvio), ni la cambia por otra
+const keepsWeapon = (f: DetailedFighter) => !!(f as { demoKeepWeapon?: boolean }).demoKeepWeapon && !!f.activeWeapon;
 
 export type Stats = Record<string, {
   userId: string | null;
@@ -384,8 +387,8 @@ const randomlyGetSuper = (fightData: DetailedFight, fighter: DetailedFighter) =>
     supers = supers.filter((skill) => skill.name !== SkillName.cryOfTheDamned);
   }
 
-  // Filter out flashFlood if less than 3 weapons
-  if (keys(fighter.weapons).length + (fighter.activeWeapon ? 1 : 0) < 3) {
+  // Filter out flashFlood if less than 3 weapons (Demo: sin contar la de la mano si no la suelta, ver keepsWeapon)
+  if (keys(fighter.weapons).length + (fighter.activeWeapon && !keepsWeapon(fighter) ? 1 : 0) < 3) {
     supers = supers.filter((skill) => skill.name !== SkillName.flashFlood);
   }
 
@@ -762,6 +765,11 @@ export const registerHit = ({
         step.c = 1;
       }
 
+      // Demo: en el Diluvio, quien no suelta el arma de la mano (ver keepsWeapon) solo lanza las que lleva guardadas
+      if (flashFloodWeapon && keepsWeapon(fighter)) {
+        (step as HitStep & { k?: 1 }).k = 1;
+      }
+
       if (!thrown && !source && !flashFloodWeapon && opponent.type === 'brute') {
         // Update consecutive hits
         opponent.hitBy[fighter.index] = (opponent.hitBy[fighter.index] || 0) + 1;
@@ -871,6 +879,9 @@ const drawWeapon = (
   forceDraw: boolean = false,
 ): boolean => {
   const bareHandsFirstHit = fightData.modifiers[FightModifier.bareHandsFirstHit];
+
+  // Demo: no cambia el arma que lleva (ver keepsWeapon)
+  if (keepsWeapon(fighter)) return false;
 
   // Don't draw a weapon if the fighter hasn't hit yet
   if (bareHandsFirstHit && !fighter.bareHandHit) {
@@ -1062,8 +1073,10 @@ export const activateSuper = (
     // Steal opponent's weapon if he has one
     case SkillName.thief: {
       // Choose brute opponent
+      // (Demo: ni roba a quien no suelta su arma ni tira la suya para robar, ver keepsWeapon)
+      if (keepsWeapon(fighter)) return false;
       const opponents = getOpponents({ fightData, fighter, bruteAndBossOnly: true })
-        .filter((f) => !f.trapped && f.activeWeapon);
+        .filter((f) => !f.trapped && f.activeWeapon && !keepsWeapon(f));
 
       if (!opponents.length) {
         return false;
@@ -1231,6 +1244,8 @@ export const activateSuper = (
       break;
     }
     case SkillName.hammer: {
+      // (Demo: quien no suelta su arma no lo usa, porque es sin arma, ver keepsWeapon)
+      if (keepsWeapon(fighter)) return false;
       // Only 20% to use the skill if fighter has a weapon
       if (fighter.activeWeapon) {
         if (randomBetween(1, 5) === 1) {
@@ -1301,8 +1316,8 @@ export const activateSuper = (
         updateStats(stats, fighter.id, 'disarms', 1);
       }
 
-      // Add disarm step
-      if (opponent.activeWeapon) {
+      // Add disarm step (Demo: salvo a quien no suelta su arma, ver keepsWeapon)
+      if (opponent.activeWeapon && !keepsWeapon(opponent)) {
         fightData.steps.push({
           a: StepType.Disarm,
           f: fighter.index,
@@ -1445,8 +1460,9 @@ export const activateSuper = (
 
       // Shuffle weapons
       const shuffledWeapons = [...entries(fighter.weapons)].sort(() => Math.random() - 0.5);
-      // Get 3 weapons
-      const weaponsToThrow = shuffledWeapons.slice(0, fighter.activeWeapon ? 2 : 3);
+      // Get 3 weapons (Demo: la de la mano no, si no la suelta: ver keepsWeapon)
+      const throwActive = !!fighter.activeWeapon && !keepsWeapon(fighter);
+      const weaponsToThrow = shuffledWeapons.slice(0, throwActive ? 2 : 3);
 
       // Remove those weapons from the fighter
       for (const [, w] of weaponsToThrow) {
@@ -1454,7 +1470,7 @@ export const activateSuper = (
       }
 
       // Add active weapon as first weapon if any
-      if (fighter.activeWeapon) {
+      if (fighter.activeWeapon && throwActive) {
         weaponsToThrow.unshift([fighter.activeWeapon.name, fighter.activeWeapon]);
         fighter.activeWeapon = null;
       }
@@ -1861,8 +1877,8 @@ const disarm = (
   opponent: DetailedFighter,
   thrown?: boolean,
 ) => {
-  // Can't disarm someone if they are not holding a weapon >.>
-  if (!opponent.activeWeapon) return false;
+  // Can't disarm someone if they are not holding a weapon >.> (Demo: ni a quien no la suelta, ver keepsWeapon)
+  if (!opponent.activeWeapon || keepsWeapon(opponent)) return false;
 
   const shouldDisarm = getFighterStat(chaos, fighter, 'disarm', thrown ? 'weapon' : undefined) * 100 * DISARM_FACTOR
     >= randomBetween(1, 100);
@@ -1880,8 +1896,8 @@ const disarm = (
 };
 
 const disarmAttacker = (fighter: DetailedFighter, opponent: DetailedFighter) => {
-  // Can't disarm someone if they are not holding a weapon >.>
-  if (!fighter.activeWeapon) return false;
+  // Can't disarm someone if they are not holding a weapon >.> (Demo: ni a quien no la suelta, ver keepsWeapon)
+  if (!fighter.activeWeapon || keepsWeapon(fighter)) return false;
 
   // Only disarm if opponent has `ironHead`
   if (!opponent.ironHead) return false;
@@ -2458,6 +2474,11 @@ export const playFighterTurn = (
       : 'melee';
 
   if (attackType === 'thrown' && fightData.modifiers[FightModifier.noThrows]) {
+    attackType = 'melee';
+  }
+
+  // Demo: quien no suelta su arma no la lanza (salvo que sea arrojadiza, ver keepsWeapon)
+  if (attackType === 'thrown' && keepsWeapon(fighter) && !fighter.activeWeapon?.types.includes('thrown')) {
     attackType = 'melee';
   }
 

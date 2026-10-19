@@ -1,8 +1,8 @@
 // Demo battle royale: aura de ki al estilo Dragon Ball (potenciadores 2 y 3, ver engine/ultimates.boost). Llamas
 // doradas y translúcidas que envuelven al brute y suben parpadeando, chispas que suben y, en el nivel 3, rayos (como el
 // Súper Saiyajin 2). Va dentro del luchador, detrás de su cuerpo: le sigue a todas partes y crece con el Súper gigante.
-// Al encenderse, un estallido de luz y un grito de los que suben de nivel. Se apaga al pasar su minuto (lo cuenta
-// setupFight) y, al momento, si cae (así no sale en las fotos de la fatality).
+// Al encenderse (y con cada potenciador más, ver `pulse`), un estallido de luz y un grito de los que suben de nivel. Ya
+// no se apaga en toda la pelea; solo si cae, y al momento (así no sale en las fotos de la fatality).
 import { sound } from '@pixi/sound';
 import { Application, Container, Graphics, Rectangle, Ticker } from 'pixi.js';
 import { AnimationFighter } from './utils/findFighter';
@@ -27,7 +27,7 @@ const SPARKS = 14;
 // Lenguas de llama por encima de la cintura
 const TONGUES = 6;
 
-export type KiAura = { stop: () => void; readonly stopped: boolean };
+export type KiAura = { readonly tier: number; readonly stopped: boolean; pulse: () => void; stop: () => void };
 
 export const kiAura = (app: Application, fighter: AnimationFighter, speed: Speed, tier: number): KiAura => {
   const holder = fighter.animation;
@@ -137,43 +137,49 @@ export const kiAura = (app: Application, fighter: AnimationFighter, speed: Speed
   };
   app.ticker.add(tick);
 
-  // Al encenderse: un anillo de luz que se abre desde el cuerpo, grito y temblor
-  const burst = new Graphics()
-    .circle(0, 0, 10)
-    .fill({ color: PALE, alpha: 0.35 })
-    .circle(0, 0, 10)
-    .stroke({ width: 2.5, color: GOLD, alpha: 0.95 });
-  burst.blendMode = 'add';
-  burst.position.set(0, -holder.baseHeight * 0.45);
-  burst.zIndex = 10;
-  body.addChild(burst);
-  let b = 0;
-  const burstTick = (ticker: Ticker) => {
-    if (burst.destroyed || body.destroyed) {
-      app.ticker.remove(burstTick);
-      return;
-    }
-    b += (Math.min(ticker.elapsedMS, 100) / 1000) * speed.current;
-    const p = Math.min(1, b / 0.45);
-    // Hasta algo más que su altura (el doble si es gigante: crece con él)
-    burst.scale.set(0.5 + p * ((holder.baseHeight * 0.75) / 10));
-    burst.alpha = 1 - p;
-    if (p >= 1) {
-      app.ticker.remove(burstTick);
-      burst.destroy();
-    }
+  // Estallido de poder: un anillo de luz que se abre desde el cuerpo, grito y temblor
+  const pulse = () => {
+    if (body.destroyed) return;
+    const burst = new Graphics()
+      .circle(0, 0, 10)
+      .fill({ color: PALE, alpha: 0.35 })
+      .circle(0, 0, 10)
+      .stroke({ width: 2.5, color: GOLD, alpha: 0.95 });
+    burst.blendMode = 'add';
+    burst.position.set(0, -holder.baseHeight * 0.45);
+    burst.zIndex = 10;
+    body.addChild(burst);
+    let b = 0;
+    const burstTick = (ticker: Ticker) => {
+      if (burst.destroyed || body.destroyed) {
+        app.ticker.remove(burstTick);
+        return;
+      }
+      b += (Math.min(ticker.elapsedMS, 100) / 1000) * speed.current;
+      const p = Math.min(1, b / 0.45);
+      // Hasta algo más que su altura (el doble si es gigante: crece con él)
+      burst.scale.set(0.5 + p * ((holder.baseHeight * 0.75) / 10));
+      burst.alpha = 1 - p;
+      if (p >= 1) {
+        app.ticker.remove(burstTick);
+        burst.destroy();
+      }
+    };
+    app.ticker.add(burstTick);
+    void sound.play('sfx', { sprite: 'cryOfTheDamned' });
+    void shakeStage(app, speed, tier >= 3 ? 6 : 4, 400);
   };
-  app.ticker.add(burstTick);
-  void sound.play('sfx', { sprite: 'cryOfTheDamned' });
-  void shakeStage(app, speed, tier >= 3 ? 6 : 4, 400);
+  pulse();
 
   return {
+    tier,
+    get stopped() {
+      return stopped;
+    },
+    pulse,
     // Se apaga poco a poco
     stop: () => {
       stopped = true;
-    },
-    get stopped() {
-      return stopped;
     },
   };
 };
