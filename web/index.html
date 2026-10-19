@@ -330,6 +330,10 @@
       ol.roster .ult:active:not(:disabled) {
         transform: scale(0.92);
       }
+      /* El toque siempre cae en el botón, aunque su contenido cambie (cuenta atrás) */
+      ol.roster .ult > * {
+        pointer-events: none;
+      }
       /* Recargando (o con la ronda ya acabada): el icono se apaga y encima van los segundos que le faltan */
       ol.roster .ult:disabled {
         opacity: 1;

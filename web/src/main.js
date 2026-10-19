@@ -197,6 +197,26 @@ let fpsClass = '';
 let rosterFight = null;
 // Activa "Finalizar" en la ronda en curso (las rondas continuas lo hacen solas)
 let royaleFinish = null;
+// Mientras se pulsa algo de la lista no se repinta: se repinta al soltar, tras el clic. Si no, con la pelea en marcha
+// (caídas, ultimates…) el botón pulsado podía cambiarse por otro a mitad del toque y el clic se perdía
+let rosterPressed = false;
+let rosterRedraw = null;
+let rosterReleaseTimer = null;
+const releaseRoster = () => {
+  clearTimeout(rosterReleaseTimer);
+  if (!rosterPressed) return;
+  rosterPressed = false;
+  const redraw = rosterRedraw;
+  rosterRedraw = null;
+  redraw?.();
+};
+window.addEventListener('click', releaseRoster);
+window.addEventListener('pointercancel', releaseRoster);
+// (por si no llega el clic, por ejemplo al soltar fuera del botón)
+window.addEventListener('pointerup', () => {
+  clearTimeout(rosterReleaseTimer);
+  rosterReleaseTimer = setTimeout(releaseRoster, 400);
+});
 // Ultimate de cada brute (ver engine/ultimates): icono de su botón en la lista, nombre y qué hace
 const ULTIMATE_INFO = {
   flood: { icon: '🌊', name: 'Diluvio total', text: 'una lluvia de armas cae sobre varios rivales' },
@@ -259,16 +279,23 @@ function renderRoster(fight) {
     const title = `Ultimate · ${info.name}: ${info.text}${queued ? ' · En cola: sale en cuanto se pueda (clic para quitarla)' : ''}`;
     return `<button class="ult${queued ? ' queued' : ''}" data-ult="${index}" title="${esc(title)}" ${ultDisabled(s) ? 'disabled' : ''}>${ultLabel(index, s)}</button>`;
   };
-  // Lanza la ultimate. Si ahora no se puede (no queda a quién darle, está atrapado o aturdido, o en la pelea ya ha caído
-  // aunque aún no se vea), queda en cola y sale sola en cuanto se pueda (ver `tick`); otro clic la quita de la cola
+  // Ya está en la arena (un brute recién agregado tarda un poco en aparecer)
+  const onStage = (index) => !!fight.liveFighters?.()?.some((f) => f.index === index);
+  // Lanza la ultimate. Si ahora no se puede (no queda a quién darle, está atrapado o aturdido, en la pelea ya ha caído
+  // aunque aún no se vea, o aún no ha aparecido en la arena: su ultimate se animaba antes que su llegada), queda en cola
+  // y sale sola en cuanto se pueda (ver `tick`); otro clic la quita de la cola
   const castUltimate = (index) => {
     const s = state.get(index);
     if (!s || s.out || ultDisabled(s)) return;
     if (s.ult === 'queued') s.ult = 'ready';
-    else s.ult = fight.castUltimate?.(index) ? 'pending' : 'queued';
+    else s.ult = onStage(index) && fight.castUltimate?.(index) ? 'pending' : 'queued';
     draw();
   };
   const draw = () => {
+    if (rosterPressed) {
+      rosterRedraw = () => rosterFight === fight && draw();
+      return;
+    }
     const total = state.size;
     const rows = [...state.entries()]
       // Solo los que siguen en pie: los eliminados cuentan en "X de Y en pie" y en las últimas eliminaciones
@@ -323,6 +350,8 @@ function renderRoster(fight) {
   let pointer = 'mouse';
   $('roster').onpointerdown = (e) => {
     pointer = e.pointerType;
+    rosterPressed = true;
+    clearTimeout(rosterReleaseTimer);
   };
   $('roster').onpointerover = (e) => {
     if (e.pointerType !== 'mouse') return;
@@ -366,7 +395,15 @@ function renderRoster(fight) {
     let fired = false;
     for (const [index, s] of state) {
       // En cola: sale en cuanto se pueda (con la pelea en marcha)
-      if (s.ult === 'queued' && !s.out && !winner && !fight.timeUp && elapsed && fight.castUltimate?.(index)) {
+      if (
+        s.ult === 'queued' &&
+        !s.out &&
+        !winner &&
+        !fight.timeUp &&
+        elapsed &&
+        onStage(index) &&
+        fight.castUltimate?.(index)
+      ) {
         s.ult = 'pending';
         fired = true;
       }

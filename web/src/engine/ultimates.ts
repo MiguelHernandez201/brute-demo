@@ -61,7 +61,8 @@ const strike = (
   fightData, stats, achievements, fighter, opponents, damage, criticalHit, thrown: true, source: 'ultimate', customStep: step,
 });
 
-// Lanza la ultimate `kind` del brute. Devuelve false si no hay a quién darle
+// Lanza la ultimate `kind` del brute. Devuelve false si no hay a quién darle (salvo el Súper gigante, que es para él
+// mismo: si ahora no queda nadie, crece igual y le sirve contra el que entre)
 export const castUltimate = (
   fightData: DetailedFight,
   stats: Stats,
@@ -70,7 +71,7 @@ export const castUltimate = (
   kind: Ultimate,
 ) => {
   const targets = shuffle(rivals(fightData, caster));
-  if (!targets.length) return false;
+  if (!targets.length && kind !== 'giant') return false;
   const chaos = false;
   const hit: Hit = { fightData, stats, achievements, fighter: caster };
   // `id`: esta ultimate (para la animación, que lleva la cuenta de sus golpes)
