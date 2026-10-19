@@ -184,8 +184,10 @@ export function createRoyale(count: number) {
     // minuto: la animación avisa al acabar
     castBoost: (index: number, tier: BoostTier) => {
       if (fight.timeUp) return false;
-      const kind = ultimateOrder(index).find((k) => session.castBoost(index, k, tier));
-      if (!kind) return false;
+      // También a quien en el motor ya cayó pero en pantalla aún no: le salva (ver session.castBoost)
+      const rescuable = (i: number) => !!fight.rescuable?.(i);
+      const kind = ultimateOrder(index).find((k) => session.canCastBoost(index, k, tier, rescuable));
+      if (!kind || !session.castBoost(index, kind, tier, rescuable)) return false;
       const rest = bagOf(index).filter((k) => k !== kind);
       bags.set(index, rest);
       lastUltimate.set(index, kind);

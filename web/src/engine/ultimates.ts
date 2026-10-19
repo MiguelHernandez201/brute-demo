@@ -83,8 +83,15 @@ const strike = (
   fightData, stats, achievements, fighter, opponents, damage, criticalHit, thrown: true, source: 'ultimate', customStep: step,
 });
 
-// Lanza la ultimate `kind` del brute. Devuelve false si no hay a quién darle (salvo el Súper gigante, que es para él
-// mismo: si ahora no queda nadie, crece igual y le sirve contra el que entre)
+// Si el brute puede lanzar ahora la ultimate `kind`: si tiene a quién darle (el Súper gigante no lo necesita: es para
+// él mismo, y si ahora no queda nadie, crece igual y le sirve contra el que entre). Atrapado en una red o aturdido
+// también, salvo la Prisa en cadena (no puede embestir)
+export const canCastUltimate = (fightData: DetailedFight, caster: DetailedFighter, kind: Ultimate) => {
+  if (kind === 'haste' && (caster.trapped || caster.stunned)) return false;
+  return kind === 'giant' || rivals(fightData, caster).length > 0;
+};
+
+// Lanza la ultimate `kind` del brute. Devuelve false si ahora no puede (ver canCastUltimate)
 export const castUltimate = (
   fightData: DetailedFight,
   stats: Stats,
@@ -92,8 +99,8 @@ export const castUltimate = (
   caster: DetailedFighter,
   kind: Ultimate,
 ) => {
+  if (!canCastUltimate(fightData, caster, kind)) return false;
   const targets = shuffle(rivals(fightData, caster));
-  if (!targets.length && kind !== 'giant') return false;
   const chaos = false;
   const hit: Hit = { fightData, stats, achievements, fighter: caster };
   // `id`: esta ultimate (para la animación, que lleva la cuenta de sus golpes)
@@ -166,9 +173,8 @@ export const castUltimate = (
   return true;
 };
 
-// Se acaba el Súper gigante del brute `index` (la animación cuenta sus segundos). False si ya no lo era
-// Vida, arma y aura de un potenciador (tras lanzar su ultimate, ver session.castBoost)
-export const boost = (fightData: DetailedFight, caster: DetailedFighter, tier: BoostTier) => {
+// Vida de un potenciador: va antes que su ultimate (ver session.castBoost)
+export const boostHeal = (fightData: DetailedFight, caster: DetailedFighter, tier: BoostTier) => {
   const hp = BOOST_HP[tier];
   caster.hp += hp;
   caster.maxHp = Math.max(caster.maxHp, caster.hp);
@@ -176,6 +182,10 @@ export const boost = (fightData: DetailedFight, caster: DetailedFighter, tier: B
   const cured = !!caster.poisonedBy;
   caster.poisonedBy = null;
   fightData.steps.push({ a: 'demoBoost', f: caster.index, h: hp, m: caster.maxHp, c: cured ? 1 : 0 } as never);
+};
+
+// Arma y aura de un potenciador (tras lanzar su ultimate, ver session.castBoost)
+export const boostGear = (fightData: DetailedFight, caster: DetailedFighter, tier: BoostTier) => {
   const list = tier === 1 ? SIMPLE_WEAPONS : POWERFUL_WEAPONS;
   const name = list[Math.floor(Math.random() * list.length)] ?? WeaponName.broadsword;
   const weapon = { ...structuredClone(weapons[name]), tier: BOOST_WEAPON_TIER[tier] };
@@ -194,6 +204,7 @@ export const boost = (fightData: DetailedFight, caster: DetailedFighter, tier: B
   }
 };
 
+// Se acaba el Súper gigante del brute `index` (la animación cuenta sus segundos). False si ya no lo era
 export const endGiant = (fightData: DetailedFight, index: number) => {
   const giant = fightData.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master);
   const s = giant && state(giant);

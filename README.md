@@ -126,10 +126,17 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       **mascota** (perro, pantera u oso) que pelea con él durante un minuto y luego se va.
 
     "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV (y se le
-    quita el veneno). Bebe una poción, sale el número en verde y la vida de su etiqueta y de la lista lo reflejan.
-    Con muchos seguidos bebe solo con el primero: los demás suben la vida al momento y el número verde pasa a ser la
-    suma de todos (+300 → +1300 → +4300…), mientras le queden más en cola o hasta 8 s de pelea después del último.
-    Antes bebía con cada uno: con 10 seguidos se pasaba más de 25 s bebiendo.
+    quita el veneno). La vida llega al momento de pulsar, esté haciendo lo que esté: sale el número en verde y la vida
+    de su etiqueta y de la lista lo reflejan, y si está libre, además bebe una poción. Antes esperaba a que acabara lo
+    que tuviera pendiente en pantalla (por ejemplo, recibir la ultimate de otro). Con muchos seguidos el número verde
+    pasa a ser la suma de todos (+300 → +1300 → +4300…) y bebe como mucho con el primero, mientras le queden más en
+    cola o hasta 8 s de pelea después del último. Antes bebía con cada uno: con 10 seguidos se pasaba más de 25 s
+    bebiendo.
+    - **La cura nunca llega tarde**: las ultimates y los golpes se calculan en el motor al lanzarse y tardan unos
+      segundos en verse, así que un brute puede haber caído en el motor mientras en pantalla sigue en pie. Si se pulsa
+      su potenciador antes de que empiece a verse su caída, la vida le llega antes que esos golpes: si le alcanza para
+      seguir en pie, no cae (su caída se anula, y la de sus mascotas) y sigue peleando. Antes el potenciador se quedaba
+      en cola y caía igual: en un duelo, si uno lanzaba su ultimate, el otro ya no podía curarse a tiempo.
     - Sin recarga: en cuanto se ve su poder, los botones se pueden volver a pulsar (antes se recargaban 30, 60 o
       90 s). Cada pulsación lanza otro poder y le suma la vida; si ya tenía el aura, estalla otra vez (y la del
       +1000 pasa a la de rayos con un +3000), y cada +3000 trae otra mascota.
@@ -160,10 +167,12 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       quede nadie (las ultimates eliminan al momento, y en pantalla los rivales tardan unos segundos en caer), crece
       igual y le sirve contra el que entre. Si ya era gigante, vuelven a empezar sus 15 s (antes se acababa con el
       tiempo del primero).
-    - Si ahora no se puede lanzar (está atrapado en una red o aturdido, en el motor ya ha caído aunque aún no se vea,
-      o es un brute recién agregado que aún no ha aparecido en la arena), el potenciador queda **en cola** entero (⏳
-      en su botón, que late) y sale solo en cuanto se pueda. Otro clic lo quita de la cola y pulsar otro de los tres
-      lo cambia.
+    - Atrapado en una red o aturdido también se puede (antes quedaba en cola): sale cualquier ultimate menos la Prisa
+      en cadena (no puede embestir) y no bebe la poción (sigue en la red o en el suelo), pero la vida le llega igual.
+    - Si ahora no se puede lanzar (es un brute recién agregado que aún no ha aparecido en la arena, o en el motor ya
+      ha caído y la vida del potenciador no le alcanza para salvarse), el potenciador queda **en cola** entero (⏳ en
+      su botón, que late) y sale solo en cuanto se pueda. Otro clic lo quita de la cola y pulsar otro de los tres lo
+      cambia.
     - Mientras se pulsa un botón de la lista, esta no se repinta hasta soltarlo. Antes, si justo entonces caía alguien
       o cambiaba otra ultimate, el botón se cambiaba por otro a mitad del toque y la pulsación se perdía.
     - El letrero sale al momento. Lo que cae del cielo (armas, bombas) y la onda del gigante llegan a su hora: quien

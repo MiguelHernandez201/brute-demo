@@ -830,8 +830,9 @@ export const setupFight: (
     const ultimateVictims = new Set<number>();
     const ULTIMATE_HITS = new Set<unknown>(['demoFlood', 'demoBomb', 'demoHaste', 'demoCleaveHit']);
     // Pasos de ultimates que son efectos encima de los demás: no colocan a nadie de lado (quien la lanza puede estar a
-    // mitad de otra cosa) ni se reserva para ellos a quien la lanza (ver involvedIn)
-    const ULTIMATE_OVERLAYS = new Set<unknown>(['demoUltimate', 'demoFlood', 'demoBomb', 'demoCleaveHit']);
+    // mitad de otra cosa) ni se reserva para ellos a quien la lanza (ver involvedIn). La vida de un potenciador también
+    // (ver demoBoost)
+    const ULTIMATE_OVERLAYS = new Set<unknown>(['demoUltimate', 'demoFlood', 'demoBomb', 'demoCleaveHit', 'demoBoost']);
     const trackHit = (step: FightStep) => {
       const damage = damageOf(step);
       damage?.targets.forEach((t) => {
@@ -866,6 +867,14 @@ export const setupFight: (
     // planificador, más abajo)
     const healGroups = new Map<number, { text: Text; total: number; at: number; more: boolean }>();
     let boostsQueued = (_index: number) => false;
+    // Royale: luchadores cuya caída ya ha empezado a verse
+    const dying = new Set<number>();
+    // Royale: quién puede salvarse aún con un potenciador aunque en el motor ya haya caído: está en la arena y su caída
+    // no ha empezado a verse (ver session.castBoost)
+    (fight as unknown as { rescuable?: (index: number) => boolean }).rescuable = (index: number) => {
+      const f = findFighter(fighters, index);
+      return !!f && !f.dead && !dying.has(index) && f.animation.container.visible;
+    };
     const stomp = (index: number, target?: number) => {
       const giant = findFighter(fighters, index);
       const last = stompers.get(index);
@@ -952,6 +961,7 @@ export const setupFight: (
       currentStepName = StepType[step.a] ?? String(step.a);
       (globalThis as any).__fightStep = { i, name: currentStepName, step };
       (fight as unknown as { onStep?: (s: FightStep) => void }).onStep?.(step);
+      if (step.a === StepType.Death) dying.add(step.f);
 
       // Demo battle royale: la animación solo tiene dos lados; antes de cada paso se coloca
       // a quien actúa y a su objetivo en lados opuestos (según dónde estén) y se les da ese HUD
@@ -1210,35 +1220,50 @@ export const setupFight: (
           drinker.animation.setAnimation('idle');
           break;
         }
-        // Demo royale: potenciador (ver engine/ultimates.boost) → bebe una poción y gana vida (lo que sobra sube su
-        // vida máxima). Con muchos seguidos bebe solo con el primero: los demás suben la vida al momento y el número
-        // verde pasa a ser la suma de todos (mientras le queden más en cola o hasta HEAL_GROUP_SECONDS después del
-        // último). Antes bebía con cada uno y se quedaba un buen rato bebiendo
+        // Demo royale: potenciador (ver engine/ultimates.boostHeal) → gana vida (lo que sobra sube su vida máxima).
+        // Se ve al momento, esté como esté (ver splitUltimates): sube su vida y sale el número en verde, y si está
+        // libre (y ni atrapado ni aturdido) bebe una poción. Antes esperaba a que quedara libre, y si estaba recibiendo
+        // golpes de otro, caía antes de verse su cura. Con muchos seguidos bebe solo con el primero y el número pasa a
+        // ser la suma de todos (mientras le queden más en cola o hasta HEAL_GROUP_SECONDS después del último)
         case 'demoBoost' as never: {
           const boostStep = step as unknown as { f: number; h: number; m: number };
           const drinker = findFighter(fighters, boostStep.f);
           if (!drinker || drinker.dead || drinker.animation.container.destroyed) break;
-          let group = healGroups.get(drinker.index);
-          if (group && (group.more || (performance.now() - group.at) * speed.current < HEAL_GROUP_SECONDS * 1000)) {
+          drinker.maxHp = Math.max(drinker.maxHp, boostStep.m);
+          // (si le salva de un golpe que ya se vio, lo que ese golpe quitó de más, ver updateHp)
+          const owed = drinker as AnimationFighter & { demoOverkill?: number };
+          const overkill = Math.min(owed.demoOverkill ?? 0, boostStep.h);
+          owed.demoOverkill = (owed.demoOverkill ?? 0) - overkill;
+          updateHp(fighters, drinker, boostStep.h - overkill, speed, isClanWar);
+          const now = performance.now();
+          const group = healGroups.get(drinker.index);
+          if (group && (group.more || (now - group.at) * speed.current < HEAL_GROUP_SECONDS * 1000)) {
             group.total += boostStep.h;
             if (!group.text.destroyed) group.text.visible = false;
             group.text = displayHeal(app, drinker, group.total, speed);
-          } else {
-            // (la animación avanza por fotogramas: en un dispositivo lento no se espera más de esto)
-            const drinkEnded = drinker.animation.waitForEvent('drink:end', 1500);
-            drinker.animation.setAnimation('drink');
-            void sound.play('sfx', { sprite: 'tragicPotion' });
-            group = { text: displayHeal(app, drinker, boostStep.h, speed), total: boostStep.h, at: 0, more: false };
-            healGroups.set(drinker.index, group);
-            await drinkEnded;
-            if (!drinker.animation.container.destroyed) drinker.animation.setAnimation('idle');
+            group.at = now;
+            group.more = boostsQueued(drinker.index);
+            break;
           }
-          group.at = performance.now();
-          group.more = boostsQueued(drinker.index);
-          drinker.maxHp = Math.max(drinker.maxHp, boostStep.m);
-          updateHp(fighters, drinker, boostStep.h, speed, isClanWar);
+          const text = displayHeal(app, drinker, boostStep.h, speed);
+          healGroups.set(drinker.index, { text, total: boostStep.h, at: now, more: boostsQueued(drinker.index) });
+          void sound.play('sfx', { sprite: 'tragicPotion' });
+          // (atrapado en una red o aturdido en el suelo, no: sigue así)
+          if (busy.has(drinker.index) || drinker.trapped || drinker.stunned) break;
+          // Libre: bebe (y mientras, ni se mueve por su cuenta ni empieza otra cosa)
+          busy.add(drinker.index);
+          crowd?.release(drinker);
+          // (la animación avanza por fotogramas: en un dispositivo lento no se espera más de esto)
+          const drinkEnded = drinker.animation.waitForEvent('drink:end', 1500);
+          drinker.animation.setAnimation('drink');
+          await drinkEnded;
+          busy.delete(drinker.index);
+          if (!drinker.dead && !drinker.animation.container.destroyed) drinker.animation.setAnimation('idle');
           break;
         }
+        // Demo royale: caída anulada (un potenciador le salvó antes de que se viera, ver session.castBoost)
+        case 'demoRevived' as never:
+          break;
         // Demo royale: potenciador 2 o 3 → aura de ki (daño x3 en el motor) para el resto de la pelea. Si ya la tenía,
         // vuelve a estallar (y si era la del 2 y este es el 3, pasa a la de rayos)
         case 'demoKi' as never: {
@@ -1646,6 +1671,9 @@ export const setupFight: (
             last.indices?.push(item.i);
           } else if (st.a === StepType.Death && victims.has(st.f)) {
             tail.push(piece([item], { finisher: arrived(st.f) ? new Set([st.f]) : undefined, killer: victims.get(st.f) }));
+          } else if (a === 'demoBoost') {
+            // La vida de un potenciador: sola y al momento, sin esperar a nadie (ver demoBoost)
+            heads.push(piece([item], { jump: true }));
           } else if (a === 'demoUltimate') {
             // Su letrero: no espera a nadie y da la señal a sus golpes
             token = { reached: false, at: 0 };
@@ -1764,6 +1792,8 @@ export const setupFight: (
         // (nada pasa por delante de una barrera: solo lo que está antes de ella)
         for (let q = 0; q < queue.length && !queue[q]!.exclusive; q++) {
           const turn = queue[q]!;
+          // (si quien caía se salvó con un potenciador, ya no remata a nadie: ver session.castBoost)
+          if (turn.finisher && !turn.chunk.some((st) => st.a === StepType.Death)) turn.finisher = undefined;
           if ((!turn.jump && !turn.overlay && !turn.finisher) || (turn.after && !turn.after.reached)
             || running.size >= MAX_PARALLEL) continue;
           const { finisher } = turn;

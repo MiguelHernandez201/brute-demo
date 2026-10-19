@@ -13,7 +13,7 @@ import {
   Stats, activateSuper, checkDeaths, fighterArrives, orderFighters, playFighterTurn, royalePace, saboteur,
 } from './fightMethods';
 import {
-  BoostTier, Ultimate, boost, castUltimate as playUltimate, cleave, endGiant,
+  BOOST_HP, BoostTier, Ultimate, boostGear, boostHeal, canCastUltimate, castUltimate as playUltimate, cleave, endGiant,
 } from './ultimates';
 import { PetName } from '@labrute/prisma';
 
@@ -202,30 +202,55 @@ export class FightSession {
 
   // Battle royale: el brute `index` lanza la ultimate `kind` (con un potenciador, ver castBoost). Como al agregar un
   // brute, se juega en el motor ya (tras lo que el motor ya llevaba jugado); la animación la muestra enseguida (ver
-  // setupFight). No se puede si no queda a quién darle (salvo el Súper gigante) o si está atrapado en una red o
-  // aturdido (entonces se prueba otra, ver sim.castBoost, y si no sale ninguna el botón la deja en cola, ver main.js)
+  // setupFight). No se puede si ahora no puede salir (ver ultimates.canCastUltimate)
   castUltimate(index: number, kind: Ultimate) {
     if (!this.royale || this.winner) return false;
     const fd = this.fightData;
-    const caster = fd.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master && f.hp > 0
-      && !f.trapped && !f.stunned);
+    const caster = fd.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master && f.hp > 0);
     if (!caster || !playUltimate(fd, this.#stats, this.#achievements, caster, kind)) return false;
     checkDeaths(fd, this.#stats);
     this.#royaleEliminations();
     return true;
   }
 
-  // Battle royale: potenciador `tier` del brute `index` (botones de la lista, ver ultimates.boost). Lanza la ultimate
-  // `kind` y, si sale, le cura (o le suma) vida, le da un arma que ya no pierde, le enciende el aura de ki (niveles 2 y
-  // 3) y le trae una mascota (nivel 3) que pelea con él hasta que la animación la despide (ver endPet). Si la ultimate
-  // no puede salir, no se hace nada (ver sim.castBoost)
-  castBoost(index: number, kind: Ultimate, tier: BoostTier) {
-    if (!this.castUltimate(index, kind)) return false;
+  // Battle royale: quién puede usar ahora el potenciador `tier`: un brute en pie (aunque esté atrapado en una red o
+  // aturdido: la vida nunca espera). También uno que en el motor ya cayó pero en pantalla aún no (`rescuable`, lo dice
+  // la animación) si la vida del potenciador le alcanza para seguir en pie: le llega antes que esos golpes (ver
+  // castBoost)
+  #boostCaster(index: number, tier: BoostTier, rescuable?: (index: number) => boolean) {
+    if (!this.royale || this.winner) return undefined;
+    const caster = this.fightData.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master);
+    if (!caster || caster.hp > 0) return caster;
+    return rescuable?.(index) && caster.hp + BOOST_HP[tier] > 0 ? caster : undefined;
+  }
+
+  // Battle royale: si el brute `index` puede usar ahora el potenciador `tier` lanzando la ultimate `kind`
+  canCastBoost(index: number, kind: Ultimate, tier: BoostTier, rescuable?: (index: number) => boolean) {
+    const caster = this.#boostCaster(index, tier, rescuable);
+    return !!caster && canCastUltimate(this.fightData, caster, kind);
+  }
+
+  // Battle royale: potenciador `tier` del brute `index` (botones de la lista, ver ultimates.boostHeal y boostGear): le
+  // cura (o le suma) vida, lanza la ultimate `kind`, le da un arma que ya no pierde, le enciende el aura de ki
+  // (niveles 2 y 3) y le trae una mascota (nivel 3) que pelea con él hasta que la animación la despide (ver endPet).
+  // La vida va lo primero y nunca espera a nada: si en el motor ya había caído por golpes que en pantalla aún no se
+  // ven, le llega antes que ellos y se salva (ver #revive). Si no puede (ver #boostCaster), no se hace nada
+  castBoost(index: number, kind: Ultimate, tier: BoostTier, rescuable?: (index: number) => boolean) {
+    const caster = this.#boostCaster(index, tier, rescuable);
     const fd = this.fightData;
-    const caster = fd.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master);
-    const calculated = this.#brutes.find((b) => b.id === caster?.id);
-    if (!caster) return true;
-    boost(fd, caster, tier);
+    if (!caster || !canCastUltimate(fd, caster, kind)) return false;
+    const fallen = caster.hp <= 0;
+    if (fallen && rescuable) this.#revive(caster, rescuable);
+    boostHeal(fd, caster, tier);
+    if (fallen) {
+      // Vuelve a haber más de uno en pie: la pelea sigue (ver #royaleEliminations)
+      const alive = fd.fighters.filter((f) => f.type === 'brute' && !f.master && f.hp > 0);
+      fd.loser = alive.length > 1 ? null : (this.eliminated[this.eliminated.length - 1]?.id ?? null);
+    }
+    // (ya se comprobó que puede)
+    if (!this.castUltimate(index, kind)) return true;
+    const calculated = this.#brutes.find((b) => b.id === caster.id);
+    boostGear(fd, caster, tier);
     if (tier === 3 && calculated) {
       const kinds = BOOST_PETS[Math.floor(Math.random() * BOOST_PETS.length)] ?? [PetName.bear];
       const pet = this.#newPet(caster, calculated, kinds[Math.floor(Math.random() * kinds.length)] ?? PetName.bear);
@@ -431,6 +456,30 @@ export class FightSession {
     return true;
   }
 
+  // Battle royale: `brute` cayó en el motor pero su caída aún no se ve, y un potenciador le salva (ver castBoost): deja
+  // de estar eliminado y su paso de caída se anula (la animación lo salta, y si vuelve a caer tendrá otro). Lo mismo
+  // con las mascotas que cayeron con él, si su caída tampoco se ve aún
+  #revive(brute: DetailedFighter, rescuable: (index: number) => boolean) {
+    const fd = this.fightData;
+    const undoDeath = (f: DetailedFighter) => fd.steps.forEach((st) => {
+      if (st.a === StepType.Death && st.f === f.index) (st as { a: unknown }).a = 'demoRevived';
+    });
+    // Vuelve a su hora, como quien acaba de entrar: con la iniciativa de cuando cayó encadenaría varios turnos seguidos
+    const back = (f: DetailedFighter) => {
+      undoDeath(f);
+      f.initiative = Math.max(f.initiative, fd.initiative + 0.01 + randomBetween(0, 10) / 1000);
+    };
+    back(brute);
+    this.eliminated = this.eliminated.filter((e) => e !== brute);
+    for (const pet of fd.fighters) {
+      const before = (pet as { demoHpBefore?: number }).demoHpBefore;
+      if (pet.master !== brute.id || pet.hp > 0 || !before || !rescuable(pet.index)) continue;
+      pet.hp = before;
+      delete (pet as { demoHpBefore?: number }).demoHpBefore;
+      back(pet);
+    }
+  }
+
   // checkDeaths marca "perdedor" en cuanto cae un equipo. En el royale eso solo es una eliminación:
   // se anota, sus mascotas caen con él y la pelea sigue mientras quede más de un brute en pie.
   #royaleEliminations() {
@@ -440,7 +489,11 @@ export class FightSession {
     for (const b of brutes) {
       if (b.hp <= 0 && !this.eliminated.includes(b)) {
         this.eliminated.push(b);
-        fd.fighters.filter((p) => p.master === b.id && p.hp > 0).forEach((p) => { p.hp = 0; });
+        // (su vida queda anotada por si un potenciador le salva antes de verse su caída, ver #revive)
+        fd.fighters.filter((p) => p.master === b.id && p.hp > 0).forEach((p) => {
+          (p as { demoHpBefore?: number }).demoHpBefore = p.hp;
+          p.hp = 0;
+        });
       }
     }
     const alive = brutes.filter((b) => b.hp > 0);

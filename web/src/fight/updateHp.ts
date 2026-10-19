@@ -34,6 +34,13 @@ export const updateHp = (
 
     // Keep track of HP
     fighter.hp += realHpChange;
+
+    // Demo: lo que el golpe quita de más (por debajo de 0) queda anotado: en el motor sí cuenta, y si un potenciador le
+    // salva antes de verse su caída, se descuenta de su cura (ver demoBoost en setupFight)
+    if (realHpChange !== hp) {
+      const owed = fighter as AnimationFighter & { demoOverkill?: number };
+      owed.demoOverkill = (owed.demoOverkill ?? 0) + realHpChange - hp;
+    }
   }
 
   if (!hpBar || !hpBarPhantom) {
