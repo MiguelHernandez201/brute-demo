@@ -293,9 +293,10 @@ function renderRoster(fight) {
   };
   // Ya está en la arena (un brute recién agregado tarda un poco en aparecer)
   const onStage = (index) => !!fight.liveFighters?.()?.some((f) => f.index === index);
-  // Lanza un potenciador. Si ahora no se puede (está atrapado o aturdido, en la pelea ya ha caído aunque aún no se vea,
-  // o aún no ha aparecido en la arena: se animaba antes que su llegada), queda en cola y sale solo en cuanto se pueda
-  // (ver `tick`); otro clic lo quita de la cola y otro botón lo cambia. Sin rivales sale igual: el Súper gigante
+  // Lanza un potenciador. Si ahora no se puede (aún no ha aparecido en la arena: se animaba antes que su llegada; o en
+  // la pelea ya ha caído aunque aún no se vea y su vida no le alcanza para salvarse, ver session.castBoost), queda en
+  // cola y sale solo en cuanto se pueda (ver `tick`); otro clic lo quita de la cola y otro botón lo cambia. Sin rivales
+  // sale igual: el Súper gigante
   const castBoost = (index, tier) => {
     const s = state.get(index);
     if (!s || s.out || boostDisabled(s)) return;
