@@ -265,6 +265,30 @@
       .roster-add button + button {
         flex: 0 0 auto;
       }
+      /* Agregar un brute que entra con un potenciador: los colores de sus botones en la lista */
+      .roster-add.gift-add {
+        align-items: center;
+      }
+      .roster-add.gift-add span {
+        font-size: 12px;
+        color: #c9b6a4;
+        white-space: nowrap;
+      }
+      .roster-add.gift-add button {
+        --b: #4ade80;
+        flex: 1 1 0;
+        padding: 6px 4px;
+        background: #3a2c22;
+        border: 2px solid var(--b);
+        color: var(--b);
+        font-weight: 800;
+      }
+      .roster-add.gift-add button.t2 {
+        --b: #ffc62e;
+      }
+      .roster-add.gift-add button.t3 {
+        --b: #ff6b5e;
+      }
       /* "Finalizar" en marcha: cuenta atrás */
       .roster-add button.on {
         background: #f97316;
