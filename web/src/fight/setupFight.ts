@@ -1368,7 +1368,7 @@ export const setupFight: (
       (globalThis as any).__royaleBusy = busy; // depuración: luchadores que se están animando en un turno
       let cursor = 0;
       // Los que no están en ningún duelo se mueven por su cuenta (ver royaleAmbient)
-      const ambient = royaleAmbient(app, spritesheets, () => fighters, speed, (f) => busy.has(f.index));
+      const ambient = royaleAmbient(app, spritesheets, () => fighters, speed, (f) => busy.has(f.index), () => camera?.view);
       crowd = ambient;
       // Reloj de "Finalizar" arriba en la arena: la ronda solo termina cuando llega a cero
       royaleClock(app, demoFight);

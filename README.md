@@ -90,8 +90,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     puede cambiar en plena pelea): la cámara encuadra a los que siguen en pie. Con muchos se ve la arena entera y con
     pocos se acerca (hasta x2 cuando quedan uno o dos) para ver las peleas con más detalle, sin dejar a nadie fuera ni
     salirse del escenario. Se aleja deprisa (cuando entra alguien o se separan) y se acerca despacio, sin tirones. El
-    reloj y los letreros se quedan fijos arriba y las etiquetas de nombre y vida mantienen su tamaño. Con la opción
-    activada, los luchadores se dibujan con más resolución para que de cerca no se vean borrosos.
+    reloj y los letreros se quedan fijos arriba, y las etiquetas de nombre y vida y los globos con las frases del que
+    espera mantienen su tamaño y nunca se salen de lo que se ve (antes, con zoom, los globos se cortaban por arriba).
+    Con la opción activada, los luchadores se dibujan con más resolución para que de cerca no se vean borrosos.
   - Junto a esa barra de vida, un trofeo cuenta las victorias de cada brute en la ronda (cada rival que
     elimina). Aparece con la primera, para no llenar la arena de ceros, y salta cada vez que suma. La lista
     también lo muestra junto a la vida de cada fila.
