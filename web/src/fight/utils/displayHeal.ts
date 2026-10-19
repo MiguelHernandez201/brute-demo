@@ -35,4 +35,7 @@ export const displayHeal = (
     // Remove text
     healText.destroy();
   }).catch(console.error);
+
+  // Demo: para poder cambiarlo (curaciones agrupadas del royale, ver setupFight)
+  return healText;
 };

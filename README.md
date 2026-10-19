@@ -127,6 +127,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 
     "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV (y se le
     quita el veneno). Bebe una poción, sale el número en verde y la vida de su etiqueta y de la lista lo reflejan.
+    Con muchos seguidos bebe solo con el primero: los demás suben la vida al momento y el número verde pasa a ser la
+    suma de todos (+300 → +1300 → +4300…), mientras le queden más en cola o hasta 8 s de pelea después del último.
+    Antes bebía con cada uno: con 10 seguidos se pasaba más de 25 s bebiendo.
     - Sin recarga: en cuanto se ve su poder, los botones se pueden volver a pulsar (antes se recargaban 30, 60 o
       90 s). Cada pulsación lanza otro poder y le suma la vida; si ya tenía el aura, estalla otra vez (y la del
       +1000 pasa a la de rayos con un +3000), y cada +3000 trae otra mascota.
