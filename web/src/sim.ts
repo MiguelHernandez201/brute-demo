@@ -14,7 +14,7 @@ import {
 } from '@labrute/core';
 import { updateBruteData } from './engine/updateBruteData';
 import { FightSession } from './engine/session';
-import { ULTIMATES, Ultimate } from './engine/ultimates';
+import { BoostTier, ULTIMATES, Ultimate } from './engine/ultimates';
 
 function randomBruteData(name: string, level: number) {
   const gender = Math.random() > 0.5 ? 'male' : 'female';
@@ -164,12 +164,20 @@ export function createRoyale(count: number) {
       takeResult();
       return true;
     },
-    // Botón de ultimate de cada brute (ver engine/ultimates): se juega ya en el motor y la animación la muestra en
-    // cuanto puede (`wake` la avisa, ver setupFight)
+    // Potenciadores de cada brute (los tres botones de su fila, ver engine/ultimates.boost): lanzan su ultimate y le dan
+    // vida, arma, aura de ki y mascota según el nivel. Se juegan ya en el motor y la animación los muestra en cuanto
+    // puede (`wake` la avisa, ver setupFight). El aura y la mascota duran un minuto: la animación avisa al acabar
     ultimateOf: (index: number) => ultimates.get(index),
-    castUltimate: (index: number) => {
+    castBoost: (index: number, tier: BoostTier) => {
       const kind = ultimates.get(index);
-      if (!kind || fight.timeUp || !session.castUltimate(index, kind)) return false;
+      if (!kind || fight.timeUp || !session.castBoost(index, kind, tier)) return false;
+      fight.liveSteps.push(...session.takeNewSteps());
+      fight.wake?.();
+      return true;
+    },
+    endKi: (index: number) => session.endKi(index),
+    endPet: (index: number) => {
+      if (fight.timeUp || !session.endPet(index)) return false;
       fight.liveSteps.push(...session.takeNewSteps());
       fight.wake?.();
       return true;

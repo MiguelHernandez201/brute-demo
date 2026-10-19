@@ -13,8 +13,9 @@ import {
   Stats, activateSuper, checkDeaths, fighterArrives, orderFighters, playFighterTurn, royalePace, saboteur,
 } from './fightMethods';
 import {
-  Ultimate, castUltimate as playUltimate, cleave, endGiant,
+  BoostTier, Ultimate, boost, castUltimate as playUltimate, cleave, endGiant, endKi,
 } from './ultimates';
+import { PetName } from '@labrute/prisma';
 
 // `activate`: power-ups que se activan al empezar el siguiente turno (sin depender de la probabilidad)
 export type Purchase = { weapons?: string[]; skills?: string[]; pets?: string[]; potions?: number; activate?: string[] };
@@ -27,6 +28,9 @@ const ACTIVATE_TRIES = 3;
 
 // Cada poción cura este % de la vida máxima (y quita el veneno)
 const POTION_HEAL = 0.5;
+
+// Mascota del potenciador 3 del royale (ver castBoost): perro, pantera u oso, al azar
+const BOOST_PETS = [[PetName.dog1, PetName.dog2, PetName.dog3], [PetName.panther], [PetName.bear]];
 
 const getTempo = (speed: number) => 0.10 + (20 / Math.max(1, 10 + (speed * 1.5))) * 0.90;
 
@@ -208,6 +212,51 @@ export class FightSession {
     if (!caster || !playUltimate(fd, this.#stats, this.#achievements, caster, kind)) return false;
     checkDeaths(fd, this.#stats);
     this.#royaleEliminations();
+    return true;
+  }
+
+  // Battle royale: potenciador `tier` del brute `index` (botones de la lista, ver ultimates.boost). Lanza su ultimate y,
+  // si sale, le cura (o le suma) vida, le da un arma, le enciende el aura de ki (niveles 2 y 3) y le trae una mascota
+  // (nivel 3) que pelea con él hasta que la animación la despide (ver endPet). Si la ultimate no puede salir, no se
+  // hace nada (el botón lo deja en cola, ver main.js)
+  castBoost(index: number, kind: Ultimate, tier: BoostTier) {
+    if (!this.castUltimate(index, kind)) return false;
+    const fd = this.fightData;
+    const caster = fd.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master);
+    const calculated = this.#brutes.find((b) => b.id === caster?.id);
+    if (!caster) return true;
+    boost(fd, caster, tier);
+    if (tier === 3 && calculated) {
+      const kinds = BOOST_PETS[Math.floor(Math.random() * BOOST_PETS.length)] ?? [PetName.bear];
+      const pet = this.#newPet(caster, calculated, kinds[Math.floor(Math.random() * kinds.length)] ?? PetName.bear);
+      fd.fighters.push(pet);
+      fd.initialFighters.push(JSON.parse(JSON.stringify(pet)));
+      // Para la animación, en el lado en el que empezó su amo (luego cambia según con quién pelee)
+      const animation = toAnimationFighter(pet) as Fighter & { realTeam?: string };
+      animation.realTeam = pet.team;
+      animation.team = parseInt(String(pet.team).slice(1), 10) % 2 === 1 ? 'L' : 'R';
+      this.steps.push({ a: 'demoSpawn', fighter: animation } as never);
+      fighterArrives(fd, pet);
+      // Desde que llega cuenta su minuto
+      this.steps.push({ a: 'demoPet', f: pet.index } as never);
+    }
+    return true;
+  }
+
+  // Battle royale: se apaga el aura de ki del brute `index` (la animación avisa cuando pasa su minuto)
+  endKi(index: number) {
+    return this.royale && !this.winner && endKi(this.fightData, index);
+  }
+
+  // Battle royale: se va la mascota de un potenciador (la animación avisa cuando pasa su minuto): sale de la arena
+  // corriendo y deja de pelear
+  endPet(index: number) {
+    if (!this.royale || this.winner) return false;
+    const fd = this.fightData;
+    const pet = fd.fighters.find((f) => f.index === index && f.type === 'pet');
+    if (!pet || pet.hp <= 0) return false;
+    fd.fighters.splice(fd.fighters.indexOf(pet), 1);
+    this.steps.push({ a: StepType.Leave, f: pet.index });
     return true;
   }
 
@@ -491,62 +540,7 @@ export class FightSession {
     }
 
     for (const petName of purchase.pets ?? []) {
-      const pet = { ...pets[petName as keyof typeof pets], tier: 1 };
-      const index = Math.min(0, ...fd.fighters.map((f) => f.index), ...fd.initialFighters.map((f) => f.index)) - 1;
-      const s = (stat: Parameters<typeof getPetScaledStat>[3], precision?: number) => getPetScaledStat(false, calculated, pet as never, stat, precision);
-      const fighter: DetailedFighter = {
-        id: `${index}`,
-        index,
-        team,
-        name: petName,
-        rank: 0,
-        level: 0,
-        type: 'pet',
-        master: brute.id,
-        maxHp: s('hp'),
-        hp: s('hp'),
-        strength: s('strength'),
-        agility: s('agility'),
-        speed: s('speed'),
-        criticalChance: BASE_FIGHTER_STATS.criticalChance,
-        criticalDamage: BASE_FIGHTER_STATS.criticalDamage,
-        regeneration: 0,
-        // Entra a jugar enseguida
-        initiative: fd.initiative + 0.01 + randomBetween(0, 10) / 1000,
-        hitSpeed: 0,
-        tempo: getTempo(s('speed')),
-        baseDamage: s('damage'),
-        counter: s('counter', 2),
-        combo: s('combo', 2),
-        deflect: 0,
-        reversal: s('counter', 2),
-        block: s('block', 2),
-        accuracy: s('accuracy', 2),
-        reach: 0,
-        armor: 0,
-        disarm: s('disarm', 2),
-        weaponGrip: 0,
-        sabotage: 0,
-        evasion: s('evasion', 2),
-        determination: 0,
-        resistant: 0,
-        ironHead: 0,
-        size: 1,
-        bodybuilder: false,
-        survival: false,
-        balletShoes: false,
-        retryAttack: false,
-        fastMetabolism: null,
-        skills: {},
-        weapons: {},
-        shield: false,
-        activeSkills: [],
-        activeWeapon: null,
-        keepWeaponChance: 0,
-        poisonedBy: null,
-        trapped: false,
-        hitBy: {},
-      };
+      const fighter = this.#newPet(brute, calculated, petName);
       fd.fighters.push(fighter);
       fd.initialFighters.push(JSON.parse(JSON.stringify(fighter)));
       // La animación crea el luchador y luego lo hace llegar, como al inicio de la pelea
@@ -554,5 +548,69 @@ export class FightSession {
       fighterArrives(fd, fighter);
     }
     return true;
+  }
+
+  // Mascota nueva de un brute (compra del 1 vs 1 o potenciador del royale), en el equipo de su amo y que entra a jugar
+  // enseguida
+  #newPet(brute: DetailedFighter, calculated: CalculatedBrute, petName: string): DetailedFighter {
+    const fd = this.fightData;
+    const pet = { ...pets[petName as keyof typeof pets], tier: 1 };
+    const index = Math.min(0, ...fd.fighters.map((f) => f.index), ...fd.initialFighters.map((f) => f.index)) - 1;
+    const s = (stat: Parameters<typeof getPetScaledStat>[3], precision?: number) => getPetScaledStat(false, calculated, pet as never, stat, precision);
+    const fighter: DetailedFighter = {
+      id: `${index}`,
+      index,
+      // En el equipo de su amo
+      team: brute.team,
+      name: petName,
+      rank: 0,
+      level: 0,
+      type: 'pet',
+      master: brute.id,
+      maxHp: s('hp'),
+      hp: s('hp'),
+      strength: s('strength'),
+      agility: s('agility'),
+      speed: s('speed'),
+      criticalChance: BASE_FIGHTER_STATS.criticalChance,
+      criticalDamage: BASE_FIGHTER_STATS.criticalDamage,
+      regeneration: 0,
+      // Entra a jugar enseguida
+      initiative: fd.initiative + 0.01 + randomBetween(0, 10) / 1000,
+      hitSpeed: 0,
+      tempo: getTempo(s('speed')),
+      baseDamage: s('damage'),
+      counter: s('counter', 2),
+      combo: s('combo', 2),
+      deflect: 0,
+      reversal: s('counter', 2),
+      block: s('block', 2),
+      accuracy: s('accuracy', 2),
+      reach: 0,
+      armor: 0,
+      disarm: s('disarm', 2),
+      weaponGrip: 0,
+      sabotage: 0,
+      evasion: s('evasion', 2),
+      determination: 0,
+      resistant: 0,
+      ironHead: 0,
+      size: 1,
+      bodybuilder: false,
+      survival: false,
+      balletShoes: false,
+      retryAttack: false,
+      fastMetabolism: null,
+      skills: {},
+      weapons: {},
+      shield: false,
+      activeSkills: [],
+      activeWeapon: null,
+      keepWeaponChance: 0,
+      poisonedBy: null,
+      trapped: false,
+      hitBy: {},
+    };
+    return fighter;
   }
 }

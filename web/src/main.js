@@ -217,23 +217,35 @@ window.addEventListener('pointerup', () => {
   clearTimeout(rosterReleaseTimer);
   rosterReleaseTimer = setTimeout(releaseRoster, 400);
 });
-// Ultimate de cada brute (ver engine/ultimates): icono de su botón en la lista, nombre y qué hace
-const ULTIMATE_INFO = {
-  flood: { icon: '🌊', name: 'Diluvio total', text: 'una lluvia de armas cae sobre varios rivales' },
-  bombs: { icon: '💣', name: 'Lluvia de bombas', text: 'caen bombas del cielo sobre varios rivales' },
-  haste: { icon: '⚡', name: 'Prisa en cadena', text: 'embiste a varios rivales, uno detrás de otro' },
-  giant: {
-    icon: '💪',
-    name: 'Súper gigante',
-    text: 'crece 15 s (daño x2 y recibe la mitad) y tras cada ataque suelta una onda que golpea a la vez a los más cercanos',
+// Potenciadores de cada brute: tres botones en su fila de la lista (ver engine/ultimates.boost). Los tres lanzan su
+// poder (su ultimate; el botón no dice cuál) y además le curan o le suman vida y le dan un arma; el 2 y el 3 le encienden
+// un aura de ki durante un minuto (daño x3) y el 3 le trae también una mascota que pelea con él un minuto. Tras verse,
+// los tres se recargan a la vez durante los segundos del que se usó (corre con la pelea: se para con la pausa)
+const BOOSTS = [
+  {
+    tier: 1,
+    label: '+300',
+    cooldown: 30,
+    text: 'cura o suma 300 PV, trae un arma sencilla que equipa al momento y lanza su poder',
   },
-};
-// Tras verse, la ultimate de un brute se recarga en este tiempo (corre con la pelea: se para con la pausa)
-const ULTIMATE_COOLDOWN = 30;
+  {
+    tier: 2,
+    label: '+1000',
+    cooldown: 60,
+    text: 'cura o suma 1000 PV, trae un arma poderosa, enciende un aura de ki un minuto (daño x3) y lanza su poder',
+  },
+  {
+    tier: 3,
+    label: '+3000',
+    cooldown: 90,
+    text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki un minuto (daño x3), una mascota que pelea con él un minuto y lanza su poder',
+  },
+];
 function renderRoster(fight) {
   rosterFight = fight;
   const fighters = JSON.parse(fight.fighters).filter((f) => f.type === 'brute' && !f.master);
-  // ult: 'ready', 'pending' (lanzada, aún no se ve) o los segundos que le quedan para recargarse
+  // ult: potenciadores listos ('ready'), en cola, lanzado y aún sin verse ('pending') o los segundos que les quedan para
+  // recargarse; tier: el que está en cola o se lanzó
   const state = new Map(
     fighters.map((f) => [f.index, { name: f.name, out: 0, hp: f.hp, maxHp: f.maxHp, wins: 0, ult: 'ready' }]),
   );
@@ -261,34 +273,40 @@ function renderRoster(fight) {
   const who = (index) =>
     `<i class="dot" style="background:${royaleColorCss(index)}"></i><span class="who">${esc(state.get(index)?.name ?? '?')}</span>`;
   const canAdd = () => !winner && !!fight.canAddBrute?.();
-  // Botón de ultimate de una fila (su icono, grande): lista, en cola (⏳ en la esquina), lanzada y esperando a verse (…)
-  // o recargando (los segundos que le faltan, encima del icono apagado)
-  const ultInfo = (index) => ULTIMATE_INFO[fight.ultimateOf?.(index)];
-  const ultLabel = (index, s) => {
-    const icon = `<span class="ult-icon">${ultInfo(index)?.icon ?? '✨'}</span>`;
-    if (s.ult === 'ready') return icon;
-    if (s.ult === 'queued') return `${icon}<i class="ult-badge">⏳</i>`;
-    return `${icon}<b class="ult-cd">${s.ult === 'pending' ? '…' : Math.ceil(s.ult)}</b>`;
+  // Botones de potenciador de una fila (sin el icono de su poder): listos, en cola (⏳ en la esquina del que espera),
+  // lanzado y esperando a verse (… en el que se lanzó) o recargando (los segundos que faltan, encima de los tres)
+  const boostLabel = (s, b) => {
+    const label = `<span class="boost-label">${b.label}</span>`;
+    if (s.ult === 'ready' || (s.ult === 'queued' && s.tier !== b.tier)) return label;
+    if (s.ult === 'queued') return `${label}<i class="boost-badge">⏳</i>`;
+    if (s.ult === 'pending') return s.tier === b.tier ? `${label}<b class="boost-cd">…</b>` : label;
+    return `${label}<b class="boost-cd">${Math.ceil(s.ult)}</b>`;
   };
-  // Se puede pulsar lista (la lanza o la deja en cola) y en cola (la quita)
-  const ultDisabled = (s) => !!(winner || fight.timeUp || (s.ult !== 'ready' && s.ult !== 'queued'));
-  const ultButton = (index, s) => {
-    const info = ultInfo(index);
-    if (!info) return '';
-    const queued = s.ult === 'queued';
-    const title = `Ultimate · ${info.name}: ${info.text}${queued ? ' · En cola: sale en cuanto se pueda (clic para quitarla)' : ''}`;
-    return `<button class="ult${queued ? ' queued' : ''}" data-ult="${index}" title="${esc(title)}" ${ultDisabled(s) ? 'disabled' : ''}>${ultLabel(index, s)}</button>`;
+  // Se pueden pulsar listos (lo lanza o lo deja en cola) y con uno en cola (otro clic lo quita; otro botón lo cambia)
+  const boostDisabled = (s) => !!(winner || fight.timeUp || (s.ult !== 'ready' && s.ult !== 'queued'));
+  const boostButtons = (index, s) => {
+    if (!fight.ultimateOf?.(index)) return '';
+    const disabled = boostDisabled(s) ? 'disabled' : '';
+    const buttons = BOOSTS.map((b) => {
+      const queued = s.ult === 'queued' && s.tier === b.tier;
+      const title = `Potenciador ${b.tier}: ${b.text}. Recarga ${b.cooldown} s${queued ? ' · En cola: sale en cuanto se pueda (clic para quitarlo)' : ''}`;
+      return `<button class="boost t${b.tier}${queued ? ' queued' : ''}" data-boost="${index}" data-tier="${b.tier}" title="${esc(title)}" ${disabled}>${boostLabel(s, b)}</button>`;
+    });
+    return `<div class="boosts">${buttons.join('')}</div>`;
   };
   // Ya está en la arena (un brute recién agregado tarda un poco en aparecer)
   const onStage = (index) => !!fight.liveFighters?.()?.some((f) => f.index === index);
-  // Lanza la ultimate. Si ahora no se puede (no queda a quién darle, está atrapado o aturdido, en la pelea ya ha caído
-  // aunque aún no se vea, o aún no ha aparecido en la arena: su ultimate se animaba antes que su llegada), queda en cola
-  // y sale sola en cuanto se pueda (ver `tick`); otro clic la quita de la cola
-  const castUltimate = (index) => {
+  // Lanza un potenciador. Si ahora no se puede (su poder no tiene a quién darle, está atrapado o aturdido, en la pelea
+  // ya ha caído aunque aún no se vea, o aún no ha aparecido en la arena: se animaba antes que su llegada), queda en
+  // cola y sale solo en cuanto se pueda (ver `tick`); otro clic lo quita de la cola y otro botón lo cambia
+  const castBoost = (index, tier) => {
     const s = state.get(index);
-    if (!s || s.out || ultDisabled(s)) return;
-    if (s.ult === 'queued') s.ult = 'ready';
-    else s.ult = onStage(index) && fight.castUltimate?.(index) ? 'pending' : 'queued';
+    if (!s || s.out || boostDisabled(s)) return;
+    if (s.ult === 'queued' && s.tier === tier) s.ult = 'ready';
+    else {
+      s.tier = tier;
+      s.ult = onStage(index) && fight.castBoost?.(index, tier) ? 'pending' : 'queued';
+    }
     draw();
   };
   const draw = () => {
@@ -308,11 +326,11 @@ function renderRoster(fight) {
         const wins = s.wins ? `<b class="wins${index === popped ? ' pop' : ''}">🏆${s.wins}</b>` : '';
         return `<li data-index="${index}" class="${classes}" style="--c:${royaleColorCss(index)}">
           <div class="roster-main">
-            <div class="roster-top">${who(index)}${wins}<small class="hp-text">${Math.max(0, Math.round(s.hp))}/${s.maxHp}</small></div>
-            <div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div>
+            <div class="roster-top">${who(index)}${wins}</div>
+            <div class="roster-hp"><div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div><small class="hp-text">${Math.max(0, Math.round(s.hp))}/${s.maxHp}</small></div>
             ${status ? `<small>${status}</small>` : ''}
           </div>
-          ${ultButton(index, s)}
+          ${boostButtons(index, s)}
         </li>`;
       })
       .join('');
@@ -365,8 +383,8 @@ function renderRoster(fight) {
     const button = e.target.closest?.('[data-add]');
     if (button) return add(+button.dataset.add);
     if (e.target.closest?.('[data-finish]')) return setFinish(!fight.finishing);
-    const ult = e.target.closest?.('[data-ult]');
-    if (ult) return castUltimate(+ult.dataset.ult);
+    const boost = e.target.closest?.('[data-boost]');
+    if (boost) return castBoost(+boost.dataset.boost, +boost.dataset.tier);
     const li = e.target.closest?.('ol.roster li[data-index]');
     if (!li || pointer !== 'mouse') return;
     pinned = pinned === +li.dataset.index ? null : +li.dataset.index;
@@ -388,7 +406,7 @@ function renderRoster(fight) {
   let lastTick = performance.now();
   const tick = setInterval(() => {
     if (rosterFight !== fight) return clearInterval(tick);
-    // Recarga de las ultimates (con la pelea en marcha)
+    // Recarga de los potenciadores (con la pelea en marcha)
     const now = performance.now();
     const elapsed = app?.ticker?.started ? (now - lastTick) / 1000 : 0;
     lastTick = now;
@@ -402,21 +420,24 @@ function renderRoster(fight) {
         !fight.timeUp &&
         elapsed &&
         onStage(index) &&
-        fight.castUltimate?.(index)
+        fight.castBoost?.(index, s.tier)
       ) {
         s.ult = 'pending';
         fired = true;
       }
       if (typeof s.ult !== 'number' || s.out) continue;
-      const before = ultLabel(index, s);
+      const before = Math.ceil(s.ult);
       s.ult = s.ult - elapsed <= 0 ? 'ready' : s.ult - elapsed;
-      const button = $('roster').querySelector(`[data-ult="${index}"]`);
-      if (!button || ultLabel(index, s) === before) continue;
-      button.innerHTML = ultLabel(index, s);
-      button.disabled = ultDisabled(s);
+      if (s.ult !== 'ready' && Math.ceil(s.ult) === before) continue;
+      $('roster')
+        .querySelectorAll(`[data-boost="${index}"]`)
+        .forEach((button) => {
+          button.innerHTML = boostLabel(s, BOOSTS[+button.dataset.tier - 1]);
+          button.disabled = boostDisabled(s);
+        });
     }
     if (fired) draw();
-    if (winner || fight.timeUp) document.querySelectorAll('#roster [data-ult]').forEach((b) => (b.disabled = true));
+    if (winner || fight.timeUp) document.querySelectorAll('#roster [data-boost]').forEach((b) => (b.disabled = true));
     // Cuenta atrás de "Finalizar": la lleva el reloj de la arena, aquí se copia al botón
     const finish = $('roster').querySelector('[data-finish]');
     if (finish && fight.finishing) {
@@ -431,8 +452,10 @@ function renderRoster(fight) {
     for (const f of live) {
       const s = state.get(f.index);
       if (!s || s.out || f.master) continue;
-      if (s.hp === f.hp) continue;
+      // (con un potenciador sube también su vida máxima)
+      if (s.hp === f.hp && s.maxHp === f.maxHp) continue;
       s.hp = f.hp;
+      s.maxHp = f.maxHp;
       const li = $('roster').querySelector(`li[data-index="${f.index}"]`);
       if (!li) continue;
       const pct = Math.max(0, Math.min(100, (f.hp / s.maxHp) * 100));
@@ -443,9 +466,10 @@ function renderRoster(fight) {
     }
   }, 150);
   fight.onStep = (step) => {
-    // Su ultimate se ve ya: empieza a recargarse
+    // Su potenciador se ve ya (su poder): empiezan a recargarse, el tiempo del que se usó
     if (step.a === 'demoUltimate' && state.has(step.f)) {
-      state.get(step.f).ult = ULTIMATE_COOLDOWN;
+      const s = state.get(step.f);
+      s.ult = (BOOSTS[(s.tier ?? 1) - 1] ?? BOOSTS[0]).cooldown;
       draw();
     }
     if (step.a === StepType.Death && state.has(step.f) && !state.get(step.f).out) {

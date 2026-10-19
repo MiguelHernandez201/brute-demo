@@ -126,7 +126,7 @@
       }
       .stage {
         display: grid;
-        grid-template-columns: 250px minmax(0, 800px);
+        grid-template-columns: 320px minmax(0, 800px);
         gap: 12px;
         justify-content: center;
         align-items: start;
@@ -311,66 +311,88 @@
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
-      /* Botón de ultimate de cada fila del royale: grande, para pulsarlo bien también con el dedo */
-      ol.roster .ult {
-        position: relative;
+      /* Potenciadores de cada fila del royale: tres botones (+300, +1000, +3000) grandes, para pulsarlos bien también
+         con el dedo, cada uno con su color */
+      .boosts {
         flex: 0 0 auto;
-        width: 52px;
+        display: flex;
+        gap: 4px;
+      }
+      ol.roster .boost {
+        --b: #4ade80;
+        --glow: rgba(74, 222, 128, 0.5);
+        position: relative;
+        width: 48px;
         height: 40px;
         padding: 0;
-        font-size: 22px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: -0.3px;
         line-height: 1;
         border-radius: 10px;
         background: #3a2c22;
-        border: 2px solid var(--gold);
-        color: var(--gold);
-        box-shadow: 0 0 8px rgba(255, 209, 102, 0.5);
+        border: 2px solid var(--b);
+        color: var(--b);
+        box-shadow: 0 0 8px var(--glow);
+        font-variant-numeric: tabular-nums;
         touch-action: manipulation;
       }
-      ol.roster .ult:active:not(:disabled) {
+      ol.roster .boost.t2 {
+        --b: #ffc62e;
+        --glow: rgba(255, 198, 46, 0.55);
+      }
+      ol.roster .boost.t3 {
+        --b: #ff6b5e;
+        --glow: rgba(255, 107, 94, 0.6);
+      }
+      ol.roster .boost:active:not(:disabled) {
         transform: scale(0.92);
       }
       /* El toque siempre cae en el botón, aunque su contenido cambie (cuenta atrás) */
-      ol.roster .ult > * {
+      ol.roster .boost > * {
         pointer-events: none;
       }
-      /* Recargando (o con la ronda ya acabada): el icono se apaga y encima van los segundos que le faltan */
-      ol.roster .ult:disabled {
+      /* Recargando (o con la ronda ya acabada): se apagan y encima van los segundos que les faltan */
+      ol.roster .boost:disabled {
         opacity: 1;
         border-color: #5a4636;
         box-shadow: none;
       }
-      ol.roster .ult:disabled .ult-icon {
-        opacity: 0.35;
+      ol.roster .boost:disabled .boost-label {
+        opacity: 0.3;
       }
-      .ult-cd {
+      /* (con los segundos encima, la etiqueta casi no se ve: si no, se mezclaban) */
+      ol.roster .boost:disabled .boost-cd ~ .boost-label,
+      ol.roster .boost:disabled .boost-label:has(+ .boost-cd) {
+        opacity: 0.12;
+      }
+      .boost-cd {
         position: absolute;
         inset: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 17px;
+        font-size: 16px;
         font-weight: 800;
         color: #fff;
         text-shadow:
           0 0 3px #000,
           0 0 3px #000;
-        font-variant-numeric: tabular-nums;
       }
       /* En cola: sale en cuanto se pueda (el botón late y lleva un reloj de arena en la esquina) */
-      ol.roster .ult.queued {
-        animation: ult-queued 1s ease-in-out infinite;
+      ol.roster .boost.queued {
+        animation: boost-queued 1s ease-in-out infinite;
       }
-      .ult-badge {
+      .boost-badge {
         position: absolute;
         top: -4px;
         right: -4px;
-        font-size: 14px;
+        font-size: 13px;
         font-style: normal;
       }
-      @keyframes ult-queued {
+      @keyframes boost-queued {
         50% {
-          box-shadow: 0 0 10px rgba(255, 209, 102, 0.9);
+          box-shadow: 0 0 12px var(--b);
           border-color: #fff3c4;
         }
       }
@@ -390,12 +412,20 @@
           transform: scale(1.6);
         }
       }
+      /* Vida: la barra y, a su derecha, los PV (con los potenciadores llegan a cuatro cifras: arriba, junto al nombre,
+         no dejaban sitio para él) */
+      .roster-hp {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 3px;
+      }
       .roster-bar {
+        flex: 1;
         height: 8px;
         background: #000;
         border-radius: 4px;
         overflow: hidden;
-        margin-top: 4px;
       }
       .roster-bar > div {
         height: 100%;
