@@ -39,6 +39,9 @@ export const flashFlood = async (
   }
 
   const startedWithAWeapon = fighter.animation.weapon !== null;
+  // Demo battle royale: lanza una de las que lleva guardadas y se queda con la de la mano (ver keepsWeapon en
+  // engine/fightMethods)
+  const keepsHeld = startedWithAWeapon && !!(step as HitStep & { k?: 1 }).k;
 
   // Create weapon and vfx
 
@@ -110,6 +113,9 @@ export const flashFlood = async (
   // Remove Shield
   if (step.s) {
     fighter.animation.shield = false;
+    // Demo: sale de las guardadas
+  } else if (keepsHeld) {
+    updateWeapons(app, spritesheets, fighter, step.w, 'remove');
     // Remove Weapon
   } else {
     fighter.animation.weapon = null;

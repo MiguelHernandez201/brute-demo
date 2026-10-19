@@ -352,7 +352,7 @@
       ol.roster .boost > * {
         pointer-events: none;
       }
-      /* Recargando (o con la ronda ya acabada): se apagan y encima van los segundos que les faltan */
+      /* Lanzado y aún sin verse su poder (… encima del que se pulsó), o con la ronda ya acabada: se apagan */
       ol.roster .boost:disabled {
         opacity: 1;
         border-color: #5a4636;
@@ -361,8 +361,7 @@
       ol.roster .boost:disabled .boost-label {
         opacity: 0.3;
       }
-      /* (con los segundos encima, la etiqueta casi no se ve: si no, se mezclaban) */
-      ol.roster .boost:disabled .boost-cd ~ .boost-label,
+      /* (con los puntos encima, la etiqueta casi no se ve: si no, se mezclaban) */
       ol.roster .boost:disabled .boost-label:has(+ .boost-cd) {
         opacity: 0.12;
       }

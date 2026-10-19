@@ -218,34 +218,31 @@ window.addEventListener('pointerup', () => {
   rosterReleaseTimer = setTimeout(releaseRoster, 400);
 });
 // Potenciadores de cada brute: tres botones en su fila de la lista (ver engine/ultimates.boost). Los tres lanzan su
-// poder (su ultimate; el botón no dice cuál) y además le curan o le suman vida y le dan un arma; el 2 y el 3 le encienden
-// un aura de ki durante un minuto (daño x3) y el 3 le trae también una mascota que pelea con él un minuto. Tras verse,
-// los tres se recargan a la vez durante los segundos del que se usó (corre con la pelea: se para con la pausa)
+// poder (su ultimate; el botón no dice cuál) y además le curan o le suman vida y le dan un arma que ya no pierde; el 2 y
+// el 3 le encienden un aura de ki para el resto de la pelea (daño x3) y el 3 le trae también una mascota que pelea con
+// él un minuto. Sin recarga: en cuanto se ve su poder se pueden volver a pulsar
 const BOOSTS = [
   {
     tier: 1,
     label: '+300',
-    cooldown: 30,
-    text: 'cura o suma 300 PV, trae un arma sencilla que equipa al momento y lanza su poder',
+    text: 'cura o suma 300 PV, trae un arma sencilla que equipa al momento (y ya no pierde) y lanza su poder',
   },
   {
     tier: 2,
     label: '+1000',
-    cooldown: 60,
-    text: 'cura o suma 1000 PV, trae un arma poderosa, enciende un aura de ki un minuto (daño x3) y lanza su poder',
+    text: 'cura o suma 1000 PV, trae un arma poderosa, enciende un aura de ki para toda la pelea (daño x3) y lanza su poder',
   },
   {
     tier: 3,
     label: '+3000',
-    cooldown: 90,
-    text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki un minuto (daño x3), una mascota que pelea con él un minuto y lanza su poder',
+    text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki para toda la pelea (daño x3), una mascota que pelea con él un minuto y lanza su poder',
   },
 ];
 function renderRoster(fight) {
   rosterFight = fight;
   const fighters = JSON.parse(fight.fighters).filter((f) => f.type === 'brute' && !f.master);
-  // ult: potenciadores listos ('ready'), en cola, lanzado y aún sin verse ('pending') o los segundos que les quedan para
-  // recargarse; tier: el que está en cola o se lanzó
+  // ult: potenciadores listos ('ready'), en cola o lanzado y aún sin verse su poder ('pending'); tier: el que está en
+  // cola o se lanzó
   const state = new Map(
     fighters.map((f) => [f.index, { name: f.name, out: 0, hp: f.hp, maxHp: f.maxHp, wins: 0, ult: 'ready' }]),
   );
@@ -273,14 +270,13 @@ function renderRoster(fight) {
   const who = (index) =>
     `<i class="dot" style="background:${royaleColorCss(index)}"></i><span class="who">${esc(state.get(index)?.name ?? '?')}</span>`;
   const canAdd = () => !winner && !!fight.canAddBrute?.();
-  // Botones de potenciador de una fila (sin el icono de su poder): listos, en cola (⏳ en la esquina del que espera),
-  // lanzado y esperando a verse (… en el que se lanzó) o recargando (los segundos que faltan, encima de los tres)
+  // Botones de potenciador de una fila (sin el icono de su poder): listos, en cola (⏳ en la esquina del que espera) o
+  // lanzado y esperando a que se vea su poder (… en el que se lanzó)
   const boostLabel = (s, b) => {
     const label = `<span class="boost-label">${b.label}</span>`;
-    if (s.ult === 'ready' || (s.ult === 'queued' && s.tier !== b.tier)) return label;
-    if (s.ult === 'queued') return `${label}<i class="boost-badge">⏳</i>`;
-    if (s.ult === 'pending') return s.tier === b.tier ? `${label}<b class="boost-cd">…</b>` : label;
-    return `${label}<b class="boost-cd">${Math.ceil(s.ult)}</b>`;
+    if (s.ult === 'queued' && s.tier === b.tier) return `${label}<i class="boost-badge">⏳</i>`;
+    if (s.ult === 'pending' && s.tier === b.tier) return `${label}<b class="boost-cd">…</b>`;
+    return label;
   };
   // Se pueden pulsar listos (lo lanza o lo deja en cola) y con uno en cola (otro clic lo quita; otro botón lo cambia)
   const boostDisabled = (s) => !!(winner || fight.timeUp || (s.ult !== 'ready' && s.ult !== 'queued'));
@@ -289,7 +285,7 @@ function renderRoster(fight) {
     const disabled = boostDisabled(s) ? 'disabled' : '';
     const buttons = BOOSTS.map((b) => {
       const queued = s.ult === 'queued' && s.tier === b.tier;
-      const title = `Potenciador ${b.tier}: ${b.text}. Recarga ${b.cooldown} s${queued ? ' · En cola: sale en cuanto se pueda (clic para quitarlo)' : ''}`;
+      const title = `Potenciador ${b.tier}: ${b.text}${queued ? ' · En cola: sale en cuanto se pueda (clic para quitarlo)' : ''}`;
       return `<button class="boost t${b.tier}${queued ? ' queued' : ''}" data-boost="${index}" data-tier="${b.tier}" title="${esc(title)}" ${disabled}>${boostLabel(s, b)}</button>`;
     });
     return `<div class="boosts">${buttons.join('')}</div>`;
@@ -406,7 +402,7 @@ function renderRoster(fight) {
   let lastTick = performance.now();
   const tick = setInterval(() => {
     if (rosterFight !== fight) return clearInterval(tick);
-    // Recarga de los potenciadores (con la pelea en marcha)
+    // Potenciadores en cola (con la pelea en marcha)
     const now = performance.now();
     const elapsed = app?.ticker?.started ? (now - lastTick) / 1000 : 0;
     lastTick = now;
@@ -425,16 +421,6 @@ function renderRoster(fight) {
         s.ult = 'pending';
         fired = true;
       }
-      if (typeof s.ult !== 'number' || s.out) continue;
-      const before = Math.ceil(s.ult);
-      s.ult = s.ult - elapsed <= 0 ? 'ready' : s.ult - elapsed;
-      if (s.ult !== 'ready' && Math.ceil(s.ult) === before) continue;
-      $('roster')
-        .querySelectorAll(`[data-boost="${index}"]`)
-        .forEach((button) => {
-          button.innerHTML = boostLabel(s, BOOSTS[+button.dataset.tier - 1]);
-          button.disabled = boostDisabled(s);
-        });
     }
     if (fired) draw();
     if (winner || fight.timeUp) document.querySelectorAll('#roster [data-boost]').forEach((b) => (b.disabled = true));
@@ -466,10 +452,9 @@ function renderRoster(fight) {
     }
   }, 150);
   fight.onStep = (step) => {
-    // Su potenciador se ve ya (su poder): empiezan a recargarse, el tiempo del que se usó
+    // Su potenciador se ve ya (su poder): sin recarga, listos para otro
     if (step.a === 'demoUltimate' && state.has(step.f)) {
-      const s = state.get(step.f);
-      s.ult = (BOOSTS[(s.tier ?? 1) - 1] ?? BOOSTS[0]).cooldown;
+      state.get(step.f).ult = 'ready';
       draw();
     }
     if (step.a === StepType.Death && state.has(step.f) && !state.get(step.f).out) {
