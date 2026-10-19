@@ -1298,7 +1298,6 @@ export const setupFight: (
             entry = { gun: minigun(app, shooter, speed), cancel: () => {} };
             miniguns.set(shooter.index, entry);
           }
-          if (!shooter.animation.animation.startsWith('idle')) shooter.animation.setAnimation('idle');
           await entry.gun.fire(target, 0.75);
           await struck(app, spritesheets, fighters, target, fireStep.d, speed, 14, !!fireStep.c);
           break;
