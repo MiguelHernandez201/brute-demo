@@ -195,6 +195,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, en cualquier momento hasta que se ve el final. El
     que llega entra en un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y
     recibe golpes enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
+    - **➕ con regalo** (**+300** / **+1000** / **+3000**, debajo): agrega un brute que entra con ese potenciador. En
+      cuanto aparece en la arena recibe todo lo del potenciador (vida, arma, aura de ki, mascota y su poder), como si
+      se pulsara en su fila; hasta entonces su botón de la lista lleva el ⏳ de los que esperan en cola.
     - El motor no va por delante de la animación (ver arriba), así que el recién llegado entra en cuanto aparece.
       Antes se adelantaba al menos 16 turnos: con pocos en pie, todos esos turnos eran del mismo duelo y el recién
       llegado esperaba unos 25 s a que se vieran.

@@ -239,6 +239,15 @@ const BOOSTS = [
     text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki para toda la pelea (daño x3), una mascota que pelea con él un minuto y lanza un poder (cada vez uno distinto)',
   },
 ];
+// Vida de una fila de la lista. Nunca por encima de la máxima: la cura de un potenciador se ve antes que golpes que en
+// el motor ya le habían dado (ver demoBoost en setupFight), y hasta que se ven, lo que cura de más se lo llevan ellos
+const hpText = (hp, maxHp) => `${Math.max(0, Math.min(maxHp, Math.round(hp)))}/${maxHp}`;
+// Botones para agregar un brute que entra con uno de los potenciadores (ver `add` en renderRoster)
+const giftButtons = (disabled) =>
+  BOOSTS.map(
+    (b) =>
+      `<button class="t${b.tier}" data-add="1" data-gift="${b.tier}" title="Agregar un brute que entra con el potenciador ${b.label}: ${b.text}" ${disabled}>${b.label}</button>`,
+  ).join('');
 function renderRoster(fight) {
   rosterFight = fight;
   const fighters = JSON.parse(fight.fighters).filter((f) => f.type === 'brute' && !f.master);
@@ -325,7 +334,7 @@ function renderRoster(fight) {
         return `<li data-index="${index}" class="${classes}" style="--c:${royaleColorCss(index)}">
           <div class="roster-main">
             <div class="roster-top">${who(index)}${wins}</div>
-            <div class="roster-hp"><div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div><small class="hp-text">${Math.max(0, Math.round(s.hp))}/${s.maxHp}</small></div>
+            <div class="roster-hp"><div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div><small class="hp-text">${hpText(s.hp, s.maxHp)}</small></div>
             ${status ? `<small>${status}</small>` : ''}
           </div>
           ${boostButtons(index, s)}
@@ -349,15 +358,24 @@ function renderRoster(fight) {
     $('roster').innerHTML = `<div class="shop-name">Battle Royale</div>
       <div class="shop-label roster-stats"><span>${alive} de ${total} en pie${note}</span><span id="rosterFps" class="${fpsClass}" title="${QUALITY_TITLE}">${fpsText}</span></div>
       <div class="roster-add"><button data-add="1" title="Agregar un brute a la pelea" ${disabled}>➕ Agregar</button><button data-add="5" title="Agregar 5 brutes" ${disabled}>+5</button><button data-finish class="${fight.finishing ? 'on' : ''}" title="${finishTitle}" ${winner || fight.timeUp ? 'disabled' : ''}>${finishLabel()}</button></div>
+      <div class="roster-add gift-add"><span>➕ con regalo</span>${giftButtons(disabled)}</div>
       <ol class="roster">${rows}</ol>
       ${feed ? `<ul class="kill-feed">${feed}</ul>` : ''}`;
   };
-  // Agregar brutes en plena pelea: entran con su propio color y aparecen en la lista
-  const add = (count) => {
+  // Agregar brutes en plena pelea: entran con su propio color y aparecen en la lista. Con regalo (`tier`), su
+  // potenciador queda en cola y sale en cuanto aparece en la arena (ver `tick`)
+  const add = (count, tier = 0) => {
     for (let k = 0; k < count; k++) {
       const brute = fight.addBrute?.();
       if (!brute) break;
-      state.set(brute.index, { name: brute.name, out: 0, hp: brute.hp, maxHp: brute.maxHp, wins: 0, ult: 'ready' });
+      state.set(brute.index, {
+        name: brute.name,
+        out: 0,
+        hp: brute.hp,
+        maxHp: brute.maxHp,
+        wins: 0,
+        ...(tier ? { ult: 'queued', tier } : { ult: 'ready' }),
+      });
     }
     draw();
   };
@@ -379,7 +397,7 @@ function renderRoster(fight) {
   };
   $('roster').onclick = (e) => {
     const button = e.target.closest?.('[data-add]');
-    if (button) return add(+button.dataset.add);
+    if (button) return add(+button.dataset.add, +(button.dataset.gift ?? 0));
     if (e.target.closest?.('[data-finish]')) return setFinish(!fight.finishing);
     const boost = e.target.closest?.('[data-boost]');
     if (boost) return castBoost(+boost.dataset.boost, +boost.dataset.tier);
@@ -450,7 +468,7 @@ function renderRoster(fight) {
       const bar = li.querySelector('.roster-bar > div');
       bar.style.width = `${pct}%`;
       bar.style.background = hpColor(pct);
-      li.querySelector('.hp-text').textContent = `${Math.max(0, Math.round(f.hp))}/${s.maxHp}`;
+      li.querySelector('.hp-text').textContent = hpText(f.hp, s.maxHp);
     }
   }, 150);
   fight.onStep = (step) => {
