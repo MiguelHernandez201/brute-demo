@@ -1,8 +1,9 @@
 // Demo battle royale: minigun del potenciador +3000 (ver engine/ultimates.boostGear y fightMethods.minigunBurst). La
-// agarra con la mano con la que coge las armas: la empuñadura va en su puño, que se ve encima (ver `hold`), y apunta
-// hacia donde mira. Crece con el Súper gigante, y su arma de siempre se guarda mientras tanto (ver `stash`). En cada turno suyo dispara una ráfaga a cada rival de su duelo (ver
-// `fire`): los cañones giran, fogonazos en la boca, trazadoras hasta el rival, chispas donde dan y casquillos que
-// saltan. Al acabarse su tiempo la suelta (ver `drop`): cae al suelo y se desvanece, y vuelve a su arma.
+// agarra con la mano con la que coge las armas: el asa va en su puño, que se ve encima (ver `hold`). Crece con el Súper
+// gigante, y su arma de siempre se guarda mientras tanto (ver `stash`). En cada turno suyo dispara una ráfaga a cada
+// rival de su duelo (ver `fire`): gira el arma sobre el puño hasta apuntarle, los cañones dan vueltas y sale un chorro
+// de balas (destellos que vuelan hasta él), con fogonazos en la boca, chispas donde dan y casquillos que saltan. Al
+// acabarse su tiempo la suelta (ver `drop`): cae al suelo y se desvanece, y vuelve a su arma.
 import { WeaponName } from '@labrute/prisma';
 import { sound } from '@pixi/sound';
 import { Application, Container, Filter, Graphics, Matrix, Sprite, Ticker } from 'pixi.js';
@@ -23,16 +24,22 @@ export type Minigun = {
   remove: () => void;
 };
 
-// Dibujo de la minigun a escala 100 (largo), apuntando hacia +x, con la empuñadura en el origen
+// Dibujo de la minigun a escala 100 (largo), apuntando hacia +x
 const LENGTH = 100;
 const MUZZLE = { x: 99, y: 0 };
 const PORT = { x: 30, y: -6 };
 const METAL = 0x3d4148;
 const DARK = 0x24272b;
 const BRASS = 0xd4a537;
-// Disparos por segundo de pelea, y cuánto duran en pantalla trazadoras, chispas y casquillos
-const RATE = 24;
-const TRACER_LIFE = 0.07;
+// Balas por segundo de pelea, a qué velocidad vuelan (unidades de la arena por segundo) y el largo de su destello: con
+// el rival a 150-250 unidades van 15-25 balas en el aire a la vez; casquillos que saltan (uno de cada tantas balas) y
+// chispas donde dan (parte de las balas). Antes eran 24 por segundo y cada una, una raya fija de la boca al rival: se
+// veían dos o tres
+const RATE = 80;
+const BULLET_SPEED = 750;
+const STREAK = 20;
+const CASING_EVERY = 3;
+const SPARK_CHANCE = 0.55;
 const SPARK_LIFE = 0.16;
 const CASING_LIFE = 0.55;
 // Largo de la minigun respecto a la altura del brute, y dónde la lleva si no se le ve la mano (respecto a su ancho y su
@@ -40,11 +47,15 @@ const CASING_LIFE = 0.55;
 const SIZE = 0.64;
 const HOLD = { x: -0.05, y: -0.42 };
 // La mano con la que coge las armas (ver FighterHolder: WEAPON_SYMBOL) y, dentro, su puño; y en el dibujo de la
-// minigun, el asa de arriba, donde va el puño: en guardia lleva los puños a la altura de la barbilla, y así el arma le
-// cuelga a la altura del pecho (por la empuñadura de abajo le tapaba la cara)
+// minigun, el asa de arriba, donde va el puño (y sobre la que gira al apuntar): en guardia lleva los puños a la altura
+// de la barbilla, y así el arma le cuelga a la altura del pecho (por la empuñadura de abajo le tapaba la cara)
 const HAND = 'Symbol68';
 const FIST = 'Symbol38';
 const GRIP = { x: 24, y: -16 };
+// Al disparar gira el arma hacia el rival, como mucho tanto hacia arriba o hacia abajo (radianes), y lo rápido que
+// llega (antes apuntaba siempre recto y las balas salían en diagonal)
+const MAX_AIM = 1;
+const AIM_SPEED = 14;
 // Postura con la minigun en las manos (al disparar, y en vez del reposo): plantado, con el puño de esa mano adelantado a
 // la altura del pecho y el arma a la cadera. Es un fotograma de la estocada, quieto (en guardia llevaba el puño a la
 // barbilla y el arma le tapaba la cara). Para correr, encajar un golpe o lo que sea se anima como siempre
@@ -110,7 +121,8 @@ const muzzleFlash = () => {
   return g;
 };
 
-type Tracer = { x1: number; y1: number; x2: number; y2: number; t: number };
+// Bala en vuelo: de la boca del arma (x1, y1) a donde da (x2, y2), lleva `t` de los `life` segundos que tarda
+type Bullet = { x1: number; y1: number; x2: number; y2: number; t: number; life: number; spark: boolean };
 type Spark = { x: number; y: number; t: number };
 type Casing = { x: number; y: number; vx: number; vy: number; t: number };
 
@@ -120,6 +132,8 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
   const gun = new Container();
   gun.zIndex = 5;
   gun.eventMode = 'none';
+  // (gira sobre el asa, donde la agarra)
+  gun.pivot.set(GRIP.x, GRIP.y);
   const barrels = new Graphics();
   const flash = muzzleFlash();
   gun.addChild(housing(), barrels, flash);
@@ -130,7 +144,7 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
   fist.eventMode = 'none';
   const pieces: Sprite[] = [];
   body.addChild(gun, fist);
-  // Trazadoras, chispas y casquillos: en la arena (van de la boca del arma al rival)
+  // Balas, chispas y casquillos: en la arena (van de la boca del arma al rival)
   const fx = new Graphics();
   fx.zIndex = 945;
   fx.blendMode = 'add';
@@ -142,6 +156,9 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
   let stored: WeaponName | null = null;
   let phase = 0;
   let spin = 0;
+  // Hacia dónde apunta (radianes respecto a recto, en el espacio del brute)
+  let aim = 0;
+  let shots = 0;
   let firing: { target: AnimationFighter; left: number; next: number; done: () => void } | null = null;
   // Quieto en la postura de la minigun (ver AIM). Si otra cosa le cambia la animación, vuelve a moverse
   let posed = false;
@@ -151,13 +168,14 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
     holder.animationSpeed = 0;
     holder.setAnimation(AIM.animation, AIM.frame);
   };
+  // (la velocidad, solo si sigue quieto por la postura: otras cosas, como la cámara lenta de una fatality, ponen la suya)
   const unpose = (rest = false) => {
     if (!posed) return;
     posed = false;
-    holder.animationSpeed = 1;
+    if (holder.animationSpeed === 0) holder.animationSpeed = 1;
     if (rest && !fighter.dead && !body.destroyed) holder.setAnimation('idle');
   };
-  const tracers: Tracer[] = [];
+  const bullets: Bullet[] = [];
   const sparks: Spark[] = [];
   const shells: Casing[] = [];
 
@@ -171,8 +189,8 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
     const ey = body.toLocal(node.toGlobal({ x: 0, y: 1 }));
     return new Matrix(ex.x - o.x, ex.y - o.y, ey.x - o.x, ey.y - o.y, o.x, o.y);
   };
-  // La agarra (en cada fotograma: la mano se mueve con la animación): la empuñadura en su puño y la copia del puño
-  // encima. Si ahora no se le ve la mano, la lleva a la altura de la cadera
+  // La agarra (en cada fotograma: la mano se mueve con la animación): el asa en su puño y la copia del puño encima. Si
+  // ahora no se le ve la mano, la lleva a la altura de la cadera
   const hold = (scale: number) => {
     const hand = findVisible(body, HAND, [gun, fist]);
     const real = hand?.children.find((c) => c.label === FIST && c.visible);
@@ -188,7 +206,7 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
     if (real) collect(real, (real.filters as Filter[] | null) ?? []);
     pieces.forEach((piece) => { piece.visible = false; });
     if (!real || !parts.length) {
-      gun.position.set(holder.baseWidth * HOLD.x, holder.baseHeight * HOLD.y);
+      gun.position.set(holder.baseWidth * HOLD.x + GRIP.x * scale, holder.baseHeight * HOLD.y + GRIP.y * scale);
       return;
     }
     parts.forEach(({ sprite, filters }, k) => {
@@ -206,20 +224,33 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
       piece.setFromMatrix(relative(sprite));
       piece.visible = true;
     });
-    // La empuñadura, en el centro del puño
+    // El asa, en el centro del puño
     const box = real.getLocalBounds();
     const center = relative(real).apply({ x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 });
-    gun.position.set(center.x - GRIP.x * scale, center.y - GRIP.y * scale);
+    gun.position.set(center.x, center.y);
   };
 
-  const shoot = (target: AnimationFighter) => {
+  // Hacia dónde tiene que girar para apuntar a `target` (al centro de su cuerpo), dentro de lo que puede
+  const aimAt = (target: AnimationFighter) => {
+    const t = target.animation;
+    const goal = body.toLocal(t.container.toGlobal({ x: 0, y: -t.baseHeight * 0.5 }));
+    const angle = Math.atan2(goal.y - gun.y, Math.abs(goal.x - gun.x));
+    return Math.max(-MAX_AIM, Math.min(MAX_AIM, angle));
+  };
+
+  // Bala a `target`, disparada hace `late` segundos (en un dispositivo lento salen varias en un mismo fotograma: cada
+  // una ya va por donde le toca, y el chorro se reparte por el camino)
+  const shoot = (target: AnimationFighter, late: number) => {
     const from = onStage(MUZZLE);
     const t = target.animation.container;
     const w = target.animation.baseWidth;
     const h = target.animation.baseHeight;
-    const to = { x: t.x + (Math.random() - 0.5) * w * 0.6, y: t.y - h * (0.3 + Math.random() * 0.45) };
-    tracers.push({ x1: from.x, y1: from.y, x2: to.x, y2: to.y, t: TRACER_LIFE });
-    sparks.push({ x: to.x, y: to.y, t: SPARK_LIFE });
+    const to = { x: t.x + (Math.random() - 0.5) * w * 0.7, y: t.y - h * (0.25 + Math.random() * 0.55) };
+    const life = Math.max(0.03, Math.hypot(to.x - from.x, to.y - from.y) / BULLET_SPEED);
+    const spark = Math.random() < SPARK_CHANCE;
+    bullets.push({ x1: from.x, y1: from.y, x2: to.x, y2: to.y, t: Math.min(late, life * 0.95), life, spark });
+    shots += 1;
+    if (shots % CASING_EVERY) return;
     const port = onStage(PORT);
     const back = body.scale.x >= 0 ? -1 : 1;
     shells.push({ x: port.x, y: port.y, vx: back * (40 + Math.random() * 40), vy: -(90 + Math.random() * 50), t: CASING_LIFE });
@@ -253,8 +284,8 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
     if (fighter.dead) return remove();
     const dt = (Math.min(ticker.elapsedMS, 100) / 1000) * speed.current;
     if (posed && holder.animation !== AIM.animation) unpose();
-    if (!posed && RESTING.has(holder.animation)) pose();
-    age(tracers, dt);
+    // (a quien está cayendo, no)
+    if (!posed && RESTING.has(holder.animation) && fighter.hp > 0) pose();
     age(sparks, dt);
     age(shells, dt);
     for (const c of shells) {
@@ -262,10 +293,23 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
       c.x += c.vx * dt;
       c.y += c.vy * dt;
     }
+    // Las balas avanzan; las que llegan, chispa donde dan
+    for (let k = bullets.length - 1; k >= 0; k--) {
+      const b = bullets[k]!;
+      b.t += dt;
+      if (b.t < b.life) continue;
+      bullets.splice(k, 1);
+      if (b.spark) sparks.push({ x: b.x2, y: b.y2, t: SPARK_LIFE });
+    }
     // Tamaño y sitio: crece con el Súper gigante, y en su puño
     const scale = (holder.baseHeight * SIZE) / LENGTH;
     gun.scale.set(scale);
     hold(scale);
+    // Apunta al rival mientras dispara (girando sobre el puño) y luego vuelve a recto, poco a poco
+    const target = firing && !firing.target.animation.container.destroyed ? firing.target : null;
+    const want = target ? aimAt(target) : 0;
+    aim += (want - aim) * Math.min(1, dt * AIM_SPEED);
+    gun.rotation = aim;
     // Disparando: los cañones a toda velocidad, retroceso, fogonazos y una bala cada 1/RATE s
     if (firing) {
       spin = Math.min(46, spin + dt * 260);
@@ -274,14 +318,16 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
       const shooting = spin > 30;
       if (shooting) firing.next -= dt;
       while (shooting && firing.next <= 0) {
+        const late = -firing.next;
         firing.next += 1 / RATE;
-        if (!firing.target.animation.container.destroyed) shoot(firing.target);
+        if (target) shoot(target, late);
       }
-      flash.visible = shooting && Math.random() < 0.7;
-      flash.scale.set(0.8 + Math.random() * 0.5);
-      // Retroceso: el arma y el puño que la agarra
+      flash.visible = shooting && Math.random() < 0.8;
+      flash.scale.set(0.8 + Math.random() * 0.6);
+      // Retroceso a lo largo del arma: ella y el puño que la agarra
       if (shooting) {
-        const kick = { x: -Math.random() * 2.5, y: (Math.random() - 0.5) * 1.5 };
+        const back = Math.random() * 2.5;
+        const kick = { x: -Math.cos(aim) * back, y: -Math.sin(aim) * back + (Math.random() - 0.5) * 1.5 };
         gun.position.set(gun.x + kick.x, gun.y + kick.y);
         fist.position.set(kick.x, kick.y);
       } else {
@@ -301,9 +347,17 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
     drawBarrels(barrels, phase);
 
     fx.clear();
-    for (const tr of tracers) {
-      fx.moveTo(tr.x1, tr.y1).lineTo(tr.x2, tr.y2)
-        .stroke({ width: 2 * scale + 0.6, color: 0xffe08a, alpha: tr.t / TRACER_LIFE });
+    // Cada bala, un destello que vuela hacia donde da (más fino en la cola)
+    for (const b of bullets) {
+      const length = Math.hypot(b.x2 - b.x1, b.y2 - b.y1) || 1;
+      const head = Math.min(1, b.t / b.life);
+      const tail = Math.max(0, head - (STREAK * Math.max(1, scale * 1.4)) / length);
+      const hx = b.x1 + (b.x2 - b.x1) * head;
+      const hy = b.y1 + (b.y2 - b.y1) * head;
+      const tx = b.x1 + (b.x2 - b.x1) * tail;
+      const ty = b.y1 + (b.y2 - b.y1) * tail;
+      fx.moveTo(tx, ty).lineTo(hx, hy).stroke({ width: 1.6 * scale + 0.8, color: 0xffe08a, alpha: 0.95 });
+      fx.circle(hx, hy, 0.9 * scale + 0.6).fill({ color: 0xffffff, alpha: 0.95 });
     }
     for (const sp of sparks) {
       const p = sp.t / SPARK_LIFE;
@@ -341,7 +395,7 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
       if (removed) return;
       // Cae al suelo desde donde estaba, ya en la arena, y se desvanece; él vuelve a su arma
       if (!body.destroyed && !fighter.dead) holder.weapon = stored;
-      const at = onStage({ x: 0, y: 0 });
+      const at = onStage(GRIP);
       const scale = gun.scale.x * Math.abs(body.scale.x);
       const facing = body.scale.x >= 0 ? 1 : -1;
       app.ticker.remove(tick);
@@ -354,13 +408,15 @@ export const minigun = (app: Application, fighter: AnimationFighter, speed: Spee
       // (la mano la suelta)
       if (!fist.destroyed) fist.destroy({ children: true });
       body.removeChild(gun);
+      // Igual que se veía: si miraba a la izquierda, volteada (y su giro, al revés)
       gun.position.set(at.x, at.y);
       gun.scale.set(scale * facing, scale);
+      gun.rotation = aim * facing;
       gun.zIndex = 900;
       app.stage.addChild(gun);
       void sound.play('sfx', { sprite: 'equip' });
       const ground = body.destroyed ? at.y + 20 : body.y - 3;
-      void tween(gun, { y: ground, angle: facing * 25, duration: 0.35 / speed.current, ease: 'power2.in' })
+      void tween(gun, { y: ground, angle: gun.angle + facing * 25, duration: 0.35 / speed.current, ease: 'power2.in' })
         .then(() => tween(gun, { alpha: 0, duration: 1.2 / speed.current, delay: 0.6 / speed.current }))
         .then(() => {
           if (!gun.destroyed) gun.destroy({ children: true });
