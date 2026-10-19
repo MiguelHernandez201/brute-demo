@@ -126,8 +126,11 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     - La onda del gigante la suelta la animación cuando le ve atacar, así alcanza a los que tiene cerca en ese
       momento, y sus 15 s cuentan desde que se le ve crecer.
   - **¡MULTI KILL!**: cuando un brute elimina a dos o más casi a la vez (en menos de 4 s entre una y otra), sale un
-    letrero grande con su nombre y cuántos lleva en la racha, y la voz del anunciador (la de la fatality del 1 vs 1)
-    dice "Multi kill!". Si suma más en la misma racha, el letrero cuenta y vuelve a latir.
+    letrero grande con su nombre y cuántos lleva en la racha, y una voz de anunciador grave y con eco de estadio dice
+    "Multi… kill!". Si suma más en la misma racha, el letrero cuenta y vuelve a latir.
+    - La voz es una grabación (`public/sfx/multikill.mp3`, suena con los efectos activados) hecha con el
+      sintetizador de voz Kokoro-82M. Antes la decía la síntesis de voz del navegador, como la fatality del 1 vs 1,
+      pero en algunos navegadores no sonaba (por ejemplo con las voces de Google en Chrome, que fallan en silencio).
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, en cualquier momento hasta que se ve el final. El
     que llega entra en un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y
     recibe golpes enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
@@ -168,3 +171,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 Código y recursos tomados de [LaBrute](https://github.com/Zenoo/labrute) (Eternaltwin).
 El código está bajo **PolyForm Noncommercial 1.0.0** y los recursos gráficos y de sonido bajo
 **CC BY-NC-SA 4.0**: no se permite ningún uso comercial.
+
+La voz de "Multi kill!" (`web/public/sfx/multikill.mp3`) se generó con
+[Kokoro-82M](https://github.com/hexgrad/kokoro) (Apache 2.0), voz `am_michael`, y se le bajó el tono y se le añadió
+eco con ffmpeg.
