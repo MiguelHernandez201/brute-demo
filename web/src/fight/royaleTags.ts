@@ -4,7 +4,6 @@
 import { Application, Container, Graphics, Text, Ticker } from 'pixi.js';
 import type { CameraView } from './royaleCamera';
 import { AnimationFighter } from './utils/findFighter';
-import { trophy } from './winsCounter';
 
 // Colores bien distintos entre sí y legibles sobre la arena (con el contorno oscuro del nombre)
 const PALETTE = [
@@ -59,6 +58,29 @@ type Tag = {
   lift: number;
   zoom: number;
   pulse: number;
+};
+
+// Copa dorada (las hojas del juego no traen un icono de trofeo). `outline`: grosor de un contorno oscuro dibujado (las
+// etiquetas no llevan filtro de contorno: con muchos brutes no pueden pagarlo)
+const handles = (g: Graphics) => g.circle(-4.6, -3.2, 2.3).circle(4.6, -3.2, 2.3);
+const cupShape = (g: Graphics) => g
+  .moveTo(-4.8, -6)
+  .lineTo(4.8, -6)
+  .quadraticCurveTo(4.8, 1.2, 0, 1.2)
+  .quadraticCurveTo(-4.8, 1.2, -4.8, -6)
+  .rect(-1, 1, 2, 2.6)
+  .roundRect(-3.6, 3.4, 7.2, 2.4, 0.8);
+const trophy = (outline = 0) => {
+  const cup = new Graphics();
+  if (outline) {
+    handles(cup).stroke({ color: 0x1a0f08, width: 1.4 + 2 * outline });
+    cupShape(cup).stroke({ color: 0x1a0f08, width: 2 * outline, join: 'round' });
+  }
+  // Asas, copa con pie y base, y brillo
+  handles(cup).stroke({ color: 0xe0a91b, width: 1.4 });
+  cupShape(cup).fill(0xffd23f);
+  cup.rect(-2.8, -5, 1.1, 3.6).fill(0xfff3b0);
+  return cup;
 };
 
 export const royaleTags = (

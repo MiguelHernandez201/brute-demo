@@ -164,9 +164,6 @@
         padding: 10px;
         border: 2px solid var(--a);
       }
-      .shop.p2 {
-        border-color: var(--b);
-      }
       .shop-name {
         font-weight: 800;
         font-size: 16px;
@@ -175,102 +172,9 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .shop-btn {
-        font-size: 14px;
-        padding: 10px 8px;
-      }
-      .power-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4px;
-      }
-      .power-btn {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2px;
-        padding: 4px 3px;
-        font-size: 10.5px;
-        line-height: 1.1;
-        text-align: center;
-        min-width: 0;
-        overflow-wrap: anywhere;
-      }
-      .power-btn .skill-icon {
-        flex: 0 0 20px;
-        width: 20px;
-        height: 20px;
-        background-repeat: no-repeat;
-        border-radius: 3px;
-      }
-      /* Súper gigante: botón destacado a lo ancho e icono emoji */
-      .power-btn.giant {
-        grid-column: 1 / -1;
-        flex-direction: row;
-        justify-content: center;
-        gap: 6px;
-        font-size: 12px;
-        background: linear-gradient(#ffe27a, #f0a020);
-      }
-      .giant-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: #6b3a00;
-        font-size: 14px;
-        line-height: 1;
-      }
-      .icons .giant-icon {
-        font-size: 18px;
-      }
-      .shop-block {
-        border-top: 1px solid #3a2d22;
-        padding-top: 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .shop-block.pending {
-        border: 1px dashed var(--gold);
-        border-radius: 8px;
-        padding: 6px;
-        background: #2a1f12;
-      }
       .shop-label {
         font-size: 12px;
         opacity: 0.7;
-      }
-      .icons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 3px;
-        min-height: 28px;
-        align-items: center;
-      }
-      .icons .icon {
-        width: 28px;
-        height: 28px;
-        object-fit: contain;
-        display: block;
-        filter: drop-shadow(1px 1px 1px #000);
-      }
-      .icons .skill-icon {
-        background-repeat: no-repeat;
-        filter: none;
-        border-radius: 4px;
-      }
-      .icons .none {
-        opacity: 0.5;
-        font-size: 13px;
-      }
-      .hp-line {
-        font-weight: 800;
-        font-variant-numeric: tabular-nums;
-      }
-      .hp-line .hurt {
-        color: #ff8a8a;
-        font-weight: 600;
-        font-size: 12px;
       }
       @media (max-width: 1100px) {
         .stage {
@@ -292,13 +196,6 @@
       }
       #arena.royale #zoomToggle {
         display: flex;
-      }
-      /* Royale: sin tienda, sin celebración de fatality y sin acercamiento (no hay bandos) */
-      #arena.royale #celebrateToggle,
-      #arena.royale #shop-p1,
-      #arena.royale #shop-p2,
-      #arena.royale .approach {
-        display: none;
       }
       #arena.royale #roster {
         display: flex;
@@ -515,11 +412,7 @@
         color: #052e16;
         display: none;
       }
-      #arena.trailer #celebrateToggle,
-      #arena.trailer #shop-p1,
-      #arena.trailer #shop-p2,
       #arena.trailer #roster,
-      #arena.trailer .approach,
       #arena.trailer .auto-toggle {
         display: none;
       }
@@ -541,32 +434,6 @@
           grid-column: 1 / -1;
         }
       }
-      .approach {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-top: 12px;
-        background: #150f0b;
-        border-radius: 8px;
-        padding: 10px 14px;
-      }
-      .approach label {
-        font-weight: 700;
-        white-space: nowrap;
-      }
-      .approach input {
-        flex: 1;
-        margin: 0;
-        padding: 0;
-        border: 0;
-        accent-color: var(--gold);
-        background: transparent;
-      }
-      .approach span {
-        min-width: 44px;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
       .row {
         display: flex;
         flex-wrap: wrap;
@@ -587,10 +454,6 @@
     <h1>⚔️ LA BRUTE · DEMO</h1>
 
     <div class="panel" id="setup">
-      <label>Jugador 1<input id="n1" placeholder="Nombre del jugador 1" maxlength="16" /></label>
-      <label>Jugador 2<input id="n2" placeholder="Nombre del jugador 2" maxlength="16" /></label>
-      <button id="go">¡Elegir brutes y pelear!</button>
-      <div class="divider"><span>o</span></div>
       <label for="royaleCount">Battle Royale: <b id="royaleCountValue">6</b> brutes, todos contra todos</label>
       <input type="range" id="royaleCount" min="3" max="20" step="1" value="6" class="range" />
       <button id="royaleGo" class="royale-btn">👑 Battle Royale</button>
@@ -601,28 +464,18 @@
     <div class="panel" id="arena">
       <div id="status"></div>
       <div class="stage">
-        <div class="shop p1" id="shop-p1"></div>
         <div class="shop roster-panel" id="roster"></div>
         <div id="canvas"></div>
-        <div class="shop p2" id="shop-p2"></div>
       </div>
       <div class="row">
         <button id="pause">⏸ Pausa</button><button id="speed">Velocidad x1</button><button id="sfx">🔊 Efectos</button
         ><button id="music">🎵 Música</button>
       </div>
-      <div class="approach">
-        <label for="approach">Acercamiento</label>
-        <input type="range" id="approach" min="0" max="100" step="5" value="0" />
-        <span id="approachValue">0%</span>
-      </div>
       <div class="row">
-        <button id="again">⚔️ Desafiar</button>
+        <button id="again">👑 Nueva ronda</button>
         <button id="downloadPromo" class="download-btn">⬇ Descargar Video</button>
         <label class="toggle auto-toggle"
-          ><input type="checkbox" id="auto" /><span id="autoLabel">Desafiar continuamente</span></label
-        >
-        <label class="toggle auto-toggle" id="celebrateToggle"
-          ><input type="checkbox" id="celebrate" checked /><span>Celebrar tras la fatality</span></label
+          ><input type="checkbox" id="auto" /><span id="autoLabel">Rondas continuas</span></label
         >
         <label
           class="toggle auto-toggle"
@@ -630,7 +483,7 @@
           title="Acerca la cámara cuando quedan pocos en pie y la aleja cuando hay muchos"
           ><input type="checkbox" id="zoom" checked /><span>🔍 Zoom dinámico</span></label
         >
-        <button id="back">Cambiar nombres</button>
+        <button id="back">Volver al menú</button>
       </div>
     </div>
 

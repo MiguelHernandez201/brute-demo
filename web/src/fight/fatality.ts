@@ -1,5 +1,5 @@
-// Demo: fatality al estilo Mortal Kombat cuando cae el brute perdedor en el modo 1 vs 1.
-// Primero "FINISH HIM!" mientras el ganador se acerca; luego un remate distinto según el arma que lleva:
+// Demo: fatality al estilo Mortal Kombat cuando cae un brute (la versión completa, de cine, sale en el vídeo
+// promocional). Primero "FINISH HIM!" mientras el ganador se acerca; luego un remate distinto según el arma que lleva:
 //   espadas → decapitación · hachas → partido en dos · contundentes → aplastado
 //   de estocada → acribillado · látigo → arrancacabezas · puños y arrojadizas → explosión
 // y al final el letrero "FATALITY". Para probar una en concreto: ?fatality=aplastado (u otra).
@@ -31,9 +31,6 @@ import { getHitDistance } from './utils/getHitDistance';
 import { stampGround } from './utils/groundLayer';
 import { isHudLayer } from './utils/hud';
 import { Spritesheets } from './utils/spritesheet';
-
-// Opciones de la interfaz: si el ganador celebra (saca músculo y luego la celebración de victoria)
-export const fatalityOptions = { celebrate: true };
 
 type Kind = 'decapitacion' | 'partido' | 'aplastado' | 'acribillado' | 'latigo' | 'explosion';
 
@@ -1648,7 +1645,7 @@ export const fatality = async (
     camera.z = 1 + 0.06 * Math.sin(p * Math.PI);
   });
   void shake(8, 0.45);
-  if (fatalityOptions.celebrate && !killer.trapped && !killer.stunned) killer.animation.setAnimation('strengthen');
+  if (!killer.trapped && !killer.stunned) killer.animation.setAnimation('strengthen');
   void animate(0.25, (p) => {
     subtitle.alpha = p;
     subtitle.scale.set(lerp(0.6, 1, easeOutBack(p)));

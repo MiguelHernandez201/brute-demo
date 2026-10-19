@@ -2,8 +2,8 @@
 // Encuadra a los que siguen en pie: con pocos se acerca (hasta x2) para ver los duelos con más detalle y con muchos se
 // aleja hasta la arena entera, sin salirse nunca del escenario. Se aleja deprisa (lo que entra en escena se ve
 // enseguida) y se acerca despacio, sin tirones. Mueve el escenario entero (pivote y escala, como la cámara de la
-// fatality del 1 vs 1); lo que es de la interfaz (reloj, letreros) va en una capa de pantalla que lo compensa
-// (ver screenLayer) y las etiquetas sobre las cabezas mantienen su tamaño (ver royaleTags).
+// fatality del vídeo promocional); lo que es de la interfaz (reloj, letreros) va en una capa de pantalla que lo
+// compensa (ver screenLayer) y las etiquetas sobre las cabezas mantienen su tamaño (ver royaleTags).
 import { Application, Container, Ticker } from 'pixi.js';
 import { AnimationFighter } from './utils/findFighter';
 import { setScreenLayer } from './utils/hud';
