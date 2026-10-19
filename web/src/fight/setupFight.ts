@@ -80,6 +80,9 @@ import { shakeStage } from './utils/stageAnimations';
 
 // Demo: tamaño del brute con Súper gigante
 const GIANT_SCALE = 3;
+// Demo royale: segundos de pelea tras la curación de un potenciador en los que la del siguiente se suma a ella (ver
+// demoBoost)
+const HEAL_GROUP_SECONDS = 8;
 import { Spritesheets } from './utils/spritesheet';
 
 export const setupFight: (
@@ -858,6 +861,11 @@ export const setupFight: (
     // Royale: cómo cancelar el final de cada Súper gigante (si vuelve a lanzarlo siendo gigante, su tiempo empieza de
     // nuevo)
     const giantEnds = new Map<number, () => void>();
+    // Royale: curaciones de potenciadores seguidos, que se agrupan (ver demoBoost): el número que las suma, cuándo se
+    // vio la última y si quedaban más en cola. `boostsQueued`: si un brute tiene más potenciadores en cola (lo pone el
+    // planificador, más abajo)
+    const healGroups = new Map<number, { text: Text; total: number; at: number; more: boolean }>();
+    let boostsQueued = (_index: number) => false;
     const stomp = (index: number, target?: number) => {
       const giant = findFighter(fighters, index);
       const last = stompers.get(index);
@@ -1203,20 +1211,32 @@ export const setupFight: (
           break;
         }
         // Demo royale: potenciador (ver engine/ultimates.boost) → bebe una poción y gana vida (lo que sobra sube su
-        // vida máxima)
+        // vida máxima). Con muchos seguidos bebe solo con el primero: los demás suben la vida al momento y el número
+        // verde pasa a ser la suma de todos (mientras le queden más en cola o hasta HEAL_GROUP_SECONDS después del
+        // último). Antes bebía con cada uno y se quedaba un buen rato bebiendo
         case 'demoBoost' as never: {
           const boostStep = step as unknown as { f: number; h: number; m: number };
           const drinker = findFighter(fighters, boostStep.f);
           if (!drinker || drinker.dead || drinker.animation.container.destroyed) break;
-          // (la animación avanza por fotogramas: en un dispositivo lento no se espera más de esto)
-          const drinkEnded = drinker.animation.waitForEvent('drink:end', 1500);
-          drinker.animation.setAnimation('drink');
-          void sound.play('sfx', { sprite: 'tragicPotion' });
-          displayHeal(app, drinker, boostStep.h, speed);
-          await drinkEnded;
+          let group = healGroups.get(drinker.index);
+          if (group && (group.more || (performance.now() - group.at) * speed.current < HEAL_GROUP_SECONDS * 1000)) {
+            group.total += boostStep.h;
+            if (!group.text.destroyed) group.text.visible = false;
+            group.text = displayHeal(app, drinker, group.total, speed);
+          } else {
+            // (la animación avanza por fotogramas: en un dispositivo lento no se espera más de esto)
+            const drinkEnded = drinker.animation.waitForEvent('drink:end', 1500);
+            drinker.animation.setAnimation('drink');
+            void sound.play('sfx', { sprite: 'tragicPotion' });
+            group = { text: displayHeal(app, drinker, boostStep.h, speed), total: boostStep.h, at: 0, more: false };
+            healGroups.set(drinker.index, group);
+            await drinkEnded;
+            if (!drinker.animation.container.destroyed) drinker.animation.setAnimation('idle');
+          }
+          group.at = performance.now();
+          group.more = boostsQueued(drinker.index);
           drinker.maxHp = Math.max(drinker.maxHp, boostStep.m);
           updateHp(fighters, drinker, boostStep.h, speed, isClanWar);
-          if (!drinker.animation.container.destroyed) drinker.animation.setAnimation('idle');
           break;
         }
         // Demo royale: potenciador 2 o 3 → aura de ki (daño x3 en el motor) para el resto de la pelea. Si ya la tenía,
@@ -1435,6 +1455,8 @@ export const setupFight: (
       };
       const queue: QueuedTurn[] = [];
       (globalThis as any).__royaleQueue = queue; // depuración: lo que espera a animarse
+      boostsQueued = (index: number) => queue.some((q) => q.chunk
+        .some((st) => (st.a as unknown) === 'demoBoost' && (st as unknown as { f: number }).f === index));
       // Royale: quien está en un turno que aún se está viendo o tiene algo en cola. El motor no le juega otro turno
       // hasta que quede libre (ver session.playTurn): así ningún duelo va por delante de lo que se ve, y el siguiente
       // turno se juega en el momento en que hace falta. Antes el motor se adelantaba hasta llenar la cola y en el duelo
