@@ -38,6 +38,10 @@ const loadSheet = (path, cachePrefix) => Assets.load({ src: path, data: { cacheP
 const audio = { sfx: true, music: true };
 function setupSounds() {
   if (!sound.exists('background')) sound.add('background', `${import.meta.env.BASE_URL}sfx/background.mp3`);
+  // Voz del anunciador del royale: "Multi kill!" (ver fight/multiKill)
+  if (!sound.exists('multikill')) {
+    sound.add('multikill', { url: `${import.meta.env.BASE_URL}sfx/multikill.mp3`, preload: true });
+  }
   if (!sound.exists('sfx')) {
     const sprites = {};
     sounds.forEach((name) => {
@@ -51,6 +55,7 @@ function setupSounds() {
 function applyVolumes() {
   sound.volumeAll = 1;
   if (sound.exists('sfx')) sound.volume('sfx', audio.sfx ? 1 : 0);
+  if (sound.exists('multikill')) sound.volume('multikill', audio.sfx ? 1 : 0);
   if (sound.exists('background')) sound.volume('background', audio.music ? 0.6 : 0);
   $('sfx').textContent = audio.sfx ? '🔊 Efectos' : '🔇 Efectos';
   $('music').textContent = audio.music ? '🎵 Música' : '🔇 Música';

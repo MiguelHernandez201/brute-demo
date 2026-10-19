@@ -1,6 +1,9 @@
 // Demo battle royale: ¡MULTI KILL! Cuando un brute elimina a varios casi a la vez (sobre todo con su ultimate), sale un
-// letrero grande arriba y la voz del anunciador (la de la fatality) lo dice. Si en esa racha suma más, el letrero
-// cuenta cuántos lleva y vuelve a latir.
+// letrero grande arriba y la voz de un anunciador lo dice. Si en esa racha suma más, el letrero cuenta cuántos lleva y
+// vuelve a latir.
+// La voz es una grabación (public/sfx/multikill.mp3, voz am_michael de Kokoro-82M, Apache 2.0, más grave y con eco de
+// estadio): la síntesis de voz del navegador fallaba en silencio en algunos (por ejemplo con las voces de Google en
+// Chrome). Solo si no se pudo cargar se usa la del navegador, como la fatality.
 import { sound } from '@pixi/sound';
 import { Application, Container, Text } from 'pixi.js';
 import { announce, bigText } from './fatality';
@@ -70,6 +73,9 @@ export const multiKills = (app: Application, speed: Speed) => {
     show(killer, count);
     void sound.play('sfx', { sprite: 'hammer' });
     void shakeStage(app, speed, 6, 350);
-    if (count === 2) announce('Multi kill!', 0.85 * (speed.current > 1 ? 1.15 : 1));
+    if (count === 2) {
+      if (sound.exists('multikill')) void sound.play('multikill');
+      else announce('Multi kill!', 0.85 * (speed.current > 1 ? 1.15 : 1));
+    }
   };
 };
