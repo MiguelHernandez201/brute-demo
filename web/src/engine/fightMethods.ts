@@ -30,6 +30,8 @@ const THROW_WEAPON_ODDS = 80;
 // (el juego original: 50 % y se reducía a la mitad)
 const KEEP_WEAPON_CHANCE = 0.85;
 const KEEP_WEAPON_DECAY = 0.85;
+// Demo battle royale: el aura de ki (potenciadores 2 y 3, ver ultimates.boost) multiplica por tanto el daño que hace
+export const KI_DAMAGE = 3;
 
 export type Stats = Record<string, {
   userId: string | null;
@@ -607,10 +609,11 @@ export const registerHit = ({
       : damage,
   }), {});
 
-  // Demo: Súper gigante → hace el doble de daño y recibe la mitad
+  // Demo: Súper gigante → hace el doble de daño y recibe la mitad. Con el aura de ki, el triple (se suma: x6 de gigante)
   opponents.forEach((opponent) => {
     let giantDamage = actualDamage[opponent.index] ?? damage;
     if ((fighter as { demoGiant?: boolean }).demoGiant) giantDamage *= 2;
+    if ((fighter as { demoKi?: boolean }).demoKi) giantDamage *= KI_DAMAGE;
     if ((opponent as { demoGiant?: boolean }).demoGiant) giantDamage = Math.max(1, Math.floor(giantDamage / 2));
     actualDamage[opponent.index] = giantDamage;
   });
@@ -849,6 +852,16 @@ const dropShield = ({
       b: fighter.index,
     });
   }
+};
+
+// Demo battle royale (potenciadores, ver ultimates.boost): equipa ya un arma que se le da. La que llevara vuelve con
+// sus armas, sin tirarla (el paso de tirarla necesita que la animación ya la tenga en la mano)
+export const equipWeapon = (fightData: DetailedFight, fighter: DetailedFighter, weapon: FightWeapon) => {
+  const old = fighter.activeWeapon;
+  if (old && !fighter.weapons[old.name]) fighter.weapons[old.name] = old;
+  fighter.activeWeapon = weapon;
+  fighter.keepWeaponChance = KEEP_WEAPON_CHANCE;
+  fightData.steps.push({ a: StepType.Equip, b: fighter.index, w: WeaponByName[weapon.name] });
 };
 
 // Returns true if weapon was sabotaged

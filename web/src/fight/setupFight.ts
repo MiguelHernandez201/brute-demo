@@ -66,9 +66,11 @@ import { royaleClock } from './royaleClock';
 import { royaleCamera } from './royaleCamera';
 import { multiKills } from './multiKill';
 import {
-  clearUltimates, giantShrink, giantStomp, giantTimer, ultimateBomb, ultimateCast, ultimateCleaveHit, ultimateFlood,
-  ultimateHaste,
+  clearUltimates, fightTimer, giantShrink, giantStomp, giantTimer, ultimateBomb, ultimateCast, ultimateCleaveHit,
+  ultimateFlood, ultimateHaste,
 } from './ultimates';
+import { KiAura, kiAura } from './kiAura';
+import { KI_SECONDS, PET_SECONDS } from '../engine/ultimates';
 import { resetBakeBudget, setCrowdLevel, updateCrowdQuality } from './crowdQuality';
 import { vampirism } from './vampirism';
 import { getFighters } from './utils/getFighters';
@@ -848,6 +850,8 @@ export const setupFight: (
 
     // Royale: luchadores que se están animando en un turno (ver el planificador, más abajo)
     const busy = new Set<number>();
+    // Royale: auras de ki encendidas (potenciadores 2 y 3) y cómo cancelar el final de su minuto
+    const kiAuras = new Map<number, { aura: KiAura; cancel: () => void }>();
     // Royale: Súper gigantes (ultimate) y cuándo soltaron su última onda (una por ataque, aunque encadene golpes).
     // Alcanza a los más cercanos en ese momento, menos a quien ataca (ese ya se lleva su golpe), y a todos a la vez
     const stompers = new Map<number, number>();
@@ -921,6 +925,8 @@ export const setupFight: (
       endNow?: (winnerIndex: number) => boolean;
       cleave?: (index: number, candidates: number[]) => { t: number; d: number }[];
       endGiant?: (index: number) => boolean;
+      endKi?: (index: number) => boolean;
+      endPet?: (index: number) => boolean;
       wake?: () => void;
     };
     const steps = demoFight.liveSteps ?? (JSON.parse(fight.steps) as FightStep[]);
@@ -1192,6 +1198,47 @@ export const setupFight: (
           await drinkEnded;
           updateHp(fighters, drinker, potionStep.h, speed, isClanWar);
           drinker.animation.setAnimation('idle');
+          break;
+        }
+        // Demo royale: potenciador (ver engine/ultimates.boost) → bebe una poción y gana vida (lo que sobra sube su
+        // vida máxima)
+        case 'demoBoost' as never: {
+          const boostStep = step as unknown as { f: number; h: number; m: number };
+          const drinker = findFighter(fighters, boostStep.f);
+          if (!drinker || drinker.dead || drinker.animation.container.destroyed) break;
+          // (la animación avanza por fotogramas: en un dispositivo lento no se espera más de esto)
+          const drinkEnded = drinker.animation.waitForEvent('drink:end', 1500);
+          drinker.animation.setAnimation('drink');
+          void sound.play('sfx', { sprite: 'tragicPotion' });
+          displayHeal(app, drinker, boostStep.h, speed);
+          await drinkEnded;
+          drinker.maxHp = Math.max(drinker.maxHp, boostStep.m);
+          updateHp(fighters, drinker, boostStep.h, speed, isClanWar);
+          if (!drinker.animation.container.destroyed) drinker.animation.setAnimation('idle');
+          break;
+        }
+        // Demo royale: potenciador 2 o 3 → aura de ki (daño x3 en el motor) durante un minuto desde que se ve. Si ya la
+        // tenía, vuelve a empezar su minuto
+        case 'demoKi' as never: {
+          const kiStep = step as unknown as { f: number; n: number };
+          const brute = findFighter(fighters, kiStep.f);
+          if (!brute || brute.dead || brute.animation.container.destroyed) break;
+          const before = kiAuras.get(brute.index);
+          before?.cancel();
+          before?.aura.stop();
+          const aura = kiAura(app, brute, speed, kiStep.n);
+          const cancel = fightTimer(app, speed, KI_SECONDS, () => {
+            aura.stop();
+            kiAuras.delete(brute.index);
+            demoFight.endKi?.(brute.index);
+          });
+          kiAuras.set(brute.index, { aura, cancel });
+          break;
+        }
+        // Demo royale: mascota del potenciador 3 → pelea un minuto desde que llega y luego se va (ver endPet)
+        case 'demoPet' as never: {
+          const petStep = step as unknown as { f: number };
+          fightTimer(app, speed, PET_SECONDS, () => demoFight.endPet?.(petStep.f));
           break;
         }
         // Demo: Súper gigante → el brute crece (daño x2 y resistencia x2 en el motor)

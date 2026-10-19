@@ -88,8 +88,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       16 simulados, hasta 19 ataques seguidos; así, como antes, no pasan de 12).
   - Tras atacar, cada uno retrocede frente a su rival (no a otra punta de la arena), así cada pareja pelea en
     su zona. Las llegadas del principio van escalonadas, sin esperar a que aterrice el anterior.
-  - Carroñero y Golosina están en desuso en el royale: aquí no hay mascotas, así que nunca podían usarse. Los brutes
-    del royale reciben otra mejora en su lugar.
+  - Carroñero y Golosina están en desuso en el royale: aquí no hay mascotas (salvo la del potenciador +3000, que solo
+    dura un minuto), así que casi nunca podrían usarse. Los brutes del royale reciben otra mejora en su lugar.
   - Cada brute lleva encima su nombre y su vida, con un color propio que también marca su fila en la
     lista. Al pasar el ratón por una fila se resalta en la arena; con un clic se queda fijo. En el móvil, tocar la
     fila no hace nada (así no se resalta sin querer al ir a pulsar su ultimate).
@@ -115,9 +115,24 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     vida. Lo que el motor ya había jugado y aún no se veía no cuenta. Los últimos 10 segundos el reloj se pone en
     rojo y late. Si los últimos caen a la vez y no queda nadie, la ronda se cierra ahí (ya no puede entrar nadie).
     Con **🔁 Rondas continuas** cada ronda empieza con el reloj en marcha, así terminan solas y pasa la siguiente.
-  - **Ultimates**: cada brute tiene un botón grande en su fila de la lista con su ultimate, una versión mucho más
-    fuerte y de área de una técnica del juego, hecha para eliminar a varios de golpe, que alcanza a rivales de
-    cualquier duelo. Se reparten por igual (salen de una bolsa con las cuatro):
+  - **Potenciadores**: cada brute tiene tres botones en su fila de la lista, **+300**, **+1000** y **+3000**. Los tres
+    lanzan su poder (su ultimate, ver abajo; el botón no dice cuál es) y además:
+    - **+300**: le cura o le suma 300 PV y le da un arma sencilla (espada ancha, cuchillo, bastón, lanza o hachuela)
+      que equipa al momento. Se recargan en 30 s.
+    - **+1000**: 1000 PV, un arma poderosa (hacha, espada, mayal, lucero del alba, alabarda o maza, de nivel 2) y un
+      **aura de ki** al estilo Dragon Ball durante un minuto: llamas doradas y translúcidas que le envuelven y suben,
+      con chispas, mientras hace el triple de daño (con el Súper gigante, x6). Se recargan en 60 s.
+    - **+3000**: 3000 PV, un arma poderosa de nivel 3, el aura de ki (esta con rayos, como el Súper Saiyajin 2) y una
+      **mascota** (perro, pantera u oso) que pelea con él durante un minuto y luego se va. Se recargan en 90 s.
+
+    "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV (y se le
+    quita el veneno). Bebe una poción, sale el número en verde y la vida de su etiqueta y de la lista lo reflejan. La
+    que llevaba en la mano vuelve con sus armas. El aura y la mascota cuentan su minuto desde que se ven (se para con
+    la pausa y va al doble a x2); el aura se apaga al momento si cae. Los tres botones se recargan a la vez, el tiempo
+    del que se usó: así el aura no se puede encadenar.
+  - **Ultimates** (el poder que lanza cada potenciador): una versión mucho más fuerte y de área de una técnica del
+    juego, hecha para eliminar a varios de golpe, que alcanza a rivales de cualquier duelo. Se reparten por igual
+    (salen de una bolsa con las cuatro):
     - 🌊 **Diluvio total**: caen del cielo 16 armas repartidas entre hasta 8 rivales.
     - 💣 **Lluvia de bombas**: caen 7 bombas, cada una sobre uno o dos rivales.
     - ⚡ **Prisa en cadena**: 8 embestidas seguidas, cada una a un rival (si hay menos, vuelve a por los primeros).
@@ -125,14 +140,15 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       golpea a la vez a los 3 rivales más cercanos.
 
     Están equilibradas: en 300 royales de 10 simulados, cada una quita de media unos 470-490 PV en total (el
-    gigante, contando lo que pega de más y lo que deja de recibir) y elimina a unos 2 rivales. Tras verse, el botón
-    se recarga en 30 s (los segundos que faltan salen encima del icono; se para con la pausa). Quien cae por una ultimate no tiene fatality (son muchos a la vez),
-    pero la victoria es para quien la lanzó.
+    gigante, contando lo que pega de más y lo que deja de recibir) y elimina a unos 2 rivales (el aura de ki de los
+    potenciadores 2 y 3 se enciende después, así que no la multiplica). Mientras se recargan, los segundos que faltan
+    salen encima de los botones. Quien cae por una ultimate no tiene fatality (son muchos a la vez), pero la victoria
+    es para quien la lanzó.
     - Si ahora no se puede lanzar (no queda a quién darle, está atrapado en una red o aturdido, en el motor ya ha
-      caído aunque aún no se vea, o es un brute recién agregado que aún no ha aparecido en la arena), el clic la deja
-      **en cola** (⏳, el botón late) y sale sola en cuanto se pueda, por ejemplo al entrar otro brute. Otro clic la
-      quita de la cola. El Súper gigante no necesita a quién darle (es para él): aunque en el motor ya no quede nadie,
-      crece igual y le sirve contra el que entre.
+      caído aunque aún no se vea, o es un brute recién agregado que aún no ha aparecido en la arena), el potenciador
+      queda **en cola** entero (⏳ en su botón, que late) y sale solo en cuanto se pueda, por ejemplo al entrar otro
+      brute. Otro clic lo quita de la cola y pulsar otro de los tres lo cambia. El Súper gigante no necesita a quién
+      darle (es para él): aunque en el motor ya no quede nadie, crece igual y le sirve contra el que entre.
     - Mientras se pulsa un botón de la lista, esta no se repinta hasta soltarlo. Antes, si justo entonces caía alguien
       o cambiaba otra ultimate, el botón se cambiaba por otro a mitad del toque y la pulsación se perdía.
     - El letrero sale al momento. Lo que cae del cielo (armas, bombas) y la onda del gigante llegan a su hora: quien

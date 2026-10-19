@@ -373,8 +373,11 @@ export const ultimateCleaveHit = async (
 
 // Cuenta los segundos del Súper gigante desde que crece (con el reloj de la pelea: se para con la pausa y va más
 // rápido a x2) y entonces avisa (`end`) para que se le pase
-export const giantTimer = (app: Application, speed: Speed, end: () => void) => {
-  let left = GIANT_SECONDS;
+export const giantTimer = (app: Application, speed: Speed, end: () => void) => fightTimer(app, speed, GIANT_SECONDS, end);
+
+// Llama a `end` pasados tantos segundos de pelea (se para con la pausa y va al doble a x2). Devuelve cómo cancelarlo
+export const fightTimer = (app: Application, speed: Speed, seconds: number, end: () => void) => {
+  let left = seconds;
   const tick = (ticker: Ticker) => {
     left -= (Math.min(ticker.elapsedMS, 250) / 1000) * speed.current;
     if (left > 0) return;
@@ -382,6 +385,7 @@ export const giantTimer = (app: Application, speed: Speed, end: () => void) => {
     end();
   };
   app.ticker.add(tick);
+  return () => app.ticker.remove(tick);
 };
 
 // Se acaba el Súper gigante: vuelve a su tamaño con una nube de polvo

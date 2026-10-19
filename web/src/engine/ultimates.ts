@@ -12,7 +12,7 @@ import {
 import { WeaponName } from '@labrute/prisma';
 import { DetailedFight, DetailedFighter } from './generateFight';
 import { getDamage } from './getDamage';
-import { Stats, registerHit } from './fightMethods';
+import { Stats, equipWeapon, registerHit } from './fightMethods';
 
 export const ULTIMATES = ['flood', 'bombs', 'haste', 'giant'] as const;
 export type Ultimate = typeof ULTIMATES[number];
@@ -34,7 +34,27 @@ const CLEAVE_TARGETS = 3;
 const CLEAVE_FACTOR = 1.65;
 
 type Ultimates = { giant?: boolean };
-const state = (f: DetailedFighter) => f as DetailedFighter & { demoUlt?: Ultimates; demoGiant?: boolean };
+const state = (f: DetailedFighter) => f as DetailedFighter & { demoUlt?: Ultimates; demoGiant?: boolean; demoKi?: boolean };
+
+// Potenciadores (los tres botones de cada fila de la lista, ver main.js): todos lanzan la ultimate del brute y además
+// le curan (o le suman) vida y le dan un arma que equipa al momento; los dos mayores le encienden un aura de ki y el
+// último le trae una mascota (esa la pone session.castBoost, que tiene los datos del brute para sus estadísticas):
+//   1 → +300 PV y un arma sencilla
+//   2 → +1000 PV, un arma poderosa y aura de ki durante un minuto (daño x3, ver KI_DAMAGE)
+//   3 → +3000 PV, un arma poderosa, aura de ki y una mascota que pelea con él durante un minuto
+// "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV
+export type BoostTier = 1 | 2 | 3;
+export const BOOST_HP: Record<BoostTier, number> = { 1: 300, 2: 1000, 3: 3000 };
+// Armas sencillas (las de siempre) y poderosas (las que más pegan), y a qué nivel las trae cada uno
+const SIMPLE_WEAPONS = [WeaponName.broadsword, WeaponName.knife, WeaponName.baton, WeaponName.lance, WeaponName.hatchet];
+const POWERFUL_WEAPONS = [
+  WeaponName.axe, WeaponName.sword, WeaponName.flail, WeaponName.morningStar, WeaponName.halbard, WeaponName.bumps,
+];
+const BOOST_WEAPON_TIER: Record<BoostTier, number> = { 1: 1, 2: 2, 3: 3 };
+// Segundos de pelea que duran el aura de ki y la mascota (los cuenta la animación desde que se ven: ver endKi y
+// session.endPet)
+export const KI_SECONDS = 60;
+export const PET_SECONDS = 60;
 
 // Rivales en pie: todos, no solo los de su duelo
 const rivals = (fd: DetailedFight, caster: DetailedFighter) => fd.fighters.filter((f) => f.type === 'brute'
@@ -145,6 +165,32 @@ export const castUltimate = (
 };
 
 // Se acaba el Súper gigante del brute `index` (la animación cuenta sus segundos). False si ya no lo era
+// Vida, arma y aura de un potenciador (tras lanzar su ultimate, ver session.castBoost)
+export const boost = (fightData: DetailedFight, caster: DetailedFighter, tier: BoostTier) => {
+  const hp = BOOST_HP[tier];
+  caster.hp += hp;
+  caster.maxHp = Math.max(caster.maxHp, caster.hp);
+  // (también le quita el veneno, como una poción)
+  const cured = !!caster.poisonedBy;
+  caster.poisonedBy = null;
+  fightData.steps.push({ a: 'demoBoost', f: caster.index, h: hp, m: caster.maxHp, c: cured ? 1 : 0 } as never);
+  const list = tier === 1 ? SIMPLE_WEAPONS : POWERFUL_WEAPONS;
+  const name = list[Math.floor(Math.random() * list.length)] ?? WeaponName.broadsword;
+  equipWeapon(fightData, caster, { ...structuredClone(weapons[name]), tier: BOOST_WEAPON_TIER[tier] });
+  if (tier >= 2) {
+    state(caster).demoKi = true;
+    fightData.steps.push({ a: 'demoKi', f: caster.index, n: tier } as never);
+  }
+};
+
+// Se apaga el aura de ki del brute `index` (la animación avisa cuando pasa su minuto)
+export const endKi = (fightData: DetailedFight, index: number) => {
+  const fighter = fightData.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master);
+  if (!fighter || !state(fighter).demoKi) return false;
+  state(fighter).demoKi = false;
+  return true;
+};
+
 export const endGiant = (fightData: DetailedFight, index: number) => {
   const giant = fightData.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master);
   const s = giant && state(giant);
