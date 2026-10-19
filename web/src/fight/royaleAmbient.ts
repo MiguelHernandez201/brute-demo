@@ -8,6 +8,7 @@
 import { Animation, weapons } from '@labrute/core';
 import { gsap } from 'gsap';
 import { Application, Container, Graphics, Text, Ticker } from 'pixi.js';
+import type { CameraView } from './royaleCamera';
 import { AnimationFighter } from './utils/findFighter';
 import { roomAt, royaleArena } from './utils/fightPositions';
 import { playStepDust } from './utils/playVFX';
@@ -44,6 +45,8 @@ export const royaleAmbient = (
   getFighters: () => AnimationFighter[],
   speed: React.RefObject<number>,
   isBusy: (f: AnimationFighter) => boolean,
+  // Lo que se ve del escenario con el zoom dinámico (ver royaleCamera): los globos no se salen de ahí
+  getView?: () => CameraView | undefined,
 ) => {
   type State = { wait: number; action: Action | null; touched: boolean; dest?: { x: number; y: number } };
   const states = new WeakMap<AnimationFighter, State>();
@@ -297,8 +300,10 @@ export const royaleAmbient = (
 
   // --- Solo en la arena: el último en pie hace el tonto mientras espera a que entre alguien ---
 
-  type Bubble = { root: Container; f: AnimationFighter; t: number; life: number };
+  // `w`, `h`: tamaño del globo; `size`: lo que crece en el móvil
+  type Bubble = { root: Container; f: AnimationFighter; t: number; life: number; w: number; h: number; size: number };
   const bubbles = new Set<Bubble>();
+  (globalThis as any).__royaleBubbles = bubbles; // depuración: globos a la vista
   const drop = (b: Bubble | null) => {
     if (!b || !bubbles.delete(b)) return;
     if (!b.root.destroyed) b.root.destroy({ children: true });
@@ -320,10 +325,10 @@ export const royaleAmbient = (
     root.zIndex = 905;
     root.eventMode = 'none';
     root.alpha = 0;
-    // Como las etiquetas: en el móvil el lienzo se ve reducido y el globo crece para que se lea
-    root.scale.set(clamp(9 / (8 * ((app.canvas?.clientWidth || 500) / 500)), 1, 1.7));
     app.stage.addChild(root);
-    const b = { root, f, t: 0, life };
+    // Como las etiquetas: en el móvil el lienzo se ve reducido y el globo crece para que se lea
+    const size = clamp(9 / (8 * ((app.canvas?.clientWidth || 500) / 500)), 1, 1.7);
+    const b = { root, f, t: 0, life, w, h, size };
     bubbles.add(b);
     return b;
   };
@@ -336,7 +341,21 @@ export const royaleAmbient = (
         continue;
       }
       b.root.alpha = Math.min(1, b.t / 0.15, (b.life - b.t) / 0.3);
-      b.root.position.set(clamp(c.x + 14, 45, 455), c.y - b.f.animation.baseHeight * (b.f.animation.giantScale || 1) - 20);
+      // Sobre la cabeza y entero dentro de lo que se ve (con zoom, del mismo tamaño en pantalla que sin él). El globo
+      // va de `h + 4` por encima de su punto a 2 por debajo (el pico)
+      const view = getView?.() ?? { x0: 0, y0: 0, x1: 500, y1: 300, z: 1 };
+      const scale = b.size / view.z;
+      const edge = 3 / view.z;
+      const half = (b.w / 2) * scale + edge;
+      b.root.scale.set(scale);
+      b.root.position.set(
+        clamp(c.x + 14 * scale, view.x0 + half, view.x1 - half),
+        clamp(
+          c.y - b.f.animation.baseHeight * (b.f.animation.giantScale || 1) - 20 * scale,
+          view.y0 + (b.h + 4) * scale + edge,
+          view.y1 - 2 * scale - edge,
+        ),
+      );
     }
   };
 
