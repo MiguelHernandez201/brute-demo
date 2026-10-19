@@ -2,6 +2,7 @@
 // tiempo real; va con el ticker de la pelea, así que se para con la pausa. Al llegar a cero marca `timeUp` y la pelea
 // se cierra: gana el que más victorias lleva de los que siguen en pie (ver setupFight). La interfaz lee `timeLeft`.
 import { Application, Container, Graphics, Text, Ticker } from 'pixi.js';
+import { screenLayer } from './utils/hud';
 
 export const FINISH_SECONDS = 180;
 
@@ -38,7 +39,7 @@ export const royaleClock = (app: Application, fight: ClockFight) => {
   });
   label.anchor.set(0, 0.5);
   root.addChild(pill, icon, label);
-  app.stage.addChild(root);
+  screenLayer(app).addChild(root);
 
   let shown = '';
   // Latido al cambiar de segundo (los últimos) y al acabarse el tiempo
