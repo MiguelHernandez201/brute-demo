@@ -2,7 +2,7 @@
 import { MoveBackStep } from '@labrute/core';
 import { Application } from 'pixi.js';
 
-import { getRandomPosition, isMaxApproach, QUICK_STEP_DURATION, royaleArena } from './utils/fightPositions';
+import { getRandomPosition, royaleArena } from './utils/fightPositions';
 import { AnimationFighter, findFighter } from './utils/findFighter';
 import { playStepDust } from './utils/playVFX';
 import { Spritesheets } from './utils/spritesheet';
@@ -32,14 +32,6 @@ export const moveBack = async (
 
   // No-op movement: skip animation/tween overhead.
   if (travelDistance < 1) {
-    return;
-  }
-
-  // Demo: acercamiento al 100 % -> vuelve con un salto corto sin correr
-  if (isMaxApproach()) {
-    await tween(fighter.animation.container, {
-      duration: QUICK_STEP_DURATION / speed.current, ease: 'power2.out', x, y,
-    });
     return;
   }
 

@@ -20,7 +20,7 @@ import { attemptHit } from './attemptHit';
 import { block } from './block';
 import { bomb } from './bomb';
 import { death } from './death';
-import { fatality, fatalityKind, fatalityOptions, isFatalityDeath } from './fatality';
+import { fatality, fatalityKind, isFatalityDeath } from './fatality';
 import { disarm } from './disarm';
 import { dropShield } from './dropShield';
 import { eat } from './eat';
@@ -75,7 +75,6 @@ import { getFighters } from './utils/getFighters';
 import { mimic } from './mimic';
 import { tween } from './utils/tween';
 import { shakeStage } from './utils/stageAnimations';
-import { Wins, winsCounter } from './winsCounter';
 
 // Demo: tamaño del brute con Súper gigante
 const GIANT_SCALE = 3;
@@ -598,10 +597,6 @@ export const setupFight: (
       app.stage?.addChild(bossPhantomHpBar);
     }
 
-    // Demo 1 vs 1: victorias de cada jugador junto a su barra de vida
-    const demoWins = (fight as unknown as { wins?: Wins }).wins;
-    const winsHud = demoWins && brute2 && !boss ? winsCounter(app, demoWins, speed) : null;
-
     // Set stage as sortable
     if (app.stage) {
       app.stage.sortableChildren = true;
@@ -752,7 +747,6 @@ export const setupFight: (
     const isRoyale = !!(fight as unknown as { royale?: boolean }).royale;
     // Royale: sin bandos, cada uno vuelve a cualquier sitio despejado de la arena (no a su borde)
     royaleArena.enabled = isRoyale;
-    let fatalityDone = false;
     // Royale: sin HUD superior (la vida de todos está en el panel lateral). Se oculta cada fotograma
     // porque los iconos de armas/habilidades se vuelven a crear al cambiar de duelo.
     hudControl.hidden = isRoyale;
@@ -1014,12 +1008,6 @@ export const setupFight: (
           break;
         }
         case StepType.Death: {
-          // Demo 1 vs 1: la caída del brute perdedor se remata con una fatality
-          if (!isRoyale && !isClanWar && !fatalityDone && isFatalityDeath(fighters, step)) {
-            fatalityDone = true;
-            await fatality(app, spritesheets, fighters, step, speed);
-            break;
-          }
           // Demo royale: cada brute eliminado cae con una fatality de quien lo remató, pero solo la animación
           // sobre los personajes (sin letreros, voz, sonidos ni cámara): el resto de duelos sigue a la vez
           if (isRoyale && isFatalityDeath(fighters, step)) {
@@ -1105,10 +1093,6 @@ export const setupFight: (
           break;
         }
         case StepType.End: {
-          // Demo 1 vs 1: el ganador suma una victoria (aunque no celebre)
-          winsHud?.win(findFighter(fighters, step.w)?.team);
-          // Demo: tras una fatality, el ganador puede no celebrar (opción de la interfaz)
-          if (fatalityDone && !fatalityOptions.celebrate) break;
           end(app, spritesheets, fighters, step);
           break;
         }
@@ -1781,8 +1765,7 @@ export const setupFight: (
       if (shouldAbort()) return;
     }
 
-    const celebrate = !fatalityDone || fatalityOptions.celebrate;
-    if (celebrate) void sound.play('sfx', { sprite: 'win' });
+    void sound.play('sfx', { sprite: 'win' });
 
     // Get winner fighter
     const winner = fighters.find((fighter) => !fighter.master && isWinner(fighter, fight));
@@ -1843,7 +1826,7 @@ export const setupFight: (
     currentStepName = 'postFight';
     currentStepIndex = steps.length;
     let completedPetals = 0;
-    for (let i = 0; i < (celebrate ? 50 : 0); i++) {
+    for (let i = 0; i < 50; i++) {
       const petal = new AnimatedSprite(miscSheet.animations.petals ?? []);
       petal.filters = [new ColorOverlayFilter({
         // Random color

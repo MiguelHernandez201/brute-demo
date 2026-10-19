@@ -6,7 +6,7 @@ import { AnimatedSprite, Application, Color, Container, FillGradient, Graphics, 
 import { ColorOverlayFilter } from 'pixi-filters/color-overlay';
 import { GlowFilter } from 'pixi-filters/glow';
 import { OutlineFilter } from 'pixi-filters/outline';
-import { fatality, fatalityOptions } from './fight/fatality';
+import { fatality } from './fight/fatality';
 import { FighterHolder, renderQuality } from './fight/FighterHolder';
 import { AnimationFighter } from './fight/utils/findFighter';
 import { Spritesheets } from './fight/utils/spritesheet';
@@ -564,11 +564,8 @@ export const playPromotionalTrailer = async (
   app.stage.addChild(killerF.animation.container, victimF.animation.container);
 
   // Ejecutar la fatality real mejorada a velocidad ágil (1.45x) para el tráiler
-  const prevCelebrate = fatalityOptions.celebrate;
-  fatalityOptions.celebrate = true;
   const trailerSpeed = { current: 1.45 };
   await fatality(app, spritesheets, scene4Fighters, { a: StepType.Death, f: victimF.index }, trailerSpeed as any);
-  fatalityOptions.celebrate = prevCelebrate;
 
   banner4.destroy();
   clearSceneFighters(scene4Fighters);

@@ -6,20 +6,18 @@ Filter.defaultOptions.resolution = 'inherit';
 // Mipmaps: las imágenes grandes que se muestran reducidas (retratos, hojas de sprites x3) se ven suaves y sin dientes.
 TextureSource.defaultOptions.autoGenerateMipmaps = true;
 import { gsap } from 'gsap';
-import { createFight, createRoyale } from './sim.ts';
+import { createRoyale } from './sim.ts';
 import { StepType } from '@labrute/core';
 import { createRenderer } from './renderer.ts';
 import { setupFight } from './fight/setupFight.ts';
-import { FATALITY_VERBS, fatalityOptions } from './fight/fatality.ts';
+import { FATALITY_VERBS } from './fight/fatality.ts';
 import { royaleColorCss } from './fight/royaleTags.ts';
 import { crowdQuality } from './fight/crowdQuality.ts';
 import { setFightDisposing } from './fight/utils/lifecycle.ts';
 import { renderQuality } from './fight/FighterHolder.ts';
 import { royaleZoom } from './fight/royaleCamera.ts';
-import { fightApproach } from './fight/utils/fightPositions.ts';
 import { sound } from '@pixi/sound';
 import { sfx, sounds } from './sfx.ts';
-import { renderShop, setCurrentGear, setShopNames, takePurchases } from './shop.js';
 import { playPromotionalTrailer } from './trailer.ts';
 
 const $ = (id) => document.getElementById(id);
@@ -132,30 +130,9 @@ function revealWhenReady(a, id) {
   requestAnimationFrame(check);
 }
 
-// Última pelea: brutes y ganador, para el botón "Desafiar"
-let last = null;
-
-// Victorias de cada jugador en el 1 vs 1, junto a su barra de vida (las suma la animación al verse el final).
-// Empiezan de cero al elegir los nombres
-const wins = { L: 0, R: 0 };
-
-// Modo actual: '1v1' (dos jugadores con tienda) o 'royale' (todos contra todos)
-let mode = '1v1';
+// Modo actual: 'royale' (todos contra todos) o 'trailer' (vídeo promocional)
+let mode = 'royale';
 let royaleCount = 6;
-
-async function startFight(n1, n2, keep = {}) {
-  const id = ++run;
-  await destroyApp();
-  $('again').disabled = true;
-  // La pelea se simula turno a turno mientras se anima; las compras entran antes del siguiente turno
-  const { brutes, fight } = createFight(n1, n2, keep, takePurchases, setCurrentGear);
-  if (id !== run) return;
-  fight.wins = wins;
-  // Los brutes guardan lo comprado: el campeón lo conserva al "Desafiar". El ganador se conoce al terminar.
-  last = { brutes, fight };
-  setCurrentGear(brutes);
-  await playFight(id, fight);
-}
 
 // Battle royale: N brutes al azar, todos contra todos
 async function startRoyale(count) {
@@ -164,7 +141,6 @@ async function startRoyale(count) {
   $('again').disabled = true;
   const { fight } = createRoyale(count);
   if (id !== run) return;
-  last = null;
   renderRoster(fight);
   await playFight(id, fight);
 }
@@ -496,11 +472,11 @@ async function playFight(id, fight) {
   }
 }
 
-// Desafío continuo: al terminar cada pelea, cuenta atrás y desafía solo
+// Rondas continuas: al terminar cada ronda, cuenta atrás y empieza otra sola
 const AUTO_DELAY = 3;
 let autoChallenge = false;
 let autoTimer = null;
-const againLabel = () => $('again').dataset.label || '⚔️ Desafiar';
+const againLabel = () => $('again').dataset.label || '👑 Nueva ronda';
 function cancelAutoChallenge() {
   clearInterval(autoTimer);
   autoTimer = null;
@@ -569,12 +545,10 @@ async function startTrailer() {
   }
 }
 
-let names = ['', ''];
 const showError = (e) => {
   console.error(e);
   $('status').textContent = 'Error: ' + e.message;
 };
-const begin = (keep) => startFight(...names, keep).catch(showError);
 const beginRoyale = () => startRoyale(royaleCount).catch(showError);
 const beginTrailer = () => startTrailer().catch(showError);
 function enterArena(newMode) {
@@ -582,22 +556,11 @@ function enterArena(newMode) {
   $('arena').classList.toggle('royale', mode === 'royale');
   $('arena').classList.toggle('trailer', mode === 'trailer');
   $('downloadPromo').style.display = 'none';
-  $('again').dataset.label =
-    mode === 'royale' ? '👑 Nueva ronda' : mode === 'trailer' ? '🎬 Repetir Tráiler' : '⚔️ Desafiar';
+  $('again').dataset.label = mode === 'trailer' ? '🎬 Repetir Tráiler' : '👑 Nueva ronda';
   $('again').textContent = $('again').dataset.label;
-  $('autoLabel').textContent = mode === 'royale' ? 'Rondas continuas' : 'Desafiar continuamente';
-  $('back').textContent = mode === '1v1' ? 'Cambiar nombres' : 'Volver al menú';
   $('setup').style.display = 'none';
   $('arena').style.display = 'block';
 }
-$('go').onclick = () => {
-  names = [$('n1').value.trim() || 'Jugador 1', $('n2').value.trim() || 'Jugador 2'];
-  wins.L = 0;
-  wins.R = 0;
-  enterArena('1v1');
-  setShopNames(...names);
-  begin();
-};
 $('royaleGo').onclick = () => {
   royaleCount = Math.max(3, Math.min(20, +$('royaleCount').value || 6));
   try {
@@ -630,15 +593,11 @@ $('royaleCount').oninput = (e) => {
   $('royaleCountValue').textContent = e.target.value;
 };
 $('royaleCountValue').textContent = $('royaleCount').value;
-// Desafiar: el ganador conserva su brute; solo el perdedor recibe uno nuevo.
-// En el royale: nueva ronda con brutes nuevos.
+// Nueva ronda con brutes nuevos (o repetir el tráiler)
 $('again').onclick = () => {
   cancelAutoChallenge();
   if (mode === 'trailer') return beginTrailer();
-  if (mode === 'royale') return beginRoyale();
-  if (!last) return begin();
-  const [b1, b2] = last.brutes;
-  begin(last.fight.winnerId === b1.id ? { b1 } : { b2 });
+  return beginRoyale();
 };
 try {
   autoChallenge = localStorage.getItem('brute-demo-auto') === 'true';
@@ -646,13 +605,6 @@ try {
   /* sin storage */
 }
 $('auto').checked = autoChallenge;
-// Celebración del ganador tras la fatality (se recuerda en este navegador)
-try {
-  fatalityOptions.celebrate = localStorage.getItem('brute-demo-celebrate') !== 'false';
-} catch {
-  /* sin storage */
-}
-$('celebrate').checked = fatalityOptions.celebrate;
 // Royale: zoom dinámico (ver fight/royaleCamera). Se puede cambiar en plena pelea y se recuerda en este navegador
 try {
   royaleZoom.enabled = localStorage.getItem('brute-demo-zoom') !== 'false';
@@ -664,14 +616,6 @@ $('zoom').onchange = (e) => {
   royaleZoom.enabled = e.target.checked;
   try {
     localStorage.setItem('brute-demo-zoom', String(royaleZoom.enabled));
-  } catch {
-    /* sin storage */
-  }
-};
-$('celebrate').onchange = (e) => {
-  fatalityOptions.celebrate = e.target.checked;
-  try {
-    localStorage.setItem('brute-demo-celebrate', String(fatalityOptions.celebrate));
   } catch {
     /* sin storage */
   }
@@ -742,27 +686,6 @@ applyVolumes();
 
 // Acercamiento: cuánto se acercan las posiciones de cada bando al centro.
 // Se aplica en vivo: cada vez que un luchador vuelve a su sitio usa el valor actual.
-const setApproach = (v) => {
-  fightApproach.value = +v;
-  $('approach').value = v;
-  $('approachValue').textContent = `${v}%`;
-};
-try {
-  setApproach(localStorage.getItem('brute-demo-approach') ?? 0);
-} catch {
-  setApproach(0);
-}
-$('approach').oninput = (e) => {
-  setApproach(e.target.value);
-  try {
-    localStorage.setItem('brute-demo-approach', e.target.value);
-  } catch {
-    /* sin storage */
-  }
-};
-
-renderShop();
-
 const trailerParam = new URLSearchParams(location.search).get('trailer');
 if (trailerParam) {
   $('trailerGo').click();
@@ -777,12 +700,4 @@ const royaleParam = new URLSearchParams(location.search).get('royale');
 if (royaleParam) {
   $('royaleCount').value = royaleParam;
   $('royaleGo').click();
-}
-
-const auto = new URLSearchParams(location.search).get('auto');
-if (auto) {
-  const [x, y] = auto.split(',');
-  $('n1').value = x || '';
-  $('n2').value = y || '';
-  $('go').click();
 }

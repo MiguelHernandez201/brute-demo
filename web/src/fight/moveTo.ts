@@ -6,7 +6,7 @@ import { AnimationFighter, findFighter } from './utils/findFighter';
 import { repositionFighters } from './utils/repositionFighters';
 import { getHitDistance } from './utils/getHitDistance';
 import { Easing, tween } from './utils/tween';
-import { isMaxApproach, QUICK_STEP_DURATION, royaleArena } from './utils/fightPositions';
+import { royaleArena } from './utils/fightPositions';
 import { playStepDust } from './utils/playVFX';
 import { Spritesheets } from './utils/spritesheet';
 
@@ -48,14 +48,6 @@ export const moveTo = async (
   );
 
   if (travelDistance < 1) {
-    return;
-  }
-
-  // Demo: acercamiento al 100 % -> salto corto sin correr
-  if (isMaxApproach()) {
-    await tween(fighter.animation.container, {
-      duration: QUICK_STEP_DURATION / speed.current, ease: 'power2.out', x: targetX, y: targetY,
-    });
     return;
   }
 
