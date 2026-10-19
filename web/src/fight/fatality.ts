@@ -6,7 +6,10 @@
 // Todo se anima con el ticker de la pelea: se detiene con la pausa y respeta la velocidad (x1 / x2).
 // En el battle royale (`royale`) solo se anima lo que les pasa a los personajes, con los sonidos del remate:
 // sin letreros, voz, cámara (acercamiento ni temblor), fondo oscurecido ni destellos, porque el resto de duelos
-// sigue a la vez.
+// sigue a la vez. Salvo en el duelo final (`royale.final`, quedaban dos en pie): ahí salen también los letreros
+// ("FINISH HIM!" y "FATALITY"), la voz y el fondo oscurecido, pero sin la cámara de la fatality (el royale tiene la
+// suya, el zoom dinámico): los letreros van en su capa de pantalla y tiembla el escenario.
+// La voz es una grabación (public/sfx, ver `say`); solo si no se pudo cargar se usa la síntesis de voz del navegador.
 import { DeathStep } from '@labrute/core';
 import { sound } from '@pixi/sound';
 import {
@@ -29,8 +32,9 @@ import { untrap } from './untrap';
 import { AnimationFighter, findFighter } from './utils/findFighter';
 import { getHitDistance } from './utils/getHitDistance';
 import { stampGround } from './utils/groundLayer';
-import { isHudLayer } from './utils/hud';
+import { isHudLayer, screenLayer } from './utils/hud';
 import { Spritesheets } from './utils/spritesheet';
+import { shakeStage } from './utils/stageAnimations';
 
 type Kind = 'decapitacion' | 'partido' | 'aplastado' | 'acribillado' | 'latigo' | 'explosion';
 
@@ -188,6 +192,14 @@ export const announce = (text: string, rate: number) => {
   }
 };
 
+// Voz del anunciador grabada (public/sfx/<clip>.mp3, voz am_michael de Kokoro-82M; se cargan en main.js y suenan con los
+// efectos activados): la síntesis de voz del navegador falla en silencio en algunos (por ejemplo con las voces de Google
+// en Chrome). Si la grabación no está, se usa la síntesis con `text`
+export const say = (clip: string, text: string, rate: number) => {
+  if (sound.exists(clip)) void sound.play(clip);
+  else announce(text, rate);
+};
+
 // Letrero grande al estilo del juego (degradado, contorno y sombra)
 export const bigText = (text: string, fontSize: number, colors: [string, string, string]) =>
   new Text({
@@ -248,10 +260,13 @@ export const fatality = async (
   fighters: AnimationFighter[],
   step: DeathStep,
   speed: React.RefObject<number>,
-  // Battle royale: quién remata (el último que lo golpeó), versión sin cine y aviso en el golpe final
-  royale?: { killer: AnimationFighter; onImpact?: () => void },
+  // Battle royale: quién remata (el último que lo golpeó), versión sin cine, aviso en el golpe final y si es el duelo
+  // final (quedaban dos en pie: con letreros y voz)
+  royale?: { killer: AnimationFighter; onImpact?: () => void; final?: boolean },
 ) => {
   const cinematic = !royale;
+  // Letreros, voz y fondo oscurecido: en la completa y en el duelo final del royale
+  const announced = cinematic || !!royale?.final;
   const victim = findFighter(fighters, step.f);
   const killer = royale?.killer
     ?? fighters.find((f) => f.type === 'brute' && !f.master && f.team !== victim?.team && !f.dead);
@@ -360,6 +375,11 @@ export const fatality = async (
       camera.fy = lerp(from.fy, fy, e);
     });
   };
+  // Royale (duelo final): los letreros van en la capa de pantalla de su cámara (ver royaleCamera) y, en vez de la
+  // cámara, tiembla el escenario
+  const texts = cinematic ? screen : screenLayer(app);
+  const textShake = (intensity: number, seconds: number) =>
+    cinematic ? shake(intensity, seconds) : shakeStage(app, speed, intensity, seconds * 1000);
 
   // --- Capas: fondo oscurecido (bajo los luchadores) y destello (encima de todo) ---
   const shade = new Graphics().rect(0, 0, W, H).fill(0x120000);
@@ -368,8 +388,17 @@ export const fatality = async (
   shade.eventMode = 'none';
   const flash = new Graphics().rect(0, 0, W, H).fill(0xffffff);
   flash.alpha = 0;
-  screen.addChild(flash);
+  // (en la capa de pantalla del royale: sobre el reloj y los demás letreros, bajo los de la fatality)
+  flash.zIndex = 975;
+  (cinematic || !announced ? screen : texts).addChild(flash);
   if (cinematic) stage.addChild(shade, screen);
+  else if (announced) stage.addChild(shade);
+  const flashScreen = (color: number, alpha: number, seconds: number) => {
+    flash.clear().rect(0, 0, W, H).fill(color);
+    return animate(seconds, (p) => {
+      flash.alpha = alpha * (1 - p);
+    });
+  };
   // El destello marca el golpe final. En el royale no hay destello: se avisa (una vez) para que reaccionen
   // los que están cerca
   let impacted = false;
@@ -379,13 +408,10 @@ export const fatality = async (
       impacted = true;
       return Promise.resolve();
     }
-    flash.clear().rect(0, 0, W, H).fill(color);
-    return animate(seconds, (p) => {
-      flash.alpha = alpha * (1 - p);
-    });
+    return flashScreen(color, alpha, seconds);
   };
   const fadeShade = (to: number, seconds: number) => {
-    if (!cinematic) return Promise.resolve();
+    if (!announced) return Promise.resolve();
     const from = shade.alpha;
     return animate(seconds, (p) => {
       shade.alpha = lerp(from, to, p);
@@ -1002,22 +1028,20 @@ export const fatality = async (
     void fadeShade(0.62, 0.4);
     void moveCamera(1.25, (V.x + targetX) / 2, groundY - 40, 0.5);
     sfx('hammer');
-    // La voz tarda un poco en arrancar: se pide a la vez que aparece el letrero
-    announce(victim.gender === 'female' ? 'Finish her!' : 'Finish him!', voiceRate(0.85));
-    const finish = bigText(victim.gender === 'female' ? 'FINISH HER!' : 'FINISH HIM!', 40, [
-      '#fff3a0',
-      '#ff8a00',
-      '#a31000',
-    ]);
+    // La voz sale a la vez que aparece el letrero
+    const her = victim.gender === 'female';
+    say(her ? 'finishher' : 'finishhim', her ? 'Finish her!' : 'Finish him!', voiceRate(0.85));
+    const finish = bigText(her ? 'FINISH HER!' : 'FINISH HIM!', 40, ['#fff3a0', '#ff8a00', '#a31000']);
     finish.anchor.set(0.5);
     finish.position.set(W / 2, H * 0.3);
     finish.alpha = 0;
-    screen.addChild(finish);
+    finish.zIndex = 980;
+    texts.addChild(finish);
     await animate(0.22, (p) => {
       finish.scale.set(lerp(2.6, 1, easeOutBack(p)));
       finish.alpha = Math.min(1, p * 2.5);
     });
-    void shake(5, 0.35);
+    void textShake(5, 0.35);
     const approached = approach();
     await animate(0.5, (p) => {
       finish.scale.set(1 + Math.sin(p * Math.PI * 2) * 0.03);
@@ -1028,8 +1052,9 @@ export const fatality = async (
     finish.destroy();
     await approached;
   };
-  // Royale: sin letrero ni voz. El perdedor se tambalea mareado mientras el ganador llega corriendo
-  if (cinematic) await finishHim();
+  // Royale (menos en el duelo final): sin letrero ni voz. El perdedor se tambalea mareado mientras el ganador llega
+  // corriendo
+  if (announced) await finishHim();
   else await Promise.all([approach(), wait(0.35)]);
   if (!alive()) return;
 
@@ -1581,17 +1606,95 @@ export const fatality = async (
   if (!alive()) return;
   timeScale = 1;
 
-  // Royale: sin letrero. El ganador saca músculo y sigue peleando; los restos se desvanecen pasado un rato
-  // (la sangre del suelo se queda), como los caídos normales
-  if (!cinematic) {
-    screen.destroy({ children: true });
-    shade.destroy();
-    if (!killer.trapped && !killer.stunned) {
-      killer.animation.setAnimation('strengthen');
-      killer.animation.once('strengthen:end', () => {
-        if (!K.destroyed && killer.animation.animation === 'strengthen') killer.animation.setAnimation('idle');
+  // El ganador saca músculo (en el royale luego vuelve a ponerse en guardia: sigue peleando)
+  const flex = () => {
+    if (killer.trapped || killer.stunned) return;
+    killer.animation.setAnimation('strengthen');
+    if (cinematic) return;
+    killer.animation.once('strengthen:end', () => {
+      if (!K.destroyed && killer.animation.animation === 'strengthen') killer.animation.setAnimation('idle');
+    });
+  };
+
+  // ===== 3. "FATALITY" (y el nombre del remate): en la completa y en el duelo final del royale =====
+  const titleLayer = new Container();
+  titleLayer.zIndex = 980;
+  const showTitle = async () => {
+    const title = bigText('FATALITY', 60, ['#ff5a4a', '#d40000', '#5a0000']);
+    title.anchor.set(0.5);
+    title.position.set(W / 2, H * 0.42);
+    title.alpha = 0;
+    const glow = new GlowFilter({ color: 0xff1a1a, distance: 14, outerStrength: 0, innerStrength: 0, quality: 0.3 });
+    title.filters = [glow];
+    const subtitle = bigText(KIND_TITLES[kind], 20, ['#ffffff', '#ffd27a', '#c27a00']);
+    subtitle.anchor.set(0.5);
+    subtitle.position.set(W / 2, H * 0.42 + 44);
+    subtitle.alpha = 0;
+    titleLayer.addChild(title, subtitle);
+    texts.addChild(titleLayer);
+
+    say('fatality', 'Fatality!', voiceRate(0.8));
+    // La cámara se aleja mientras el letrero cae de golpe
+    void moveCamera(1, W / 2, H / 2, 0.3);
+    await animate(0.3, (p) => {
+      title.scale.set(lerp(3.2, 1, easeOutBack(p)));
+      title.alpha = Math.min(1, p * 2.5);
+    });
+    if (!alive()) return;
+    // Impacto del letrero
+    sfx('bomb');
+    void flashScreen(0xff0000, 0.45, 0.35);
+    if (cinematic) {
+      void animate(0.3, (p) => {
+        camera.z = 1 + 0.06 * Math.sin(p * Math.PI);
       });
     }
+    void textShake(8, 0.45);
+    flex();
+    void animate(0.25, (p) => {
+      subtitle.alpha = p;
+      subtitle.scale.set(lerp(0.6, 1, easeOutBack(p)));
+    });
+    // Gotas que escurren del letrero
+    const bounds = title.getLocalBounds();
+    for (let i = 0; i < 7; i++) {
+      const drip = new Graphics().circle(0, 0, rand(1.3, 2.2)).fill(pick(BLOOD.slice(1)));
+      const x0 = title.x + rand(bounds.minX * 0.85, bounds.maxX * 0.85);
+      const y0 = title.y + bounds.maxY * 0.55;
+      const fall = rand(18, 45);
+      drip.position.set(x0, y0);
+      titleLayer.addChild(drip);
+      void wait(rand(0, 0.35)).then(() =>
+        animate(rand(0.8, 1.2), (p) => {
+          if (drip.destroyed) return;
+          drip.y = y0 + fall * p * p;
+          drip.scale.y = 1 + 1.4 * p;
+          drip.alpha = 1 - p * 0.7;
+        }),
+      );
+    }
+    // El letrero late un momento
+    await animate(1.1, (p) => {
+      glow.outerStrength = 2.5 + Math.sin(p * Math.PI * 3) * 1.5;
+      title.scale.set(1 + Math.sin(p * Math.PI * 2) * 0.025);
+    });
+  };
+  if (announced) await showTitle();
+
+  // Royale: el ganador saca músculo (en el duelo final ya lo hizo con el letrero, que ahora se va con el fondo oscuro) y
+  // sigue peleando; los restos se desvanecen pasado un rato (la sangre del suelo se queda), como los caídos normales
+  if (!cinematic) {
+    if (announced) {
+      await animate(0.35, (p) => {
+        titleLayer.alpha = 1 - p;
+        shade.alpha = 0.62 * (1 - p);
+      });
+      titleLayer.destroy({ children: true });
+      flash.destroy();
+    } else flex();
+    screen.destroy({ children: true });
+    shade.destroy();
+    if (!alive()) return;
     // Aplastado: el cuerpo chafado sigue siendo el perdedor (los que caen con su animación ya se desvanecen solos)
     const flattened = V.visible && victim.animation.animation !== 'death';
     void wait(ROYALE_REMAINS_SECONDS)
@@ -1614,65 +1717,6 @@ export const fatality = async (
       });
     return;
   }
-
-  // ===== 3. "FATALITY" (y el nombre del remate) =====
-  const title = bigText('FATALITY', 60, ['#ff5a4a', '#d40000', '#5a0000']);
-  title.anchor.set(0.5);
-  title.position.set(W / 2, H * 0.42);
-  title.alpha = 0;
-  const glow = new GlowFilter({ color: 0xff1a1a, distance: 14, outerStrength: 0, innerStrength: 0, quality: 0.3 });
-  title.filters = [glow];
-  const subtitle = bigText(KIND_TITLES[kind], 20, ['#ffffff', '#ffd27a', '#c27a00']);
-  subtitle.anchor.set(0.5);
-  subtitle.position.set(W / 2, H * 0.42 + 44);
-  subtitle.alpha = 0;
-  const titleLayer = new Container();
-  titleLayer.addChild(title, subtitle);
-  screen.addChild(titleLayer);
-
-  announce('Fatality!', voiceRate(0.8));
-  // La cámara se aleja mientras el letrero cae de golpe
-  void moveCamera(1, W / 2, H / 2, 0.3);
-  await animate(0.3, (p) => {
-    title.scale.set(lerp(3.2, 1, easeOutBack(p)));
-    title.alpha = Math.min(1, p * 2.5);
-  });
-  if (!alive()) return;
-  // Impacto del letrero
-  sfx('bomb');
-  void flashTo(0xff0000, 0.45, 0.35);
-  void animate(0.3, (p) => {
-    camera.z = 1 + 0.06 * Math.sin(p * Math.PI);
-  });
-  void shake(8, 0.45);
-  if (!killer.trapped && !killer.stunned) killer.animation.setAnimation('strengthen');
-  void animate(0.25, (p) => {
-    subtitle.alpha = p;
-    subtitle.scale.set(lerp(0.6, 1, easeOutBack(p)));
-  });
-  // Gotas que escurren del letrero
-  const bounds = title.getLocalBounds();
-  for (let i = 0; i < 7; i++) {
-    const drip = new Graphics().circle(0, 0, rand(1.3, 2.2)).fill(pick(BLOOD.slice(1)));
-    const x0 = title.x + rand(bounds.minX * 0.85, bounds.maxX * 0.85);
-    const y0 = title.y + bounds.maxY * 0.55;
-    const fall = rand(18, 45);
-    drip.position.set(x0, y0);
-    titleLayer.addChild(drip);
-    void wait(rand(0, 0.35)).then(() =>
-      animate(rand(0.8, 1.2), (p) => {
-        if (drip.destroyed) return;
-        drip.y = y0 + fall * p * p;
-        drip.scale.y = 1 + 1.4 * p;
-        drip.alpha = 1 - p * 0.7;
-      }),
-    );
-  }
-  // El letrero late un momento
-  await animate(1.1, (p) => {
-    glow.outerStrength = 2.5 + Math.sin(p * Math.PI * 3) * 1.5;
-    title.scale.set(1 + Math.sin(p * Math.PI * 2) * 0.025);
-  });
   if (!alive()) return;
 
   // ===== 4. Todo vuelve a la normalidad (los restos y la sangre se quedan) =====

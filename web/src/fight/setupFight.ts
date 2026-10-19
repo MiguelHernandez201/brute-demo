@@ -1009,7 +1009,8 @@ export const setupFight: (
         }
         case StepType.Death: {
           // Demo royale: cada brute eliminado cae con una fatality de quien lo remató, pero solo la animación
-          // sobre los personajes (sin letreros, voz, sonidos ni cámara): el resto de duelos sigue a la vez
+          // sobre los personajes (sin letreros, voz ni cámara): el resto de duelos sigue a la vez. En el duelo final
+          // (no queda nadie más en pie) salen también los letreros y la voz
           if (isRoyale && isFatalityDeath(fighters, step)) {
             const victim = findFighter(fighters, step.f);
             const killer = victim && !ultimateVictims.has(victim.index) && royaleKiller(victim, involved);
@@ -1017,6 +1018,7 @@ export const setupFight: (
               const kind = fatalityKind(killer);
               await fatality(app, spritesheets, fighters, step, speed, {
                 killer,
+                final: fighters.every((f) => f === victim || f === killer || f.type !== 'brute' || f.master || f.dead),
                 // En el golpe final, los que miran cerca reaccionan
                 onImpact: () => crowd?.react(victim.animation.container.x, victim.animation.container.y, 150, true),
               });
