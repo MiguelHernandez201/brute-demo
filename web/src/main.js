@@ -35,11 +35,13 @@ const loadSheet = (path, cachePrefix) => Assets.load({ src: path, data: { cacheP
 
 // Sonido: mismos audios y sprites que la pelea original
 const audio = { sfx: true, music: true };
+// Voces grabadas del anunciador (suenan con los efectos): "Multi kill!" (ver fight/multiKill) y las de la fatality,
+// "Finish him!" / "Finish her!" y "Fatality!" (ver fight/fatality)
+const VOICES = ['multikill', 'finishhim', 'finishher', 'fatality'];
 function setupSounds() {
   if (!sound.exists('background')) sound.add('background', `${import.meta.env.BASE_URL}sfx/background.mp3`);
-  // Voz del anunciador del royale: "Multi kill!" (ver fight/multiKill)
-  if (!sound.exists('multikill')) {
-    sound.add('multikill', { url: `${import.meta.env.BASE_URL}sfx/multikill.mp3`, preload: true });
+  for (const voice of VOICES) {
+    if (!sound.exists(voice)) sound.add(voice, { url: `${import.meta.env.BASE_URL}sfx/${voice}.mp3`, preload: true });
   }
   if (!sound.exists('sfx')) {
     const sprites = {};
@@ -54,7 +56,7 @@ function setupSounds() {
 function applyVolumes() {
   sound.volumeAll = 1;
   if (sound.exists('sfx')) sound.volume('sfx', audio.sfx ? 1 : 0);
-  if (sound.exists('multikill')) sound.volume('multikill', audio.sfx ? 1 : 0);
+  for (const voice of VOICES) if (sound.exists(voice)) sound.volume(voice, audio.sfx ? 1 : 0);
   if (sound.exists('background')) sound.volume('background', audio.music ? 0.6 : 0);
   // Botones de solo icono: apagados se ven oscuros (y la música, con la nota tachada)
   $('sfx').textContent = audio.sfx ? '🔊' : '🔇';

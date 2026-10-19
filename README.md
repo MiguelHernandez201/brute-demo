@@ -62,7 +62,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 
     Para ver una en concreto se puede forzar con la URL, por ejemplo `?fatality=aplastado`
     (`decapitacion`, `partido`, `aplastado`, `acribillado`, `latigo` o `explosion`). En el vídeo promocional sale la
-    versión completa: "FINISH HIM!", el remate y el letrero "FATALITY" con voz.
+    versión completa: "FINISH HIM!", el remate y el letrero "FATALITY" con voz. La voz del anunciador ("Finish
+    him!" / "Finish her!" y "Fatality!") es una grabación, como la de "Multi kill!" (ver abajo).
 - **Battle Royale**: de 3 a 20 brutes, todos contra todos y todos peleando a la vez por toda la arena.
   - Duelos simultáneos: cada brute (con sus mascotas) pelea solo con los de su grupo, una pareja o un trío,
     hasta que caen sus rivales, y entonces busca otro: alguien libre; si no hay, saca a uno de un trío; y si
@@ -133,8 +134,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     letrero grande con su nombre y cuántos lleva en la racha, y una voz de anunciador grave y con eco de estadio dice
     "Multi… kill!". Si suma más en la misma racha, el letrero cuenta y vuelve a latir.
     - La voz es una grabación (`public/sfx/multikill.mp3`, suena con los efectos activados) hecha con el
-      sintetizador de voz Kokoro-82M. Antes la decía la síntesis de voz del navegador, como la fatality del vídeo promocional,
-      pero en algunos navegadores no sonaba (por ejemplo con las voces de Google en Chrome, que fallan en silencio).
+      sintetizador de voz Kokoro-82M, igual que las de la fatality. Antes las decía la síntesis de voz del navegador,
+      pero en algunos navegadores no sonaba (por ejemplo con las voces de Google en Chrome, que fallan en silencio);
+      ahora solo se usa si la grabación no se pudo cargar.
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, en cualquier momento hasta que se ve el final. El
     que llega entra en un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y
     recibe golpes enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
@@ -159,6 +161,12 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     y sus sonidos (sin letreros, voz ni cámara), mientras el resto sigue peleando y los que miran
     reaccionan. Sus restos se desvanecen al rato y la sangre se queda en el suelo. La lista cuenta quién
     eliminó a quién ("Mazo decapitó a Brasa").
+  - **Duelo final**: cuando solo quedan dos en pie, la fatality es como la completa: "FINISH HIM!" (o "FINISH HER!")
+    con la voz del anunciador mientras el perdedor se tambalea, el fondo se oscurece y, tras el remate, cae el letrero
+    "FATALITY" con el nombre del remate, su voz, el golpe y un destello rojo. Lo único que no lleva es la cámara de
+    la versión completa (el royale ya tiene su zoom dinámico): en su lugar tiembla el escenario. Si entra alguien
+    más, se vuelve a pelear como siempre, y la siguiente vez que queden dos se repite. Quien cae por una ultimate
+    sigue sin fatality.
   - Toda la sangre del suelo (manchas, charcos y grietas) es un solo dibujo: cada mancha se pinta una vez en
     una imagen de la arena y se descarta. Así no pesa más a medida que avanza la pelea y los fps se recuperan
     cuando quedan pocos en pie (antes cada mancha era un dibujo suelto y llegaban a acumularse unas 8.000).
@@ -181,6 +189,7 @@ Código y recursos tomados de [LaBrute](https://github.com/Zenoo/labrute) (Etern
 El código está bajo **PolyForm Noncommercial 1.0.0** y los recursos gráficos y de sonido bajo
 **CC BY-NC-SA 4.0**: no se permite ningún uso comercial.
 
-La voz de "Multi kill!" (`web/public/sfx/multikill.mp3`) se generó con
-[Kokoro-82M](https://github.com/hexgrad/kokoro) (Apache 2.0), voz `am_michael`, y se le bajó el tono y se le añadió
+Las voces del anunciador ("Multi kill!", "Finish him!", "Finish her!" y "Fatality!": `multikill.mp3`,
+`finishhim.mp3`, `finishher.mp3` y `fatality.mp3` en `web/public/sfx/`) se generaron con
+[Kokoro-82M](https://github.com/hexgrad/kokoro) (Apache 2.0), voz `am_michael`, y se les bajó el tono y se les añadió
 eco con ffmpeg.
