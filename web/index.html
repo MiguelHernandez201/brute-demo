@@ -120,37 +120,13 @@
         margin: 8px 0;
         opacity: 0.8;
       }
-      .toggle {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 13px;
-        cursor: pointer;
-        user-select: none;
-      }
-      .toggle input {
-        width: 16px;
-        height: 16px;
-        margin: 0;
-        padding: 0;
-        accent-color: var(--gold);
-        cursor: pointer;
-      }
-      .auto-toggle {
-        flex: 0 0 auto;
-        background: #150f0b;
-        border-radius: 8px;
-        padding: 0 14px;
-        font-size: 14px;
-        font-weight: 700;
-      }
-      /* Pelea al centro y tienda de cada jugador a los lados */
+      /* Pelea a la derecha y lista del royale a su izquierda */
       #arena.panel {
         max-width: 1180px;
       }
       .stage {
         display: grid;
-        grid-template-columns: 170px minmax(0, 800px) 170px;
+        grid-template-columns: 250px minmax(0, 800px);
         gap: 12px;
         justify-content: center;
         align-items: start;
@@ -214,24 +190,40 @@
         flex-direction: column;
         gap: 4px;
       }
+      /* Fila de cada brute: nombre, vida y barra a la izquierda y su botón de ultimate a la derecha */
       ol.roster li {
         display: flex;
-        flex-direction: column;
-        padding: 5px 8px;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 5px 4px 8px;
         border-radius: 6px;
         background: #2a201a;
         /* Color del brute: el mismo que su etiqueta en la arena */
         border-left: 4px solid var(--c, transparent);
         cursor: pointer;
       }
-      ol.roster li:hover,
+      .roster-main {
+        flex: 1;
+        min-width: 0;
+      }
+      /* Resaltar una fila es cosa del ratón (pasar por encima, o fijarla con un clic): en el móvil tocarla no hace
+         nada, así no se resalta sin querer al ir a pulsar su ultimate (ver main.js) */
+      #roster {
+        -webkit-tap-highlight-color: transparent;
+      }
+      @media (hover: hover) {
+        ol.roster li:hover {
+          background: #3a2c22;
+          box-shadow: inset 0 0 0 1px var(--c, transparent);
+        }
+      }
       ol.roster li.lit {
         background: #3a2c22;
         box-shadow: inset 0 0 0 1px var(--c, transparent);
       }
       /* Con muchos brutes la lista se desplaza en vez de estirar la página */
       ol.roster {
-        max-height: 250px;
+        max-height: 300px;
         overflow-y: auto;
       }
       .dot {
@@ -319,26 +311,58 @@
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
-      /* Botoncito de ultimate de cada fila del royale */
-      .roster-top .ult {
+      /* Botón de ultimate de cada fila del royale: grande, para pulsarlo bien también con el dedo */
+      ol.roster .ult {
+        position: relative;
         flex: 0 0 auto;
-        align-self: center;
-        padding: 1px 6px;
-        font-size: 12px;
-        line-height: 1.4;
-        border-radius: 6px;
+        width: 52px;
+        height: 40px;
+        padding: 0;
+        font-size: 22px;
+        line-height: 1;
+        border-radius: 10px;
         background: #3a2c22;
-        border: 1px solid var(--gold);
+        border: 2px solid var(--gold);
         color: var(--gold);
-        box-shadow: 0 0 6px rgba(255, 209, 102, 0.45);
-        font-variant-numeric: tabular-nums;
+        box-shadow: 0 0 8px rgba(255, 209, 102, 0.5);
+        touch-action: manipulation;
       }
-      .roster-top .ult:disabled {
+      ol.roster .ult:active:not(:disabled) {
+        transform: scale(0.92);
+      }
+      /* Recargando (o con la ronda ya acabada): el icono se apaga y encima van los segundos que le faltan */
+      ol.roster .ult:disabled {
+        opacity: 1;
+        border-color: #5a4636;
         box-shadow: none;
       }
-      /* En cola: sale en cuanto se pueda */
-      .roster-top .ult.queued {
+      ol.roster .ult:disabled .ult-icon {
+        opacity: 0.35;
+      }
+      .ult-cd {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+        font-weight: 800;
+        color: #fff;
+        text-shadow:
+          0 0 3px #000,
+          0 0 3px #000;
+        font-variant-numeric: tabular-nums;
+      }
+      /* En cola: sale en cuanto se pueda (el botón late y lleva un reloj de arena en la esquina) */
+      ol.roster .ult.queued {
         animation: ult-queued 1s ease-in-out infinite;
+      }
+      .ult-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        font-size: 14px;
+        font-style: normal;
       }
       @keyframes ult-queued {
         50% {
@@ -407,13 +431,99 @@
         color: #fff6d6;
         border: 1px solid #ffd166;
       }
+      /* Botones de la arena: solo iconos y en una sola fila (lo que hace cada uno sale al pasar el ratón por encima) */
+      .controls {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        margin-top: 12px;
+      }
+      .controls > * {
+        position: relative;
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: 56px;
+        height: 42px;
+        padding: 0;
+        font-size: 20px;
+        line-height: 1;
+        touch-action: manipulation;
+      }
+      .controls > :active:not(:disabled) {
+        transform: scale(0.92);
+      }
+      #speed {
+        font-size: 16px;
+      }
+      /* Sonido apagado: botón oscuro (la música, además, con la nota tachada) */
+      .controls .off {
+        background: #150f0b;
+        box-shadow: inset 0 0 0 2px #5a4636;
+      }
+      #music.off::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 26px;
+        height: 3px;
+        border-radius: 2px;
+        background: #ef4444;
+        transform: translate(-50%, -50%) rotate(-45deg);
+      }
+      /* Cuenta atrás de las rondas continuas, en la esquina del botón de nueva ronda */
+      .controls .badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        border-radius: 9px;
+        background: #ef4444;
+        color: #fff;
+        font-size: 12px;
+        line-height: 18px;
+      }
+      /* Casillas con forma de botón: doradas si están activadas, oscuras si no */
+      .icon-toggle {
+        display: flex;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .icon-toggle input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: 0;
+        padding: 0;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .icon-toggle span {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: #150f0b;
+        box-shadow: inset 0 0 0 2px #5a4636;
+      }
+      .icon-toggle input:checked + span {
+        background: var(--gold);
+        box-shadow: none;
+      }
+      .icon-toggle input:focus-visible + span {
+        outline: 2px solid var(--ink);
+        outline-offset: 2px;
+      }
       .download-btn {
         background: linear-gradient(180deg, #4ade80, #15803d);
         color: #052e16;
-        display: none;
       }
       #arena.trailer #roster,
-      #arena.trailer .auto-toggle {
+      #arena.trailer #autoToggle {
         display: none;
       }
       #arena.trailer .stage {
@@ -434,20 +544,6 @@
           grid-column: 1 / -1;
         }
       }
-      .row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 12px;
-      }
-      .row button {
-        flex: 1 1 110px;
-      }
-      /* Casillas: si no caben en la fila pasan a la siguiente en vez de salirse de la pantalla */
-      .row .auto-toggle {
-        flex: 1 1 auto;
-        min-height: 44px;
-      }
     </style>
   </head>
   <body>
@@ -467,23 +563,31 @@
         <div class="shop roster-panel" id="roster"></div>
         <div id="canvas"></div>
       </div>
-      <div class="row">
-        <button id="pause">⏸ Pausa</button><button id="speed">Velocidad x1</button><button id="sfx">🔊 Efectos</button
-        ><button id="music">🎵 Música</button>
-      </div>
-      <div class="row">
-        <button id="again">👑 Nueva ronda</button>
-        <button id="downloadPromo" class="download-btn">⬇ Descargar Video</button>
-        <label class="toggle auto-toggle"
-          ><input type="checkbox" id="auto" /><span id="autoLabel">Rondas continuas</span></label
+      <div class="controls">
+        <button id="pause" title="Pausa" aria-label="Pausa">⏸️</button>
+        <button id="speed" title="Velocidad">x1</button>
+        <button id="sfx" title="Efectos de sonido" aria-label="Efectos de sonido" aria-pressed="true">🔊</button>
+        <button id="music" title="Música" aria-label="Música" aria-pressed="true">🎵</button>
+        <button id="again" title="Nueva ronda" aria-label="Nueva ronda">👑</button>
+        <label class="icon-toggle" id="autoToggle" title="Rondas continuas: al terminar una ronda empieza otra sola"
+          ><input type="checkbox" id="auto" aria-label="Rondas continuas" /><span>🔁</span></label
         >
         <label
-          class="toggle auto-toggle"
+          class="icon-toggle"
           id="zoomToggle"
-          title="Acerca la cámara cuando quedan pocos en pie y la aleja cuando hay muchos"
-          ><input type="checkbox" id="zoom" checked /><span>🔍 Zoom dinámico</span></label
+          title="Zoom dinámico: acerca la cámara cuando quedan pocos en pie y la aleja cuando hay muchos"
+          ><input type="checkbox" id="zoom" checked aria-label="Zoom dinámico" /><span>🔍</span></label
         >
-        <button id="back">Volver al menú</button>
+        <button
+          id="downloadPromo"
+          class="download-btn"
+          title="Descargar el video"
+          aria-label="Descargar el video"
+          hidden
+        >
+          ⬇️
+        </button>
+        <button id="back" title="Volver al menú" aria-label="Volver al menú">🏠</button>
       </div>
     </div>
 
