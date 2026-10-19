@@ -86,6 +86,12 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     lista. Al pasar el ratón por una fila (o tocarla) se resalta en la arena; con un clic se queda fijo.
     La lista solo muestra a los que siguen en pie: los eliminados cuentan en "X de Y en pie" y en las
     últimas eliminaciones, debajo.
+  - **🔍 Zoom dinámico** (casilla junto a los botones de la arena; activada de entrada, se recuerda en el navegador y se
+    puede cambiar en plena pelea): la cámara encuadra a los que siguen en pie. Con muchos se ve la arena entera y con
+    pocos se acerca (hasta x2 cuando quedan uno o dos) para ver las peleas con más detalle, sin dejar a nadie fuera ni
+    salirse del escenario. Se aleja deprisa (cuando entra alguien o se separan) y se acerca despacio, sin tirones. El
+    reloj y los letreros se quedan fijos arriba y las etiquetas de nombre y vida mantienen su tamaño. Con la opción
+    activada, los luchadores se dibujan con más resolución para que de cerca no se vean borrosos.
   - Junto a esa barra de vida, un trofeo cuenta las victorias de cada brute en la ronda (cada rival que
     elimina). Aparece con la primera, para no llenar la arena de ceros, y salta cada vez que suma. La lista
     también lo muestra junto a la vida de cada fila.

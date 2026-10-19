@@ -2,6 +2,7 @@
 // en la lista de participantes. Al pasar el ratón por una fila (o tocarla) ese luchador se resalta en la arena.
 // Junto a la barra, desde su primera victoria (cada rival que elimina), un trofeo cuenta sus victorias de la ronda.
 import { Application, Container, Graphics, Text, Ticker } from 'pixi.js';
+import type { CameraView } from './royaleCamera';
 import { AnimationFighter } from './utils/findFighter';
 import { trophy } from './winsCounter';
 
@@ -65,6 +66,9 @@ export const royaleTags = (
   getFighters: () => AnimationFighter[],
   speed: React.RefObject<number>,
   getHighlight: () => number | null,
+  // Lo que se ve del escenario con el zoom dinámico (ver royaleCamera): las etiquetas mantienen su tamaño en pantalla
+  // y no se salen de lo que se ve
+  getView?: () => CameraView | undefined,
 ) => {
   const tags = new Map<AnimationFighter, Tag>();
   // Victorias de cada brute en la ronda (por su número de luchador)
@@ -152,6 +156,9 @@ export const royaleTags = (
     const dt = (Math.min(ticker.elapsedMS, 50) / 1000) * speed.current;
     measure(Math.min(ticker.elapsedMS, 50) / 1000);
     const highlight = getHighlight();
+    const view = getView?.() ?? { x0: 0, y0: 0, x1: 500, y1: 300, z: 1 };
+    // Tamaño en el escenario para que en pantalla se vean igual con zoom
+    const scale = size / view.z;
     const placed: { x0: number; x1: number; y: number }[] = [];
     // De abajo arriba en la pantalla: los de delante colocan su etiqueta primero
     const brutes = getFighters()
@@ -207,11 +214,12 @@ export const royaleTags = (
       // Encima de la cabeza, sin salirse por los lados ni por arriba (Súper gigante) y sin taparse con la de al lado
       // (se sube un escalón)
       const giant = f.animation.giantScale || 1;
-      const left = tag.left * size;
-      const right = tag.right * size;
-      const step = TAG_H * size;
-      const x = clamp(c.x, left + 3, 500 - right - 3);
-      const y = Math.max(step + 3, c.y - f.animation.baseHeight * 0.98 * giant - 3);
+      const left = tag.left * scale;
+      const right = tag.right * scale;
+      const step = TAG_H * scale;
+      const edge = 3 / view.z;
+      const x = clamp(c.x, view.x0 + left + edge, view.x1 - right - edge);
+      const y = Math.max(view.y0 + step + edge, c.y - f.animation.baseHeight * 0.98 * giant - 3);
       let lift = 0;
       for (let tries = 0; tries < 4; tries++) {
         const top = y - lift;
@@ -225,7 +233,7 @@ export const royaleTags = (
       // Resaltado desde la lista: etiqueta más grande y anillo que late bajo los pies
       const lit = highlight === f.index;
       tag.zoom += ((lit ? 1.4 : 1) - tag.zoom) * Math.min(1, dt * 12);
-      tag.root.scale.set(tag.zoom * size);
+      tag.root.scale.set(tag.zoom * scale);
       tag.root.zIndex = lit ? 870 : 860;
       tag.ring.visible = lit;
       if (lit) {

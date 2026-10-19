@@ -8,6 +8,7 @@ import { sound } from '@pixi/sound';
 import { Application, Container, Text } from 'pixi.js';
 import { announce, bigText } from './fatality';
 import { AnimationFighter } from './utils/findFighter';
+import { screenLayer } from './utils/hud';
 import { shakeStage } from './utils/stageAnimations';
 import { tween } from './utils/tween';
 
@@ -48,7 +49,7 @@ export const multiKills = (app: Application, speed: Speed) => {
     root.zIndex = 970;
     root.scale.set(2.4);
     root.alpha = 0;
-    app.stage.addChild(root);
+    screenLayer(app).addChild(root);
     const banner = { root, count: counter, index: killer.index, hideAt };
     shown = banner;
     void tween(root.scale, { x: 1, y: 1, duration: 0.35 / speed.current, ease: 'back.out(1.6)' });

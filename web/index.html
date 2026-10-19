@@ -286,6 +286,13 @@
         display: none;
         border-color: var(--gold);
       }
+      /* Zoom dinámico: solo en el royale */
+      #zoomToggle {
+        display: none;
+      }
+      #arena.royale #zoomToggle {
+        display: flex;
+      }
       /* Royale: sin tienda, sin celebración de fatality y sin acercamiento (no hay bandos) */
       #arena.royale #celebrateToggle,
       #arena.royale #shop-p1,
@@ -616,6 +623,12 @@
         >
         <label class="toggle auto-toggle" id="celebrateToggle"
           ><input type="checkbox" id="celebrate" checked /><span>Celebrar tras la fatality</span></label
+        >
+        <label
+          class="toggle auto-toggle"
+          id="zoomToggle"
+          title="Acerca la cámara cuando quedan pocos en pie y la aleja cuando hay muchos"
+          ><input type="checkbox" id="zoom" checked /><span>🔍 Zoom dinámico</span></label
         >
         <button id="back">Cambiar nombres</button>
       </div>

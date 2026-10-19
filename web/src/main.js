@@ -15,6 +15,7 @@ import { royaleColorCss } from './fight/royaleTags.ts';
 import { crowdQuality } from './fight/crowdQuality.ts';
 import { setFightDisposing } from './fight/utils/lifecycle.ts';
 import { renderQuality } from './fight/FighterHolder.ts';
+import { royaleZoom } from './fight/royaleCamera.ts';
 import { fightApproach } from './fight/utils/fightPositions.ts';
 import { sound } from '@pixi/sound';
 import { sfx, sounds } from './sfx.ts';
@@ -445,7 +446,8 @@ async function playFight(id, fight) {
   // se dibuja a la resolución real de pantalla para que no se vea borroso.
   const displayWidth = Math.min(800, $('canvas').clientWidth || 800);
   const quality = Math.min(4, (window.devicePixelRatio || 1) * (displayWidth / 500));
-  renderQuality.value = quality;
+  // Royale con zoom dinámico: los luchadores se dibujan con más detalle, para que de cerca no se vean borrosos
+  renderQuality.value = mode === 'royale' && royaleZoom.enabled ? Math.min(4, quality * 1.6) : quality;
   await a.init({ backgroundColor: 0xfbf7c0, width: 500, height: 300, resolution: quality, antialias: true });
   if (id !== run) {
     a.destroy({ removeView: true });
@@ -651,6 +653,21 @@ try {
   /* sin storage */
 }
 $('celebrate').checked = fatalityOptions.celebrate;
+// Royale: zoom dinámico (ver fight/royaleCamera). Se puede cambiar en plena pelea y se recuerda en este navegador
+try {
+  royaleZoom.enabled = localStorage.getItem('brute-demo-zoom') !== 'false';
+} catch {
+  /* sin storage */
+}
+$('zoom').checked = royaleZoom.enabled;
+$('zoom').onchange = (e) => {
+  royaleZoom.enabled = e.target.checked;
+  try {
+    localStorage.setItem('brute-demo-zoom', String(royaleZoom.enabled));
+  } catch {
+    /* sin storage */
+  }
+};
 $('celebrate').onchange = (e) => {
   fatalityOptions.celebrate = e.target.checked;
   try {

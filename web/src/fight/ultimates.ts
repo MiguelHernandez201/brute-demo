@@ -19,6 +19,7 @@ import { stagger } from './stagger';
 import { untrap } from './untrap';
 import { updateHp } from './updateHp';
 import { displayDamage } from './utils/displayDamage';
+import { screenLayer } from './utils/hud';
 import { AnimationFighter, findFighter } from './utils/findFighter';
 import { royaleArena } from './utils/fightPositions';
 import { playHitEffect, playStepDust } from './utils/playVFX';
@@ -125,7 +126,7 @@ export const ultimateCast = (
   title.zIndex = 960;
   title.scale.set(0.4);
   titles.push(title);
-  app.stage.addChild(title);
+  screenLayer(app).addChild(title);
   void tween(title.scale, { x: 1, y: 1, duration: 0.35 / speed.current, ease: 'back.out(2)' });
   void tween(title, { alpha: 0, duration: 0.5 / speed.current, delay: 1.8 / speed.current }).then(() => title.destroy());
 

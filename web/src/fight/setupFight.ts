@@ -63,6 +63,7 @@ import { getDuelPosition, royaleArena } from './utils/fightPositions';
 import { royaleAmbient } from './royaleAmbient';
 import { royaleTags } from './royaleTags';
 import { royaleClock } from './royaleClock';
+import { royaleCamera } from './royaleCamera';
 import { multiKills } from './multiKill';
 import {
   clearUltimates, giantShrink, giantStomp, giantTimer, ultimateBomb, ultimateCast, ultimateCleaveHit, ultimateFlood,
@@ -755,6 +756,8 @@ export const setupFight: (
     // Royale: sin HUD superior (la vida de todos está en el panel lateral). Se oculta cada fotograma
     // porque los iconos de armas/habilidades se vuelven a crear al cambiar de duelo.
     hudControl.hidden = isRoyale;
+    // Royale: zoom dinámico (si está activado): encuadra a los que siguen en pie (ver royaleCamera)
+    const camera = isRoyale ? royaleCamera(app, () => fighters) : null;
     if (isRoyale) {
       const hideHud = () => {
         if (!app.stage || app.stage.destroyed) return;
@@ -771,7 +774,9 @@ export const setupFight: (
       onKill?: (kill: { victim: number; killer?: number; kind?: string }) => void;
     };
     // Royale: nombre, vida y victorias sobre cada brute, con el color de su fila en la lista
-    const tags = isRoyale ? royaleTags(app, () => fighters, speed, () => royaleFight.highlight ?? null) : null;
+    const tags = isRoyale
+      ? royaleTags(app, () => fighters, speed, () => royaleFight.highlight ?? null, () => camera?.view)
+      : null;
     // Royale: varias eliminaciones seguidas del mismo brute → ¡MULTI KILL! (ver multiKill)
     const multiKill = isRoyale ? multiKills(app, speed) : null;
     // Royale: los que se mueven por su cuenta (se crea con el bucle de turnos en paralelo)
