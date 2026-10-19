@@ -122,8 +122,14 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     - **+1000**: 1000 PV, un arma poderosa (hacha, espada, mayal, lucero del alba, alabarda o maza, de nivel 2) y un
       **aura de ki** al estilo Dragon Ball para el resto de la pelea: llamas doradas y translúcidas que le envuelven y
       suben, con chispas, y hace el triple de daño (con el Súper gigante, x6).
-    - **+3000**: 3000 PV, un arma poderosa de nivel 3, el aura de ki (esta con rayos, como el Súper Saiyajin 2) y una
-      **mascota** (perro, pantera u oso) que pelea con él durante un minuto y luego se va.
+    - **+3000**: 3000 PV, un arma poderosa de nivel 3, el aura de ki (esta con rayos, como el Súper Saiyajin 2), una
+      **mascota** (perro, pantera u oso) que pelea con él durante un minuto y luego se va, y una **minigun** durante
+      20 s de pelea. La lleva en las manos a la altura de la cadera (su arma se guarda mientras tanto) y cada turno
+      suyo es una ráfaga a distancia a los rivales de su duelo (hasta 3): los cañones giran, fogonazos, trazadoras,
+      chispas, casquillos y su propio sonido. No se esquiva, ni se bloquea, ni se contraataca, y a cada uno le quita lo
+      de un golpe suyo (x3 con el aura): en 120 royales simulados, unos 400 PV por turno frente a unos 240 de sus
+      turnos normales. Al acabarse la suelta (cae al suelo y se desvanece) y vuelve a su arma; otro +3000 con ella en
+      las manos vuelve a empezar sus 20 s.
 
     "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV (y se le
     quita el veneno). La vida llega al momento de pulsar, esté haciendo lo que esté: sale el número en verde y la vida

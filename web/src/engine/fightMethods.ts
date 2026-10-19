@@ -2310,6 +2310,43 @@ const startAttack = (
   checkDeaths(fightData, stats);
 };
 
+// Demo battle royale: ráfaga de la minigun (ver ultimates.boostGear) a los rivales de su duelo, hasta MINIGUN_TARGETS
+// empezando por `opponent`. No se esquiva, ni se bloquea, ni se contraataca, y a cada uno le quita MINIGUN_FACTOR veces
+// un golpe suyo (con su arma, y x3 con el aura de ki, ver registerHit)
+const MINIGUN_TARGETS = 3;
+const MINIGUN_FACTOR = 1;
+const minigunBurst = (
+  chaos: boolean,
+  fightData: DetailedFight,
+  stats: Stats,
+  achievements: AchievementsStore,
+  fighter: DetailedFighter,
+  opponent: DetailedFighter,
+) => {
+  const others = getOpponents({ fightData, fighter }).filter((f) => f !== opponent).sort(() => Math.random() - 0.5);
+  const targets = [opponent, ...others].slice(0, MINIGUN_TARGETS);
+  targets.forEach((target, k) => {
+    if (target.hp <= 0) return;
+    const { damage, criticalHit } = getDamage(chaos, fighter, target);
+    registerHit({
+      fightData,
+      stats,
+      achievements,
+      fighter,
+      opponents: [target],
+      damage: Math.max(1, Math.floor(damage * MINIGUN_FACTOR)),
+      criticalHit,
+      thrown: true,
+      source: 'ultimate',
+      // `k` de `n`: los rivales de esta ráfaga (la animación barre de uno a otro)
+      customStep: (d) => ({
+        a: 'demoMinigunFire', f: fighter.index, t: target.index, d: d[target.index] ?? 0, c: criticalHit ? 1 : 0, k,
+        n: targets.length,
+      } as never),
+    });
+  });
+};
+
 export const playFighterTurn = (
   fightData: DetailedFight,
   stats: Stats,
@@ -2432,8 +2469,12 @@ export const playFighterTurn = (
     }
   }
 
+  // Demo battle royale: con la minigun del potenciador 3 (ver ultimates.boostGear), su turno es una ráfaga a distancia
+  // (ver minigunBurst): ni técnicas ni cambiar de arma
+  const minigun = !!(fighter as { demoMinigun?: boolean }).demoMinigun;
+
   // Super activation
-  const possibleSuper = randomlyGetSuper(fightData, fighter);
+  const possibleSuper = minigun ? null : randomlyGetSuper(fightData, fighter);
   if (possibleSuper) {
     // End turn if super activated
     if (activateSuper(chaos, fightData, fighter, possibleSuper, stats, achievements)) {
@@ -2448,7 +2489,7 @@ export const playFighterTurn = (
   );
 
   // Draw weapon
-  const sabotaged = drawWeapon(fightData, fighter, forceDraw);
+  const sabotaged = !minigun && drawWeapon(fightData, fighter, forceDraw);
 
   // End turn if weapon was sabotaged
   if (sabotaged) {
@@ -2456,7 +2497,7 @@ export const playFighterTurn = (
   }
 
   // Get attack type (more chances to throw a weapon the less damage it does)
-  let attackType = fighter.activeWeapon?.types.includes('thrown')
+  let attackType: 'melee' | 'thrown' | 'minigun' = fighter.activeWeapon?.types.includes('thrown')
     ? 'thrown'
     : fighter.activeWeapon
       ? fighter.skills[SkillName.hideaway]
@@ -2481,6 +2522,7 @@ export const playFighterTurn = (
   if (attackType === 'thrown' && keepsWeapon(fighter) && !fighter.activeWeapon?.types.includes('thrown')) {
     attackType = 'melee';
   }
+  if (minigun) attackType = 'minigun';
 
   // Get opponent
   const opponent = getRandomOpponent({ fightData, fighter });
@@ -2565,6 +2607,8 @@ export const playFighterTurn = (
       // Fighter attacks opponent
       startAttack(chaos, fightData, stats, achievements, fighter, opponent);
     }
+  } else if (attackType === 'minigun') {
+    minigunBurst(chaos, fightData, stats, achievements, fighter, opponent);
   } else {
     // Throw attack
     if (!fighter.activeWeapon) {

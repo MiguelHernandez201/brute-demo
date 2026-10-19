@@ -36,8 +36,9 @@ const loadSheet = (path, cachePrefix) => Assets.load({ src: path, data: { cacheP
 // Sonido: mismos audios y sprites que la pelea original
 const audio = { sfx: true, music: true };
 // Voces grabadas del anunciador (suenan con los efectos): "Multi kill!" (ver fight/multiKill) y las de la fatality,
-// "Finish him!" / "Finish her!" y "Fatality!" (ver fight/fatality)
-const VOICES = ['multikill', 'finishhim', 'finishher', 'fatality'];
+// "Finish him!" / "Finish her!" y "Fatality!" (ver fight/fatality). Y la ráfaga de la minigun (ver fight/minigun), que
+// tampoco está entre los sonidos de la pelea original
+const VOICES = ['multikill', 'finishhim', 'finishher', 'fatality', 'minigun'];
 function setupSounds() {
   if (!sound.exists('background')) sound.add('background', `${import.meta.env.BASE_URL}sfx/background.mp3`);
   for (const voice of VOICES) {
@@ -220,8 +221,8 @@ window.addEventListener('pointerup', () => {
 // Potenciadores de cada brute: tres botones en su fila de la lista (ver engine/ultimates.boost). Los tres lanzan un
 // poder (una ultimate, cada vez una de las cuatro, ver sim.castBoost; el botón no dice cuál) y además le curan o le
 // suman vida y le dan un arma que ya no pierde; el 2 y el 3 le encienden un aura de ki para el resto de la pelea (daño
-// x3) y el 3 le trae también una mascota que pelea con él un minuto. Sin recarga: en cuanto se ve su poder se pueden
-// volver a pulsar
+// x3) y el 3 le trae también una mascota que pelea con él un minuto y una minigun durante 20 s (ver fight/minigun). Sin
+// recarga: en cuanto se ve su poder se pueden volver a pulsar
 const BOOSTS = [
   {
     tier: 1,
@@ -236,7 +237,7 @@ const BOOSTS = [
   {
     tier: 3,
     label: '+3000',
-    text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki para toda la pelea (daño x3), una mascota que pelea con él un minuto y lanza un poder (cada vez uno distinto)',
+    text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki para toda la pelea (daño x3), una mascota que pelea con él un minuto, una minigun durante 20 s y lanza un poder (cada vez uno distinto)',
   },
 ];
 // Vida de una fila de la lista. Nunca por encima de la máxima: la cura de un potenciador se ve antes que golpes que en

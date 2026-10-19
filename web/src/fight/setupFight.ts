@@ -67,10 +67,11 @@ import { royaleCamera } from './royaleCamera';
 import { multiKills } from './multiKill';
 import {
   clearUltimates, fightTimer, giantShrink, giantStomp, giantTimer, ultimateBomb, ultimateCast, ultimateCleaveHit,
-  ultimateFlood, ultimateHaste,
+  ultimateFlood, ultimateHaste, struck,
 } from './ultimates';
 import { KiAura, kiAura } from './kiAura';
-import { PET_SECONDS } from '../engine/ultimates';
+import { MINIGUN_SECONDS, PET_SECONDS } from '../engine/ultimates';
+import { Minigun, minigun } from './minigun';
 import { resetBakeBudget, setCrowdLevel, updateCrowdQuality } from './crowdQuality';
 import { vampirism } from './vampirism';
 import { getFighters } from './utils/getFighters';
@@ -820,6 +821,7 @@ export const setupFight: (
         case 'demoBomb' as never:
         case 'demoHaste' as never:
         case 'demoCleaveHit' as never:
+        case 'demoMinigunFire' as never:
           if (typeof by !== 'number') return null;
           return { by, targets: (Array.isArray(s.t) ? s.t : [s.t]).filter((t): t is number => typeof t === 'number') };
         default:
@@ -862,6 +864,8 @@ export const setupFight: (
     // Royale: cómo cancelar el final de cada Súper gigante (si vuelve a lanzarlo siendo gigante, su tiempo empieza de
     // nuevo)
     const giantEnds = new Map<number, () => void>();
+    // Royale: miniguns del potenciador 3 y cómo cancelar el final de su tiempo (si le llega otra, vuelve a empezar)
+    const miniguns = new Map<number, { gun: Minigun; cancel: () => void }>();
     // Royale: curaciones de potenciadores seguidos, que se agrupan (ver demoBoost): el número que las suma, cuándo se
     // vio la última y si quedaban más en cola. `boostsQueued`: si un brute tiene más potenciadores en cola (lo pone el
     // planificador, más abajo)
@@ -945,6 +949,7 @@ export const setupFight: (
       endNow?: (winnerIndex: number) => boolean;
       cleave?: (index: number, candidates: number[]) => { t: number; d: number }[];
       endGiant?: (index: number) => boolean;
+      endMinigun?: (index: number) => boolean;
       endPet?: (index: number) => boolean;
       wake?: () => void;
     };
@@ -1130,6 +1135,8 @@ export const setupFight: (
         }
         case StepType.Equip: {
           await equip(app, spritesheets, fighters, step);
+          // Demo royale: con la minigun en las manos, la nueva se guarda con la suya (ver minigun.stash)
+          miniguns.get(step.b)?.gun.stash();
           break;
         }
         case StepType.Sabotage: {
@@ -1264,6 +1271,47 @@ export const setupFight: (
         // Demo royale: caída anulada (un potenciador le salvó antes de que se viera, ver session.castBoost)
         case 'demoRevived' as never:
           break;
+        // Demo royale: minigun del potenciador 3 (ver minigun.ts): la saca y cuenta MINIGUN_SECONDS desde ese momento.
+        // Si ya la llevaba, su tiempo vuelve a empezar
+        case 'demoMinigun' as never: {
+          const gunStep = step as unknown as { f: number };
+          const brute = findFighter(fighters, gunStep.f);
+          if (!brute || brute.dead || brute.animation.container.destroyed) break;
+          const before = miniguns.get(brute.index);
+          before?.cancel();
+          const gun = before && !before.gun.removed ? before.gun : minigun(app, brute, speed);
+          void sound.play('sfx', { sprite: 'equip' });
+          const cancel = fightTimer(app, speed, MINIGUN_SECONDS, () => demoFight.endMinigun?.(brute.index));
+          miniguns.set(brute.index, { gun, cancel });
+          break;
+        }
+        // Demo royale: ráfaga de la minigun a un rival (ver fightMethods.minigunBurst): dispara y luego el rival encaja
+        // el daño de toda la ráfaga
+        case 'demoMinigunFire' as never: {
+          const fireStep = step as unknown as { f: number; t: number; d: number; c?: number };
+          const shooter = findFighter(fighters, fireStep.f);
+          const target = findFighter(fighters, fireStep.t);
+          if (!shooter || !target || shooter.animation.container.destroyed) break;
+          let entry = miniguns.get(shooter.index);
+          // (si no se llegó a ver cómo la sacaba, la saca ahora)
+          if (!entry || entry.gun.removed) {
+            entry = { gun: minigun(app, shooter, speed), cancel: () => {} };
+            miniguns.set(shooter.index, entry);
+          }
+          if (!shooter.animation.animation.startsWith('idle')) shooter.animation.setAnimation('idle');
+          await entry.gun.fire(target, 0.75);
+          await struck(app, spritesheets, fighters, target, fireStep.d, speed, 14, !!fireStep.c);
+          break;
+        }
+        // Demo royale: se acaba la minigun (ver engine/ultimates.endMinigun): la suelta y vuelve a su arma
+        case 'demoMinigunEnd' as never: {
+          const endStep = step as unknown as { f: number };
+          const entry = miniguns.get(endStep.f);
+          entry?.cancel();
+          entry?.gun.drop();
+          miniguns.delete(endStep.f);
+          break;
+        }
         // Demo royale: potenciador 2 o 3 → aura de ki (daño x3 en el motor) para el resto de la pelea. Si ya la tenía,
         // vuelve a estallar (y si era la del 2 y este es el 3, pasa a la de rayos)
         case 'demoKi' as never: {
@@ -1570,6 +1618,7 @@ export const setupFight: (
           case 'demoFlood' as never:
           case 'demoHaste' as never:
           case 'demoCleaveHit' as never:
+          case 'demoMinigunFire' as never:
             return typeof s.t === 'number' && typeof s.d === 'number' ? [[s.t, -s.d]] : [];
           case StepType.Bomb:
           case 'demoBomb' as never:
