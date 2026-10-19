@@ -75,6 +75,17 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     que los demás (dentro del grupo el más rápido sigue atacando más seguido). La animación muestra los turnos
     de cada grupo de uno en uno, así que el grupo con más turnos marcaba el paso de toda la arena y el resto
     esperaba.
+  - El motor no va por delante de lo que se ve: juega el siguiente turno de cada duelo cuando acaba de verse el
+    anterior. Antes se adelantaba hasta llenar la cola y en el duelo más lento (el de animaciones más largas) se
+    acumulaban hasta 7 turnos: en un royale de 10, uno de cada cinco brutes en pie en pantalla ya había caído en el
+    motor (a veces más de 20 s antes de verse), y si se pulsaba su ultimate se quedaba en cola sin salir nunca. Ahora
+    es uno de cada veinte, casi siempre solo mientras se ve el turno en el que lo rematan, y hay más duelos
+    animándose a la vez (en la misma prueba, el 93 % de los que siguen en pie; antes, el 83 %).
+    - Los de un mismo duelo esperan juntos: dentro de cada uno se sigue el orden de iniciativa (en un trío, el que
+      queda libre no se adelanta a los otros dos).
+    - Como cada duelo lleva su propio ritmo, quien cambia de rival se pone a la hora de su nuevo duelo (como el que
+      acaba de entrar): si no, el que venía de un duelo más lento encadenaba varios turnos seguidos (en 30 royales de
+      16 simulados, hasta 19 ataques seguidos; así, como antes, no pasan de 12).
   - Tras atacar, cada uno retrocede frente a su rival (no a otra punta de la arena), así cada pareja pelea en
     su zona. Las llegadas del principio van escalonadas, sin esperar a que aterrice el anterior.
   - Carroñero y Golosina están en desuso en el royale: aquí no hay mascotas, así que nunca podían usarse. Los brutes
@@ -117,9 +128,13 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     gigante, contando lo que pega de más y lo que deja de recibir) y elimina a unos 2 rivales. Tras verse, el botón
     se recarga en 30 s (los segundos que faltan salen encima del icono; se para con la pausa). Quien cae por una ultimate no tiene fatality (son muchos a la vez),
     pero la victoria es para quien la lanzó.
-    - Si ahora no se puede lanzar (no queda a quién darle, está atrapado en una red o aturdido, o en el motor ya ha
-      caído aunque aún no se vea), el clic la deja **en cola** (⏳, el botón late) y sale sola en cuanto se pueda,
-      por ejemplo al entrar otro brute. Otro clic la quita de la cola.
+    - Si ahora no se puede lanzar (no queda a quién darle, está atrapado en una red o aturdido, en el motor ya ha
+      caído aunque aún no se vea, o es un brute recién agregado que aún no ha aparecido en la arena), el clic la deja
+      **en cola** (⏳, el botón late) y sale sola en cuanto se pueda, por ejemplo al entrar otro brute. Otro clic la
+      quita de la cola. El Súper gigante no necesita a quién darle (es para él): aunque en el motor ya no quede nadie,
+      crece igual y le sirve contra el que entre.
+    - Mientras se pulsa un botón de la lista, esta no se repinta hasta soltarlo. Antes, si justo entonces caía alguien
+      o cambiaba otra ultimate, el botón se cambiaba por otro a mitad del toque y la pulsación se perdía.
     - El letrero sale al momento. Lo que cae del cielo (armas, bombas) y la onda del gigante llegan a su hora: quien
       está libre encaja el golpe y quien está a mitad de su turno lo recibe sin pararse (destello, daño y vida). Las
       embestidas de la Prisa van a por cada uno en cuanto él y su objetivo quedan libres, pasando por delante de lo
@@ -140,9 +155,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, en cualquier momento hasta que se ve el final. El
     que llega entra en un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y
     recibe golpes enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
-    - El motor solo juega por delante de la animación un turno por cada brute en pie. Antes eran al menos 16:
-      con pocos en pie, todos esos turnos eran del mismo duelo y el recién llegado esperaba unos 25 s a que
-      se vieran.
+    - El motor no va por delante de la animación (ver arriba), así que el recién llegado entra en cuanto aparece.
+      Antes se adelantaba al menos 16 turnos: con pocos en pie, todos esos turnos eran del mismo duelo y el recién
+      llegado esperaba unos 25 s a que se vieran.
     - Cuando en el motor ya queda uno solo en pie, la pelea no se cierra: espera, y si entra alguien, sigue contra
       él. Antes el botón se apagaba con 3 o 4 brutes aún peleando en pantalla (el motor va por delante y ya había
       terminado).

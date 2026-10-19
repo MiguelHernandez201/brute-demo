@@ -163,10 +163,19 @@ const royaleGroup = (fightData: DetailedFight, team: string) => {
   const current = duels.group[team];
   if (members(current).length >= 2) return current;
   const others = alive.filter((t) => t !== team);
+  // Cada duelo lleva su propio ritmo, el de su animación (ver session.playTurn), así que la iniciativa de un grupo
+  // puede ir por delante o por detrás de la de otro. Los que pasan a pelear con quien busca grupo se ponen a su hora,
+  // como el que acaba de entrar en la pelea: si no, el que fuera por detrás encadenaría varios turnos seguidos
+  const sync = (teams: string[]) => fightData.fighters
+    .filter((f) => teams.includes(f.team) && f.hp > 0 && f !== fightData.fighters[0])
+    .forEach((f) => {
+      f.initiative = fightData.initiative + 0.01 + randomBetween(0, 10) / 1000;
+    });
   const pairWith = (other: string) => {
     const group = duels.next++;
     duels.group[team] = group;
     duels.group[other] = group;
+    sync([other]);
     return group;
   };
   const free = pickOne(others.filter((t) => members(duels.group[t]).length < 2));
@@ -176,6 +185,7 @@ const royaleGroup = (fightData: DetailedFight, team: string) => {
   const pair = pickOne(others);
   if (!pair) return undefined;
   duels.group[team] = duels.group[pair] as number;
+  sync(members(duels.group[team]).filter((t) => t !== team));
   return duels.group[team];
 };
 

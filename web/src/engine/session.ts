@@ -198,7 +198,8 @@ export class FightSession {
 
   // Battle royale: el brute `index` lanza su ultimate (botón de la lista). Como al agregar un brute, se juega en el
   // motor ya (tras lo que el motor ya llevaba jugado); la animación la muestra enseguida (ver setupFight). No se puede
-  // si no queda a quién darle o si está atrapado en una red o aturdido (el botón la deja en cola, ver main.js)
+  // si no queda a quién darle (salvo el Súper gigante) o si está atrapado en una red o aturdido (el botón la deja en
+  // cola, ver main.js)
   castUltimate(index: number, kind: Ultimate) {
     if (!this.royale || this.winner) return false;
     const fd = this.fightData;
@@ -343,7 +344,10 @@ export class FightSession {
   }
 
   // Juega un turno (o termina la pelea). Devuelve false si ya terminó.
-  playTurn() {
+  // Battle royale: `hold(index)` dice qué luchadores tienen que esperar porque la animación aún está mostrando (o tiene
+  // en cola) su turno anterior (ver setupFight): juega el siguiente en orden que no espere, así el motor no va por
+  // delante de lo que se ve. Si esperan todos, no juega nadie (null)
+  playTurn(hold?: (index: number) => boolean) {
     if (this.finished) return false;
     const fd = this.fightData;
     const before = this.steps.length;
@@ -351,8 +355,23 @@ export class FightSession {
     // Algunos turnos no producen pasos: se sigue hasta que haya algo que animar
     while (!fd.loser && this.steps.length === before && this.#turn < 2000) {
       orderFighters(fd);
-      const first = fd.fighters[0];
+      let first = fd.fighters[0];
       if (!first) break;
+      if (hold && this.royale) {
+        // Los de un mismo duelo esperan juntos: así dentro de cada uno se sigue el orden de iniciativa (en un trío, el
+        // que queda libre no se adelanta a los otros dos)
+        const groupOf = (f: DetailedFighter) => fd.royaleDuels?.group[f.team];
+        const waiting = new Set(fd.fighters.filter((f) => f.hp > 0 && hold(f.index)).map(groupOf));
+        waiting.delete(undefined);
+        const next = fd.fighters.find((f) => f.hp > 0 && !hold(f.index) && !waiting.has(groupOf(f)));
+        if (!next) return null;
+        if (next !== first) {
+          // (playFighterTurn juega el primero de la lista)
+          fd.fighters.splice(fd.fighters.indexOf(next), 1);
+          fd.fighters.unshift(next);
+          first = next;
+        }
+      }
       fd.initiative = first.initiative;
       if (this.#turn > 1000) fd.overtime = true;
       const before = first.initiative;

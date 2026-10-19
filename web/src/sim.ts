@@ -148,11 +148,13 @@ export function createRoyale(count: number) {
     finishing: false,
     timeLeft: null,
     timeUp: false,
-    // La ronda no termina sola: con uno solo en pie el motor espera (null) a que entre otro brute o se acabe el tiempo
-    pullSteps: async () => {
+    // La ronda no termina sola: con uno solo en pie el motor espera (null) a que entre otro brute o se acabe el tiempo.
+    // `hold`: luchadores que esperan a que acabe de verse su turno anterior (ver session.playTurn); si esperan todos,
+    // también null
+    pullSteps: async (_drained?: boolean, hold?: (index: number) => boolean) => {
       if (session.winner) return false;
       if (session.finished) return null;
-      session.playTurn();
+      if (session.playTurn(hold) === null) return null;
       takeResult();
       return true;
     },

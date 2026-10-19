@@ -914,7 +914,7 @@ export const setupFight: (
     // `endGiant` se lo pasa; aquí se pone `wake` (hay pasos nuevos: botón de una ultimate)
     const demoFight = fight as unknown as {
       liveSteps?: FightStep[];
-      pullSteps?: (drained?: boolean) => Promise<boolean | null>;
+      pullSteps?: (drained?: boolean, hold?: (index: number) => boolean) => Promise<boolean | null>;
       finishing?: boolean;
       timeLeft?: number | null;
       timeUp?: boolean;
@@ -1312,9 +1312,9 @@ export const setupFight: (
       // Sin tope práctico: antes eran 6 duelos a la vez y el resto esperaba su turno
       const MAX_PARALLEL = 64;
       const exclusiveTypes = new Set<number>([StepType.Hypnotise, StepType.Saboteur, StepType.End, StepType.Spy]);
-      // Turnos que se miran por delante: uno por cada uno en pie (unos dos por duelo), para que el siguiente turno de
-      // cada duelo ya esté en la cola cuando termina el anterior. No más: el motor va esos turnos por delante y un brute
-      // agregado entra detrás de todos ellos (con un mínimo de 16, si quedaban pocos esperaba unos 25 s para pelear)
+      // Tope de turnos en cola: uno por cada uno en pie. Casi nunca se llega: cada duelo solo pide su siguiente turno
+      // cuando acaba de verse el anterior (ver `unseen`). Antes era lo único que frenaba al motor (y con un mínimo de 16,
+      // si quedaban pocos, un brute agregado esperaba unos 25 s para pelear)
       const lookahead = () => Math.max(2, fighters.filter((f) => !f.dead).length);
       // Las llegadas del principio van escalonadas (sin parar nada): cada uno salta este tiempo después del anterior
       const ARRIVAL_STAGGER = 0.12;
@@ -1384,6 +1384,12 @@ export const setupFight: (
       };
       const queue: QueuedTurn[] = [];
       (globalThis as any).__royaleQueue = queue; // depuración: lo que espera a animarse
+      // Royale: quien está en un turno que aún se está viendo o tiene algo en cola. El motor no le juega otro turno
+      // hasta que quede libre (ver session.playTurn): así ningún duelo va por delante de lo que se ve, y el siguiente
+      // turno se juega en el momento en que hace falta. Antes el motor se adelantaba hasta llenar la cola y en el duelo
+      // más lento se acumulaban hasta 7 turnos: en un royale de 10, uno de cada cinco brutes en pie en pantalla ya
+      // había caído en el motor, y si se pulsaba su ultimate, el motor no la aceptaba y se quedaba en cola
+      const unseen = (index: number) => busy.has(index) || queue.some((q) => q.involved.has(index));
       let engineDone = false;
       // Despierta al bucle de abajo cuando sale una señal o llegan pasos nuevos (botón de una ultimate)
       let nudge = () => {};
@@ -1619,9 +1625,12 @@ export const setupFight: (
         while (!engineDone && !queue.some((q) => q.exclusive)) {
           if (cursor >= steps.length) {
             if (queue.filter((q) => !q.extra).length >= lookahead()) break;
-            // El motor va por delante: cuando queda uno en pie no cierra la pelea hasta que aquí se ha visto todo
-            // (null = todavía no), así se pueden seguir agregando brutes mientras quedan duelos en pantalla
-            const more = demoFight.pullSteps ? await demoFight.pullSteps(!queue.length && !running.size) : false;
+            // Cuando queda uno en pie, el motor no cierra la pelea hasta que aquí se ha visto todo (null = todavía no),
+            // así se pueden seguir agregando brutes mientras quedan duelos en pantalla. También es null si todos
+            // esperan a que acabe de verse su turno anterior (ver `unseen`)
+            const more = demoFight.pullSteps
+              ? await demoFight.pullSteps(!queue.length && !running.size, isRoyale ? unseen : undefined)
+              : false;
             if (more === null) { waiting = true; break; }
             if (!more && cursor >= steps.length) { engineDone = true; break; }
             if (cursor >= steps.length) continue;
