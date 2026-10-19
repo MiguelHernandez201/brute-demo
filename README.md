@@ -127,8 +127,10 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       20 s de pelea. La agarra por el asa de arriba con la mano con la que coge las armas (se ve su propio puño encima
       del asa) y, mientras la lleva, en vez de la guardia de reposo se planta con el brazo adelantado y el arma a la
       cadera (antes flotaba delante de él sin que nadie la sujetara). Su arma se guarda mientras tanto, y cada turno
-      suyo es una ráfaga a distancia a los rivales de su duelo (hasta 3): los cañones giran, fogonazos, trazadoras,
-      chispas, casquillos y su propio sonido. No se esquiva, ni se bloquea, ni se contraataca, y a cada uno le quita lo
+      suyo es una ráfaga a distancia a los rivales de su duelo (hasta 3): gira el arma sobre el puño hasta apuntar a
+      cada uno (antes apuntaba siempre recto y las balas salían en diagonal), los cañones dan vueltas y sale un chorro
+      de 80 balas por segundo, destellos que vuelan hasta el rival (antes eran 24 por segundo y cada una, una raya fija:
+      se veían dos o tres), con fogonazos, chispas donde dan, casquillos y su propio sonido. No se esquiva, ni se bloquea, ni se contraataca, y a cada uno le quita lo
       de un golpe suyo (x3 con el aura): en 120 royales simulados, unos 400 PV por turno frente a unos 240 de sus
       turnos normales. Al acabarse la suelta (cae al suelo y se desvanece) y vuelve a su arma; otro +3000 con ella en
       las manos vuelve a empezar sus 20 s.

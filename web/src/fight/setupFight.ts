@@ -1298,7 +1298,7 @@ export const setupFight: (
             entry = { gun: minigun(app, shooter, speed), cancel: () => {} };
             miniguns.set(shooter.index, entry);
           }
-          await entry.gun.fire(target, 0.75);
+          await entry.gun.fire(target, 1.1);
           await struck(app, spritesheets, fighters, target, fireStep.d, speed, 14, !!fireStep.c);
           break;
         }
