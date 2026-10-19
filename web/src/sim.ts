@@ -122,16 +122,30 @@ export function createRoyale(count: number) {
     brutes.map((b) => getCalculatedBrute(b, modifiers) as any),
     { modifiers, royale: true },
   );
-  // Ultimate de cada brute (por su número de luchador). Se sacan de una bolsa con las cuatro, así se reparten por igual
-  const ultimates = new Map<number, Ultimate>();
-  let bag: Ultimate[] = [];
-  const drawUltimate = () => {
-    if (!bag.length) bag = [...ULTIMATES].sort(() => Math.random() - 0.5);
-    return bag.pop() as Ultimate;
+  // Ultimate de cada potenciador: cada brute la saca de su propia bolsa con las cuatro barajadas, que se rellena al
+  // vaciarse. Así cambia en cada lanzamiento y no repite hasta haberlas lanzado todas (tampoco seguidas al rellenarla)
+  const bags = new Map<number, Ultimate[]>();
+  const lastUltimate = new Map<number, Ultimate>();
+  const bagOf = (index: number) => {
+    let bag = bags.get(index);
+    if (!bag?.length) {
+      bag = [...ULTIMATES].sort(() => Math.random() - 0.5);
+      if (bag[0] === lastUltimate.get(index)) bag.push(bag.shift() as Ultimate);
+      bags.set(index, bag);
+    }
+    return bag;
   };
-  session.fightData.fighters
-    .filter((f) => f.type === 'brute' && !f.master)
-    .forEach((f) => ultimates.set(f.index, drawUltimate()));
+  const isGiant = (index: number) =>
+    !!(session.fightData.fighters.find((f) => f.index === index) as { demoGiant?: boolean } | undefined)?.demoGiant;
+  // Orden en que se prueban (si la que le toca no puede salir ahora: sin rivales solo sale el Súper gigante): la que le
+  // toca, el resto de su bolsa y las demás; al final, la última que lanzó (así no la repite) y el gigante si ya lo es
+  // (solo le alargaría el tiempo)
+  const ultimateOrder = (index: number) => {
+    const bag = bagOf(index);
+    const others = ULTIMATES.filter((k) => !bag.includes(k)).sort(() => Math.random() - 0.5);
+    const late = (k: Ultimate) => (k === 'giant' && isGiant(index) ? 2 : k === lastUltimate.get(index) ? 1 : 0);
+    return [...bag, ...others].sort((a, b) => late(a) - late(b));
+  };
 
   const fight: any = {
     id: 'royale',
@@ -164,13 +178,17 @@ export function createRoyale(count: number) {
       takeResult();
       return true;
     },
-    // Potenciadores de cada brute (los tres botones de su fila, ver engine/ultimates.boost): lanzan su ultimate y le dan
-    // vida, arma, aura de ki y mascota según el nivel. Se juegan ya en el motor y la animación los muestra en cuanto
-    // puede (`wake` la avisa, ver setupFight). La mascota dura un minuto: la animación avisa al acabar
-    ultimateOf: (index: number) => ultimates.get(index),
+    // Potenciadores de cada brute (los tres botones de su fila, ver engine/ultimates.boost): lanzan una ultimate (la
+    // que le toque de su bolsa, ver ultimateOrder) y le dan vida, arma, aura de ki y mascota según el nivel. Se juegan
+    // ya en el motor y la animación los muestra en cuanto puede (`wake` la avisa, ver setupFight). La mascota dura un
+    // minuto: la animación avisa al acabar
     castBoost: (index: number, tier: BoostTier) => {
-      const kind = ultimates.get(index);
-      if (!kind || fight.timeUp || !session.castBoost(index, kind, tier)) return false;
+      if (fight.timeUp) return false;
+      const kind = ultimateOrder(index).find((k) => session.castBoost(index, k, tier));
+      if (!kind) return false;
+      const rest = bagOf(index).filter((k) => k !== kind);
+      bags.set(index, rest);
+      lastUltimate.set(index, kind);
       fight.liveSteps.push(...session.takeNewSteps());
       fight.wake?.();
       return true;
@@ -211,7 +229,6 @@ export function createRoyale(count: number) {
       if (!added) return null;
       used.add(name);
       brutes.push(brute);
-      ultimates.set(added.index, drawUltimate());
       // Sus pasos (aparecer y llegar) van solos, antes del siguiente turno
       fight.liveSteps.push(...session.takeNewSteps());
       return { index: added.index, name: added.name, hp: added.hp, maxHp: added.maxHp };

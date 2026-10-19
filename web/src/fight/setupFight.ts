@@ -855,6 +855,9 @@ export const setupFight: (
     // Royale: Súper gigantes (ultimate) y cuándo soltaron su última onda (una por ataque, aunque encadene golpes).
     // Alcanza a los más cercanos en ese momento, menos a quien ataca (ese ya se lleva su golpe), y a todos a la vez
     const stompers = new Map<number, number>();
+    // Royale: cómo cancelar el final de cada Súper gigante (si vuelve a lanzarlo siendo gigante, su tiempo empieza de
+    // nuevo)
+    const giantEnds = new Map<number, () => void>();
     const stomp = (index: number, target?: number) => {
       const giant = findFighter(fighters, index);
       const last = stompers.get(index);
@@ -1267,10 +1270,15 @@ export const setupFight: (
           // Como ultimate dura unos segundos desde que crece, y mientras suelta su onda al atacar
           if (giantStep.u) {
             stompers.set(giant.index, 0);
-            giantTimer(app, speed, () => {
-              stompers.delete(giant.index);
-              demoFight.endGiant?.(giant.index);
-            });
+            giantEnds.get(giant.index)?.();
+            giantEnds.set(
+              giant.index,
+              giantTimer(app, speed, () => {
+                giantEnds.delete(giant.index);
+                stompers.delete(giant.index);
+                demoFight.endGiant?.(giant.index);
+              }),
+            );
           }
           break;
         }

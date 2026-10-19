@@ -217,25 +217,26 @@ window.addEventListener('pointerup', () => {
   clearTimeout(rosterReleaseTimer);
   rosterReleaseTimer = setTimeout(releaseRoster, 400);
 });
-// Potenciadores de cada brute: tres botones en su fila de la lista (ver engine/ultimates.boost). Los tres lanzan su
-// poder (su ultimate; el botón no dice cuál) y además le curan o le suman vida y le dan un arma que ya no pierde; el 2 y
-// el 3 le encienden un aura de ki para el resto de la pelea (daño x3) y el 3 le trae también una mascota que pelea con
-// él un minuto. Sin recarga: en cuanto se ve su poder se pueden volver a pulsar
+// Potenciadores de cada brute: tres botones en su fila de la lista (ver engine/ultimates.boost). Los tres lanzan un
+// poder (una ultimate, cada vez una de las cuatro, ver sim.castBoost; el botón no dice cuál) y además le curan o le
+// suman vida y le dan un arma que ya no pierde; el 2 y el 3 le encienden un aura de ki para el resto de la pelea (daño
+// x3) y el 3 le trae también una mascota que pelea con él un minuto. Sin recarga: en cuanto se ve su poder se pueden
+// volver a pulsar
 const BOOSTS = [
   {
     tier: 1,
     label: '+300',
-    text: 'cura o suma 300 PV, trae un arma sencilla que equipa al momento (y ya no pierde) y lanza su poder',
+    text: 'cura o suma 300 PV, trae un arma sencilla que equipa al momento (y ya no pierde) y lanza un poder (cada vez uno distinto)',
   },
   {
     tier: 2,
     label: '+1000',
-    text: 'cura o suma 1000 PV, trae un arma poderosa, enciende un aura de ki para toda la pelea (daño x3) y lanza su poder',
+    text: 'cura o suma 1000 PV, trae un arma poderosa, enciende un aura de ki para toda la pelea (daño x3) y lanza un poder (cada vez uno distinto)',
   },
   {
     tier: 3,
     label: '+3000',
-    text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki para toda la pelea (daño x3), una mascota que pelea con él un minuto y lanza su poder',
+    text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki para toda la pelea (daño x3), una mascota que pelea con él un minuto y lanza un poder (cada vez uno distinto)',
   },
 ];
 function renderRoster(fight) {
@@ -281,7 +282,7 @@ function renderRoster(fight) {
   // Se pueden pulsar listos (lo lanza o lo deja en cola) y con uno en cola (otro clic lo quita; otro botón lo cambia)
   const boostDisabled = (s) => !!(winner || fight.timeUp || (s.ult !== 'ready' && s.ult !== 'queued'));
   const boostButtons = (index, s) => {
-    if (!fight.ultimateOf?.(index)) return '';
+    if (!fight.castBoost) return '';
     const disabled = boostDisabled(s) ? 'disabled' : '';
     const buttons = BOOSTS.map((b) => {
       const queued = s.ult === 'queued' && s.tier === b.tier;
@@ -292,9 +293,9 @@ function renderRoster(fight) {
   };
   // Ya está en la arena (un brute recién agregado tarda un poco en aparecer)
   const onStage = (index) => !!fight.liveFighters?.()?.some((f) => f.index === index);
-  // Lanza un potenciador. Si ahora no se puede (su poder no tiene a quién darle, está atrapado o aturdido, en la pelea
-  // ya ha caído aunque aún no se vea, o aún no ha aparecido en la arena: se animaba antes que su llegada), queda en
-  // cola y sale solo en cuanto se pueda (ver `tick`); otro clic lo quita de la cola y otro botón lo cambia
+  // Lanza un potenciador. Si ahora no se puede (está atrapado o aturdido, en la pelea ya ha caído aunque aún no se vea,
+  // o aún no ha aparecido en la arena: se animaba antes que su llegada), queda en cola y sale solo en cuanto se pueda
+  // (ver `tick`); otro clic lo quita de la cola y otro botón lo cambia. Sin rivales sale igual: el Súper gigante
   const castBoost = (index, tier) => {
     const s = state.get(index);
     if (!s || s.out || boostDisabled(s)) return;

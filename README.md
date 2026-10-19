@@ -116,7 +116,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     rojo y late. Si los últimos caen a la vez y no queda nadie, la ronda se cierra ahí (ya no puede entrar nadie).
     Con **🔁 Rondas continuas** cada ronda empieza con el reloj en marcha, así terminan solas y pasa la siguiente.
   - **Potenciadores**: cada brute tiene tres botones en su fila de la lista, **+300**, **+1000** y **+3000**. Los tres
-    lanzan su poder (su ultimate, ver abajo; el botón no dice cuál es) y además:
+    lanzan un poder (una de las ultimates, ver abajo, cada vez una distinta; el botón no dice cuál) y además:
     - **+300**: le cura o le suma 300 PV y le da un arma sencilla (espada ancha, cuchillo, bastón, lanza o hachuela)
       que equipa al momento.
     - **+1000**: 1000 PV, un arma poderosa (hacha, espada, mayal, lucero del alba, alabarda o maza, de nivel 2) y un
@@ -128,7 +128,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV (y se le
     quita el veneno). Bebe una poción, sale el número en verde y la vida de su etiqueta y de la lista lo reflejan.
     - Sin recarga: en cuanto se ve su poder, los botones se pueden volver a pulsar (antes se recargaban 30, 60 o
-      90 s). Cada pulsación vuelve a lanzar su poder y le suma la vida; si ya tenía el aura, estalla otra vez (y la del
+      90 s). Cada pulsación lanza otro poder y le suma la vida; si ya tenía el aura, estalla otra vez (y la del
       +1000 pasa a la de rayos con un +3000), y cada +3000 trae otra mascota.
     - El aura no se apaga en toda la pelea (antes duraba un minuto); solo si cae, y al momento. La mascota cuenta su
       minuto desde que llega (se para con la pausa y va al doble a x2).
@@ -138,8 +138,10 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       arma vuelve con las suyas, y un potenciador menor no le cambia el arma de uno mayor: se la guarda (un +300 no le
       quita el arma poderosa de un +3000).
   - **Ultimates** (el poder que lanza cada potenciador): una versión mucho más fuerte y de área de una técnica del
-    juego, hecha para eliminar a varios de golpe, que alcanza a rivales de cualquier duelo. Se reparten por igual
-    (salen de una bolsa con las cuatro):
+    juego, hecha para eliminar a varios de golpe, que alcanza a rivales de cualquier duelo. Van cambiando: cada brute
+    las saca de su propia bolsa con las cuatro barajadas, así no repite ninguna hasta haberlas lanzado todas ni lanza
+    la misma dos veces seguidas (antes cada brute tenía siempre la misma). Si ya es gigante, el Súper gigante espera a
+    que se le acabe y sale otra:
     - 🌊 **Diluvio total**: caen del cielo 16 armas repartidas entre hasta 8 rivales.
     - 💣 **Lluvia de bombas**: caen 7 bombas, cada una sobre uno o dos rivales.
     - ⚡ **Prisa en cadena**: 8 embestidas seguidas, cada una a un rival (si hay menos, vuelve a por los primeros).
@@ -151,11 +153,14 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     potenciadores 2 y 3 se enciende después de su poder, así que ese no lo multiplica; los siguientes, con el aura ya
     encendida, pegan el triple. Quien cae por una ultimate no tiene fatality (son muchos a la vez), pero la victoria es
     para quien la lanzó.
-    - Si ahora no se puede lanzar (no queda a quién darle, está atrapado en una red o aturdido, en el motor ya ha
-      caído aunque aún no se vea, o es un brute recién agregado que aún no ha aparecido en la arena), el potenciador
-      queda **en cola** entero (⏳ en su botón, que late) y sale solo en cuanto se pueda, por ejemplo al entrar otro
-      brute. Otro clic lo quita de la cola y pulsar otro de los tres lo cambia. El Súper gigante no necesita a quién
-      darle (es para él): aunque en el motor ya no quede nadie, crece igual y le sirve contra el que entre.
+    - Si no le queda a quién darle, sale el Súper gigante, que no lo necesita (es para él): aunque en el motor ya no
+      quede nadie (las ultimates eliminan al momento, y en pantalla los rivales tardan unos segundos en caer), crece
+      igual y le sirve contra el que entre. Si ya era gigante, vuelven a empezar sus 15 s (antes se acababa con el
+      tiempo del primero).
+    - Si ahora no se puede lanzar (está atrapado en una red o aturdido, en el motor ya ha caído aunque aún no se vea,
+      o es un brute recién agregado que aún no ha aparecido en la arena), el potenciador queda **en cola** entero (⏳
+      en su botón, que late) y sale solo en cuanto se pueda. Otro clic lo quita de la cola y pulsar otro de los tres
+      lo cambia.
     - Mientras se pulsa un botón de la lista, esta no se repinta hasta soltarlo. Antes, si justo entonces caía alguien
       o cambiaba otra ultimate, el botón se cambiaba por otro a mitad del toque y la pulsación se perdía.
     - El letrero sale al momento. Lo que cae del cielo (armas, bombas) y la onda del gigante llegan a su hora: quien

@@ -200,10 +200,10 @@ export class FightSession {
     return true;
   }
 
-  // Battle royale: el brute `index` lanza su ultimate (botón de la lista). Como al agregar un brute, se juega en el
-  // motor ya (tras lo que el motor ya llevaba jugado); la animación la muestra enseguida (ver setupFight). No se puede
-  // si no queda a quién darle (salvo el Súper gigante) o si está atrapado en una red o aturdido (el botón la deja en
-  // cola, ver main.js)
+  // Battle royale: el brute `index` lanza la ultimate `kind` (con un potenciador, ver castBoost). Como al agregar un
+  // brute, se juega en el motor ya (tras lo que el motor ya llevaba jugado); la animación la muestra enseguida (ver
+  // setupFight). No se puede si no queda a quién darle (salvo el Súper gigante) o si está atrapado en una red o
+  // aturdido (entonces se prueba otra, ver sim.castBoost, y si no sale ninguna el botón la deja en cola, ver main.js)
   castUltimate(index: number, kind: Ultimate) {
     if (!this.royale || this.winner) return false;
     const fd = this.fightData;
@@ -215,10 +215,10 @@ export class FightSession {
     return true;
   }
 
-  // Battle royale: potenciador `tier` del brute `index` (botones de la lista, ver ultimates.boost). Lanza su ultimate y,
-  // si sale, le cura (o le suma) vida, le da un arma que ya no pierde, le enciende el aura de ki (niveles 2 y 3) y le
-  // trae una mascota (nivel 3) que pelea con él hasta que la animación la despide (ver endPet). Si la ultimate no
-  // puede salir, no se hace nada (el botón lo deja en cola, ver main.js)
+  // Battle royale: potenciador `tier` del brute `index` (botones de la lista, ver ultimates.boost). Lanza la ultimate
+  // `kind` y, si sale, le cura (o le suma) vida, le da un arma que ya no pierde, le enciende el aura de ki (niveles 2 y
+  // 3) y le trae una mascota (nivel 3) que pelea con él hasta que la animación la despide (ver endPet). Si la ultimate
+  // no puede salir, no se hace nada (ver sim.castBoost)
   castBoost(index: number, kind: Ultimate, tier: BoostTier) {
     if (!this.castUltimate(index, kind)) return false;
     const fd = this.fightData;
