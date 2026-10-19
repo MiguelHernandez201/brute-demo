@@ -79,10 +79,11 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - Carroñero y Golosina están en desuso en el royale: aquí no hay mascotas, así que nunca podían usarse. Los brutes
     del royale reciben otra mejora en su lugar.
   - Cada brute lleva encima su nombre y su vida, con un color propio que también marca su fila en la
-    lista. Al pasar el ratón por una fila (o tocarla) se resalta en la arena; con un clic se queda fijo.
+    lista. Al pasar el ratón por una fila se resalta en la arena; con un clic se queda fijo. En el móvil, tocar la
+    fila no hace nada (así no se resalta sin querer al ir a pulsar su ultimate).
     La lista solo muestra a los que siguen en pie: los eliminados cuentan en "X de Y en pie" y en las
     últimas eliminaciones, debajo.
-  - **🔍 Zoom dinámico** (casilla junto a los botones de la arena; activada de entrada, se recuerda en el navegador y se
+  - **🔍 Zoom dinámico** (botón junto a los demás de la arena; activado de entrada, se recuerda en el navegador y se
     puede cambiar en plena pelea): la cámara encuadra a los que siguen en pie. Con muchos se ve la arena entera y con
     pocos se acerca (hasta x2 cuando quedan uno o dos) para ver las peleas con más detalle, sin dejar a nadie fuera ni
     salirse del escenario. Se aleja deprisa (cuando entra alguien o se separan) y se acerca despacio, sin tirones. El
@@ -101,8 +102,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     el que más victorias lleve de los que siguen en pie (si solo queda uno, él), y a igualdad el que tenga más
     vida. Lo que el motor ya había jugado y aún no se veía no cuenta. Los últimos 10 segundos el reloj se pone en
     rojo y late. Si los últimos caen a la vez y no queda nadie, la ronda se cierra ahí (ya no puede entrar nadie).
-    Con **Rondas continuas** cada ronda empieza con el reloj en marcha, así terminan solas y pasa la siguiente.
-  - **Ultimates**: cada brute tiene un botoncito en su fila de la lista con su ultimate, una versión mucho más
+    Con **🔁 Rondas continuas** cada ronda empieza con el reloj en marcha, así terminan solas y pasa la siguiente.
+  - **Ultimates**: cada brute tiene un botón grande en su fila de la lista con su ultimate, una versión mucho más
     fuerte y de área de una técnica del juego, hecha para eliminar a varios de golpe, que alcanza a rivales de
     cualquier duelo. Se reparten por igual (salen de una bolsa con las cuatro):
     - 🌊 **Diluvio total**: caen del cielo 16 armas repartidas entre hasta 8 rivales.
@@ -113,7 +114,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 
     Están equilibradas: en 300 royales de 10 simulados, cada una quita de media unos 470-490 PV en total (el
     gigante, contando lo que pega de más y lo que deja de recibir) y elimina a unos 2 rivales. Tras verse, el botón
-    se recarga en 30 s (se para con la pausa). Quien cae por una ultimate no tiene fatality (son muchos a la vez),
+    se recarga en 30 s (los segundos que faltan salen encima del icono; se para con la pausa). Quien cae por una ultimate no tiene fatality (son muchos a la vez),
     pero la victoria es para quien la lanzó.
     - Si ahora no se puede lanzar (no queda a quién darle, está atrapado en una red o aturdido, o en el motor ya ha
       caído aunque aún no se vea), el clic la deja **en cola** (⏳, el botón late) y sale sola en cuanto se pueda,
@@ -161,6 +162,11 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - Toda la sangre del suelo (manchas, charcos y grietas) es un solo dibujo: cada mancha se pinta una vez en
     una imagen de la arena y se descarta. Así no pesa más a medida que avanza la pelea y los fps se recuperan
     cuando quedan pocos en pie (antes cada mancha era un dibujo suelto y llegaban a acumularse unas 8.000).
+
+Los botones de la arena son solo iconos, en una fila (al pasar el ratón por encima sale lo que hace cada uno):
+⏸️ pausa, x1/x2 velocidad, 🔊 efectos y 🎵 música (apagados se ven oscuros), 👑 nueva ronda (🎬 repetir en el vídeo
+promocional; con las rondas continuas lleva la cuenta atrás en la esquina), 🔁 rondas continuas y 🔍 zoom dinámico
+(dorados si están activados), ⬇️ descargar el vídeo grabado y 🏠 volver al menú.
 
 ## Estructura (`web/src`)
 

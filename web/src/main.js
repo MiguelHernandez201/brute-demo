@@ -56,8 +56,21 @@ function applyVolumes() {
   if (sound.exists('sfx')) sound.volume('sfx', audio.sfx ? 1 : 0);
   if (sound.exists('multikill')) sound.volume('multikill', audio.sfx ? 1 : 0);
   if (sound.exists('background')) sound.volume('background', audio.music ? 0.6 : 0);
-  $('sfx').textContent = audio.sfx ? '🔊 Efectos' : '🔇 Efectos';
-  $('music').textContent = audio.music ? '🎵 Música' : '🔇 Música';
+  // Botones de solo icono: apagados se ven oscuros (y la música, con la nota tachada)
+  $('sfx').textContent = audio.sfx ? '🔊' : '🔇';
+  for (const [id, on] of [
+    ['sfx', audio.sfx],
+    ['music', audio.music],
+  ]) {
+    $(id).classList.toggle('off', !on);
+    $(id).setAttribute('aria-pressed', String(on));
+  }
+}
+// Botones de la arena: solo icono; lo que hacen va en su título (sale al pasar el ratón) y para lectores de pantalla
+function setControl(id, icon, label) {
+  $(id).textContent = icon;
+  $(id).title = label;
+  $(id).setAttribute('aria-label', label);
 }
 
 async function destroyApp() {
@@ -174,15 +187,15 @@ let fpsClass = '';
   requestAnimationFrame(loop);
 })();
 
-// Lista de participantes del royale: cada uno con el color de su etiqueta en la arena (pasar el ratón por una fila,
-// o tocarla, lo resalta), vida en vivo, eliminaciones, quién eliminó a quién y botones para agregar brutes en plena
-// pelea. Se actualiza con cada caída según avanza la animación.
+// Lista de participantes del royale: cada uno con el color de su etiqueta en la arena (pasar el ratón por una fila lo
+// resalta; tocarla en el móvil no hace nada), vida en vivo, eliminaciones, quién eliminó a quién y botones para agregar
+// brutes en plena pelea. Se actualiza con cada caída según avanza la animación.
 // La ronda no termina sola: si queda uno en pie, espera a que entre alguien. "Finalizar" pone un reloj de 3 minutos
 // en la arena y la ronda termina al llegar a cero: gana quien más victorias tenga de los que siguen en pie.
 let rosterFight = null;
 // Activa "Finalizar" en la ronda en curso (las rondas continuas lo hacen solas)
 let royaleFinish = null;
-// Ultimate de cada brute (ver engine/ultimates): icono de su botoncito en la lista, nombre y qué hace
+// Ultimate de cada brute (ver engine/ultimates): icono de su botón en la lista, nombre y qué hace
 const ULTIMATE_INFO = {
   flood: { icon: '🌊', name: 'Diluvio total', text: 'una lluvia de armas cae sobre varios rivales' },
   bombs: { icon: '💣', name: 'Lluvia de bombas', text: 'caen bombas del cielo sobre varios rivales' },
@@ -226,13 +239,14 @@ function renderRoster(fight) {
   const who = (index) =>
     `<i class="dot" style="background:${royaleColorCss(index)}"></i><span class="who">${esc(state.get(index)?.name ?? '?')}</span>`;
   const canAdd = () => !winner && !!fight.canAddBrute?.();
-  // Botoncito de ultimate de una fila: lista, en cola (⏳), lanzada y esperando a verse (…) o recargando (segundos)
+  // Botón de ultimate de una fila (su icono, grande): lista, en cola (⏳ en la esquina), lanzada y esperando a verse (…)
+  // o recargando (los segundos que le faltan, encima del icono apagado)
   const ultInfo = (index) => ULTIMATE_INFO[fight.ultimateOf?.(index)];
   const ultLabel = (index, s) => {
-    const icon = ultInfo(index)?.icon ?? '✨';
+    const icon = `<span class="ult-icon">${ultInfo(index)?.icon ?? '✨'}</span>`;
     if (s.ult === 'ready') return icon;
-    if (s.ult === 'queued') return `${icon}⏳`;
-    return s.ult === 'pending' ? `${icon}…` : `${icon}${Math.ceil(s.ult)}`;
+    if (s.ult === 'queued') return `${icon}<i class="ult-badge">⏳</i>`;
+    return `${icon}<b class="ult-cd">${s.ult === 'pending' ? '…' : Math.ceil(s.ult)}</b>`;
   };
   // Se puede pulsar lista (la lanza o la deja en cola) y en cola (la quita)
   const ultDisabled = (s) => !!(winner || fight.timeUp || (s.ult !== 'ready' && s.ult !== 'queued'));
@@ -264,9 +278,12 @@ function renderRoster(fight) {
         // Victorias de la ronda (rivales que eliminó), junto a la vida: desde la primera
         const wins = s.wins ? `<b class="wins${index === popped ? ' pop' : ''}">🏆${s.wins}</b>` : '';
         return `<li data-index="${index}" class="${classes}" style="--c:${royaleColorCss(index)}">
-          <div class="roster-top">${who(index)}${wins}<small class="hp-text">${Math.max(0, Math.round(s.hp))}/${s.maxHp}</small>${ultButton(index, s)}</div>
-          <div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div>
-          ${status ? `<small>${status}</small>` : ''}
+          <div class="roster-main">
+            <div class="roster-top">${who(index)}${wins}<small class="hp-text">${Math.max(0, Math.round(s.hp))}/${s.maxHp}</small></div>
+            <div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div>
+            ${status ? `<small>${status}</small>` : ''}
+          </div>
+          ${ultButton(index, s)}
         </li>`;
       })
       .join('');
@@ -299,12 +316,18 @@ function renderRoster(fight) {
     }
     draw();
   };
-  // Resaltar en la arena: al pasar el ratón por una fila, o fijándola con un clic
-  $('roster').onmouseover = (e) => {
+  // Resaltar en la arena, solo con el ratón: al pasar por una fila, o fijándola con un clic. Tocar la fila (móvil) no
+  // hace nada, así no se resalta sin querer al ir a pulsar su ultimate
+  let pointer = 'mouse';
+  $('roster').onpointerdown = (e) => {
+    pointer = e.pointerType;
+  };
+  $('roster').onpointerover = (e) => {
+    if (e.pointerType !== 'mouse') return;
     const li = e.target.closest?.('ol.roster li[data-index]');
     fight.highlight = li ? +li.dataset.index : pinned;
   };
-  $('roster').onmouseleave = () => {
+  $('roster').onpointerleave = () => {
     fight.highlight = pinned;
   };
   $('roster').onclick = (e) => {
@@ -314,7 +337,7 @@ function renderRoster(fight) {
     const ult = e.target.closest?.('[data-ult]');
     if (ult) return castUltimate(+ult.dataset.ult);
     const li = e.target.closest?.('ol.roster li[data-index]');
-    if (!li) return;
+    if (!li || pointer !== 'mouse') return;
     pinned = pinned === +li.dataset.index ? null : +li.dataset.index;
     fight.highlight = pinned;
     draw();
@@ -350,7 +373,7 @@ function renderRoster(fight) {
       s.ult = s.ult - elapsed <= 0 ? 'ready' : s.ult - elapsed;
       const button = $('roster').querySelector(`[data-ult="${index}"]`);
       if (!button || ultLabel(index, s) === before) continue;
-      button.textContent = ultLabel(index, s);
+      button.innerHTML = ultLabel(index, s);
       button.disabled = ultDisabled(s);
     }
     if (fired) draw();
@@ -472,28 +495,29 @@ async function playFight(id, fight) {
   }
 }
 
-// Rondas continuas: al terminar cada ronda, cuenta atrás y empieza otra sola
+// Rondas continuas: al terminar cada ronda, cuenta atrás (en la esquina del botón de nueva ronda) y empieza otra sola
 const AUTO_DELAY = 3;
 let autoChallenge = false;
 let autoTimer = null;
-const againLabel = () => $('again').dataset.label || '👑 Nueva ronda';
+const againIcon = () => $('again').dataset.icon || '👑';
+const countdown = (left) => `${againIcon()}<b class="badge">${left}</b>`;
 function cancelAutoChallenge() {
   clearInterval(autoTimer);
   autoTimer = null;
-  $('again').textContent = againLabel();
+  $('again').textContent = againIcon();
 }
 function scheduleAutoChallenge(id) {
   cancelAutoChallenge();
   if (!autoChallenge) return;
   let left = AUTO_DELAY;
-  $('again').textContent = `${againLabel()} (${left})`;
+  $('again').innerHTML = countdown(left);
   autoTimer = setInterval(() => {
     // Si se cambió de pelea, se desactivó o está en pausa, no seguir
     if (id !== run || !autoChallenge) return cancelAutoChallenge();
     if (app && !app.ticker.started) return;
     left -= 1;
     if (left > 0) {
-      $('again').textContent = `${againLabel()} (${left})`;
+      $('again').innerHTML = countdown(left);
       return;
     }
     cancelAutoChallenge();
@@ -508,7 +532,7 @@ async function startTrailer() {
   const id = ++run;
   await destroyApp();
   $('again').disabled = true;
-  $('downloadPromo').style.display = 'none';
+  $('downloadPromo').hidden = true;
   setFightDisposing(false);
   const spritesheets = {
     thrownWeapons: await loadSheet(
@@ -539,8 +563,8 @@ async function startTrailer() {
       if (promoDownloadUrl) URL.revokeObjectURL(promoDownloadUrl);
       promoDownloadUrl = result.url;
       promoDownloadExt = result.ext || 'webm';
-      $('downloadPromo').textContent = `⬇ Descargar Video (.${promoDownloadExt})`;
-      $('downloadPromo').style.display = 'inline-block';
+      setControl('downloadPromo', '⬇️', `Descargar el video (.${promoDownloadExt})`);
+      $('downloadPromo').hidden = false;
     }
   }
 }
@@ -555,9 +579,9 @@ function enterArena(newMode) {
   mode = newMode;
   $('arena').classList.toggle('royale', mode === 'royale');
   $('arena').classList.toggle('trailer', mode === 'trailer');
-  $('downloadPromo').style.display = 'none';
-  $('again').dataset.label = mode === 'trailer' ? '🎬 Repetir Tráiler' : '👑 Nueva ronda';
-  $('again').textContent = $('again').dataset.label;
+  $('downloadPromo').hidden = true;
+  $('again').dataset.icon = mode === 'trailer' ? '🎬' : '👑';
+  setControl('again', $('again').dataset.icon, mode === 'trailer' ? 'Repetir el tráiler' : 'Nueva ronda');
   $('setup').style.display = 'none';
   $('arena').style.display = 'block';
 }
@@ -644,18 +668,18 @@ $('back').onclick = async () => {
 };
 $('speed').onclick = () => {
   speed.current = speed.current === 1 ? 2 : 1;
-  $('speed').textContent = `Velocidad x${speed.current}`;
+  $('speed').textContent = `x${speed.current}`;
 };
 $('pause').onclick = () => {
   if (!app) return;
   if (app.ticker.started) {
     app.ticker.stop();
     sound.pauseAll();
-    $('pause').textContent = '▶ Reanudar';
+    setControl('pause', '▶️', 'Reanudar');
   } else {
     app.ticker.start();
     sound.resumeAll();
-    $('pause').textContent = '⏸ Pausa';
+    setControl('pause', '⏸️', 'Pausa');
   }
 };
 
@@ -684,8 +708,6 @@ $('music').onclick = () => {
 };
 applyVolumes();
 
-// Acercamiento: cuánto se acercan las posiciones de cada bando al centro.
-// Se aplica en vivo: cada vez que un luchador vuelve a su sitio usa el valor actual.
 const trailerParam = new URLSearchParams(location.search).get('trailer');
 if (trailerParam) {
   $('trailerGo').click();
