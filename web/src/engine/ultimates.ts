@@ -1,6 +1,7 @@
-// Demo battle royale: ultimates. Cada brute tiene una (botón en su fila de la lista) que golpea a varios rivales a la
-// vez, sean o no de su duelo. Son versiones mucho más fuertes de técnicas del juego, hechas para eliminar a varios de
-// golpe, y están equilibradas entre sí: todas quitan en total más o menos lo mismo (ver las constantes y el README):
+// Demo battle royale: ultimates. Las lanzan los potenciadores (botones de cada fila de la lista), cada vez una de las
+// cuatro (ver sim.castBoost), y golpean a varios rivales a la vez, sean o no de su duelo. Son versiones mucho más
+// fuertes de técnicas del juego, hechas para eliminar a varios de golpe, y están equilibradas entre sí: todas quitan en
+// total más o menos lo mismo (ver las constantes y el README):
 // - Diluvio total: una lluvia de armas cae sobre varios rivales, más armas y durante más rato que el Diluvio
 // - Lluvia de bombas: caen bombas del cielo, cada una sobre uno o dos rivales
 // - Prisa en cadena: embiste a varios rivales, uno detrás de otro
@@ -38,7 +39,7 @@ const state = (f: DetailedFighter) => f as DetailedFighter & {
   demoUlt?: Ultimates; demoGiant?: boolean; demoKi?: boolean; demoKeepWeapon?: boolean; demoWeaponTier?: number;
 };
 
-// Potenciadores (los tres botones de cada fila de la lista, ver main.js): todos lanzan la ultimate del brute y además
+// Potenciadores (los tres botones de cada fila de la lista, ver main.js): todos lanzan una ultimate y además
 // le curan (o le suman) vida y le dan un arma que equipa al momento y que ya nunca pierde (ver keepsWeapon en
 // fightMethods); los dos mayores le encienden un aura de ki para el resto de la pelea y el último le trae una mascota
 // (esa la pone session.castBoost, que tiene los datos del brute para sus estadísticas):
