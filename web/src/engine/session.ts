@@ -14,6 +14,7 @@ import {
 } from './fightMethods';
 import {
   BOOST_HP, BoostTier, Ultimate, boostGear, boostHeal, canCastUltimate, castUltimate as playUltimate, cleave, endGiant,
+  endMinigun,
 } from './ultimates';
 import { PetName } from '@labrute/prisma';
 
@@ -296,6 +297,11 @@ export class FightSession {
   // Battle royale: se acaba el Súper gigante (ultimate) del brute `index`
   endGiant(index: number) {
     return this.royale && !this.winner && endGiant(this.fightData, index);
+  }
+
+  // Battle royale: se acaba la minigun (potenciador 3) del brute `index`
+  endMinigun(index: number) {
+    return this.royale && !this.winner && endMinigun(this.fightData, index);
   }
 
   // Si se puede agregar un brute al royale: hasta su paso End, con alguien en pie con quien pelear

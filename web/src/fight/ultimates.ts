@@ -43,9 +43,9 @@ const TITLES: Record<Ultimate, string> = {
 // Letreros a la vista: cada uno nuevo va debajo de los anteriores
 let titles: Text[] = [];
 
-// Recibe un golpe de ultimate: animación de golpe, daño, vida y un empujón (más fuerte si es crítico). Termina cuando
-// se ha recuperado (luego ya puede hacer otra cosa)
-const struck = async (
+// Recibe un golpe de ultimate (o la ráfaga de una minigun, ver minigun.ts): animación de golpe, daño, vida y un empujón
+// (más fuerte si es crítico). Termina cuando se ha recuperado (luego ya puede hacer otra cosa)
+export const struck = async (
   app: Application,
   spritesheets: Spritesheets,
   fighters: AnimationFighter[],

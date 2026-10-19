@@ -221,6 +221,13 @@ export function createRoyale(count: number) {
       fight.wake?.();
       return true;
     },
+    // Minigun del potenciador 3: la animación avisa cuando pasan sus segundos
+    endMinigun: (index: number) => {
+      if (fight.timeUp || !session.endMinigun(index)) return false;
+      fight.liveSteps.push(...session.takeNewSteps());
+      fight.wake?.();
+      return true;
+    },
     // Botón "Agregar brute": entra uno nuevo en plena pelea. Devuelve sus datos para la lista (null si ya acabó)
     canAddBrute: () => !fight.timeUp && session.canAddRoyaleBrute(),
     addBrute: () => {

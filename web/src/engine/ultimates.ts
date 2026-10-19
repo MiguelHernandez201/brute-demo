@@ -37,6 +37,7 @@ const CLEAVE_FACTOR = 1.65;
 type Ultimates = { giant?: boolean };
 const state = (f: DetailedFighter) => f as DetailedFighter & {
   demoUlt?: Ultimates; demoGiant?: boolean; demoKi?: boolean; demoKeepWeapon?: boolean; demoWeaponTier?: number;
+  demoMinigun?: boolean;
 };
 
 // Potenciadores (los tres botones de cada fila de la lista, ver main.js): todos lanzan una ultimate y además
@@ -45,7 +46,8 @@ const state = (f: DetailedFighter) => f as DetailedFighter & {
 // (esa la pone session.castBoost, que tiene los datos del brute para sus estadísticas):
 //   1 → +300 PV y un arma sencilla
 //   2 → +1000 PV, un arma poderosa y aura de ki (daño x3, ver KI_DAMAGE)
-//   3 → +3000 PV, un arma poderosa, aura de ki y una mascota que pelea con él durante un minuto
+//   3 → +3000 PV, un arma poderosa, aura de ki, una mascota que pelea con él durante un minuto y una minigun durante
+//       MINIGUN_SECONDS (mientras, cada turno suyo es una ráfaga: ver fightMethods.minigunBurst)
 // "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV
 export type BoostTier = 1 | 2 | 3;
 export const BOOST_HP: Record<BoostTier, number> = { 1: 300, 2: 1000, 3: 3000 };
@@ -57,6 +59,8 @@ const POWERFUL_WEAPONS = [
 const BOOST_WEAPON_TIER: Record<BoostTier, number> = { 1: 1, 2: 2, 3: 3 };
 // Segundos de pelea que dura la mascota (los cuenta la animación desde que llega, ver session.endPet)
 export const PET_SECONDS = 60;
+// Segundos de pelea que lleva la minigun (los cuenta la animación desde que la saca, ver endMinigun)
+export const MINIGUN_SECONDS = 20;
 
 // Rivales en pie: todos, no solo los de su duelo
 const rivals = (fd: DetailedFight, caster: DetailedFighter) => fd.fighters.filter((f) => f.type === 'brute'
@@ -202,6 +206,20 @@ export const boostGear = (fightData: DetailedFight, caster: DetailedFighter, tie
     state(caster).demoKi = true;
     fightData.steps.push({ a: 'demoKi', f: caster.index, n: tier } as never);
   }
+  // El 3, además, la minigun (si ya la llevaba, su tiempo vuelve a empezar)
+  if (tier === 3) {
+    state(caster).demoMinigun = true;
+    fightData.steps.push({ a: 'demoMinigun', f: caster.index } as never);
+  }
+};
+
+// Se acaba la minigun del brute `index` (la animación cuenta sus segundos). False si ya no la llevaba
+export const endMinigun = (fightData: DetailedFight, index: number) => {
+  const brute = fightData.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master);
+  if (!brute || !state(brute).demoMinigun) return false;
+  state(brute).demoMinigun = false;
+  if (brute.hp > 0) fightData.steps.push({ a: 'demoMinigunEnd', f: brute.index } as never);
+  return true;
 };
 
 // Se acaba el Súper gigante del brute `index` (la animación cuenta sus segundos). False si ya no lo era
