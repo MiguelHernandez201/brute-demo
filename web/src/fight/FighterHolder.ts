@@ -966,6 +966,10 @@ export class FighterHolder {
   };
 
   setAnimation(animation: Animation, frame = 0) {
+    // Demo: ya destruido (por ejemplo la mascota de un potenciador, que se va de la arena al acabarse su minuto) no se
+    // anima: algo que quedó pendiente (volver al reposo tras un golpe) lo intentaba y fallaba
+    if (this.container.destroyed) return;
+
     // Handle idle differently for monks
     if (animation === 'idle' && this.skills[SkillId.monk]) {
       this.animation = 'monk';

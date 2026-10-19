@@ -124,7 +124,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       suben, con chispas, y hace el triple de daño (con el Súper gigante, x6).
     - **+3000**: 3000 PV, un arma poderosa de nivel 3, el aura de ki (esta con rayos, como el Súper Saiyajin 2), una
       **mascota** (perro, pantera u oso) que pelea con él durante un minuto y luego se va, y una **minigun** durante
-      20 s de pelea. La lleva en las manos a la altura de la cadera (su arma se guarda mientras tanto) y cada turno
+      20 s de pelea. La agarra por el asa de arriba con la mano con la que coge las armas (se ve su propio puño encima
+      del asa) y, mientras la lleva, en vez de la guardia de reposo se planta con el brazo adelantado y el arma a la
+      cadera (antes flotaba delante de él sin que nadie la sujetara). Su arma se guarda mientras tanto, y cada turno
       suyo es una ráfaga a distancia a los rivales de su duelo (hasta 3): los cañones giran, fogonazos, trazadoras,
       chispas, casquillos y su propio sonido. No se esquiva, ni se bloquea, ni se contraataca, y a cada uno le quita lo
       de un golpe suyo (x3 con el aura): en 120 royales simulados, unos 400 PV por turno frente a unos 240 de sus
