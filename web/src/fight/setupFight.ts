@@ -1046,13 +1046,20 @@ export const setupFight: (
             const victim = findFighter(fighters, step.f);
             const killer = victim && !ultimateVictims.has(victim.index) && royaleKiller(victim, involved);
             if (victim && killer) {
-              const kind = fatalityKind(killer);
+              // Con la minigun del potenciador +3000 en la mano, su propia fatality: la balacera. Le dispara desde donde
+              // esté, así que la cámara le sigue encuadrando a su víctima hasta el final
+              const held = miniguns.get(killer.index)?.gun;
+              const gun = held && !held.removed ? held : undefined;
+              const kind = gun ? 'balacera' : fatalityKind(killer);
+              if (gun) camera?.framed.add(victim);
               await fatality(app, spritesheets, fighters, step, speed, {
                 killer,
                 final: fighters.every((f) => f === victim || f === killer || f.type !== 'brute' || f.master || f.dead),
                 // En el golpe final, los que miran cerca reaccionan
                 onImpact: () => crowd?.react(victim.animation.container.x, victim.animation.container.y, 150, true),
-              });
+                kind,
+                gun,
+              }).finally(() => camera?.framed.delete(victim));
               // Queda mirando a su víctima: ese pasa a ser su lado, sin darse la vuelta de golpe
               if (!killer.animation.container.destroyed) setRoyaleSide(killer, killer.animation.container.scale.x >= 0 ? 'L' : 'R');
               royaleFight.onKill?.({ victim: victim.index, killer: killer.index, kind });

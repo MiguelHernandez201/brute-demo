@@ -2312,9 +2312,9 @@ const startAttack = (
 
 // Demo battle royale: ráfaga de la minigun (ver ultimates.boostGear) a los rivales de su duelo, hasta MINIGUN_TARGETS
 // empezando por `opponent`. No se esquiva, ni se bloquea, ni se contraataca, y a cada uno le quita MINIGUN_FACTOR veces
-// un golpe suyo (con su arma, y x3 con el aura de ki, ver registerHit)
+// un golpe suyo (con su arma, y x3 con el aura de ki, ver registerHit): antes 1, apenas más que sus turnos normales
 const MINIGUN_TARGETS = 3;
-const MINIGUN_FACTOR = 1;
+const MINIGUN_FACTOR = 3;
 const minigunBurst = (
   chaos: boolean,
   fightData: DetailedFight,
