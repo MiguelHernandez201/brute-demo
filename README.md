@@ -37,6 +37,20 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 
 - **Battle Royale** (abajo) y **🎬 vídeo promocional**, que se graba en tiempo real con el motor del juego y se
   puede descargar.
+- **📱 Modo TikTok (vertical)**: el Battle Royale en una pantalla vertical 9:16, pensada para transmitirla en TikTok
+  LIVE (capturando la ventana con TikTok LIVE Studio u OBS). También se entra con `?tiktok` en la dirección
+  (`?tiktok=8` para elegir cuántos brutes por ronda).
+  - Arriba el título y el número de ronda; debajo la arena a todo lo ancho; luego la lista de los que siguen en pie
+    (en dos columnas, con letras grandes), las últimas eliminaciones y un **ranking** con los 5 mejores (rondas
+    ganadas 👑 y rivales eliminados ☠️), que se recuerda en el navegador. Lo de abajo queda libre, porque ahí TikTok
+    pone los comentarios.
+  - Todo se mide en proporción al ancho de la pantalla vertical: se ve igual en una ventana pequeña que a pantalla
+    completa, y si la ventana es más ancha queda centrada con bandas negras.
+  - Rondas seguidas solas: cada una dura como mucho 3 minutos (el reloj de "Finalizar"), y si queda uno solo en pie
+    acaba a los 10 segundos. El ganador sale en grande ("¡gana la ronda N!") con la cuenta atrás de la siguiente (8 s).
+  - Sin botones en pantalla: la tecla **C** los muestra u oculta (los de abajo, los de agregar brutes y los
+    potenciadores de cada uno, y 🗑️ para borrar el ranking). Por ahora los regalos se dan con esos botones; conectar
+    los regalos del directo es el siguiente paso.
 
   El modo 1 vs 1 (dos jugadores con una tienda cada uno) se quitó: el royale lo sustituye. Lo que era solo suyo se
   fue con él (nombres de los jugadores, tiendas, contador de victorias, Acercamiento y la casilla para celebrar tras
