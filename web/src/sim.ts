@@ -228,11 +228,12 @@ export function createRoyale(count: number) {
       fight.wake?.();
       return true;
     },
-    // Botón "Agregar brute": entra uno nuevo en plena pelea. Devuelve sus datos para la lista (null si ya acabó)
+    // Botón "Agregar brute": entra uno nuevo en plena pelea. Devuelve sus datos para la lista (null si ya acabó). Con
+    // `wanted`, con ese nombre (un espectador que se une, ver el panel de regalos en main.js); si no, uno al azar
     canAddBrute: () => !fight.timeUp && session.canAddRoyaleBrute(),
-    addBrute: () => {
+    addBrute: (wanted?: string) => {
       if (!fight.canAddBrute()) return null;
-      const name = royaleName(used);
+      const name = wanted?.trim().slice(0, 24) || royaleName(used);
       const brute = makeRoyaleBrute(name, `royale-${brutes.length + 1}-${++seq}`);
       const added = session.addRoyaleBrute(getCalculatedBrute(brute, modifiers) as any);
       if (!added) return null;
