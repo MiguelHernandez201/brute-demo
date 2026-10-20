@@ -27,8 +27,8 @@ export const royaleColorCss = (index: number) => `#${royaleColor(index).toString
 const hpColor = (pct: number) => (pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfacc15 : 0xef4444);
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
-const BAR_W = 28;
-const BAR_H = 3.2;
+const BAR_W = 34;
+const BAR_H = 5.2;
 // Alto de una etiqueta (nombre y barra): lo que sube la de al lado para no taparla
 const TAG_H = 14;
 // Lo recién perdido se queda claro un momento antes de bajar
@@ -44,6 +44,9 @@ type Tag = {
   fill: Graphics;
   ghost: Graphics;
   ring: Graphics;
+  // Puntos de vida, sobre la barra (solo se redibuja al cambiar el número)
+  hpText: Text;
+  hpShown: number;
   // Lo que ocupa a cada lado del centro (el contador de victorias asoma por la derecha)
   left: number;
   right: number;
@@ -133,7 +136,13 @@ export const royaleTags = (
     ghost.tint = 0xfff1c4;
     const fill = new Graphics().rect(0, 0, BAR_W, BAR_H).fill(0xffffff);
     fill.x = -BAR_W / 2;
-    root.addChild(frame, ghost, fill, name);
+    const hpText = new Text({
+      text: String(Math.round(f.hp)),
+      style: { fontFamily: 'GameFont', fontSize: 5.4, fill: 0xffffff, stroke: { color: 0x1a0f08, width: 1.8, join: 'round' } },
+    });
+    hpText.anchor.set(0.5);
+    hpText.y = BAR_H / 2 + 0.2;
+    root.addChild(frame, ghost, fill, hpText, name);
     // Anillo bajo los pies cuando se resalta desde la lista
     const ring = new Graphics().ellipse(0, 0, 17, 5.5).stroke({ width: 1.8, color }).ellipse(0, 0, 12, 3.6).stroke({ width: 1, color, alpha: 0.6 });
     ring.visible = false;
@@ -142,7 +151,7 @@ export const royaleTags = (
     const pct = clamp(f.hp / f.maxHp, 0, 1);
     const half = Math.max(BAR_W, name.width) / 2;
     return {
-      root, fill, ghost, ring, left: half, right: half, nameWidth: name.width,
+      root, fill, ghost, ring, hpText, hpShown: Math.round(f.hp), left: half, right: half, nameWidth: name.width,
       wins: 0, counter: null, count: null, pop: POP_TIME,
       shown: pct, lost: pct, hold: 0, lift: 0, zoom: 1, pulse: 0,
     };
@@ -218,6 +227,11 @@ export const royaleTags = (
       tag.fill.scale.x = Math.max(0.001, tag.shown);
       tag.fill.tint = hpColor(pct);
       tag.ghost.scale.x = Math.max(0.001, tag.lost);
+      const hpNow = Math.max(0, Math.round(f.hp));
+      if (hpNow !== tag.hpShown) {
+        tag.hpShown = hpNow;
+        tag.hpText.text = String(hpNow);
+      }
 
       // Victorias: el contador aparece con la primera y salta cada vez que suma
       const won = wins.get(f.index) ?? 0;

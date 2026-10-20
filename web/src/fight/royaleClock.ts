@@ -5,6 +5,8 @@ import { Application, Container, Graphics, Text, Ticker } from 'pixi.js';
 import { screenLayer } from './utils/hud';
 
 export const FINISH_SECONDS = 180;
+// Duración del reloj al activarlo (la interfaz la cambia, p. ej. el panel de administración del modo TikTok)
+export const clockConfig = { seconds: FINISH_SECONDS };
 
 type ClockFight = { finishing?: boolean; timeLeft?: number | null; timeUp?: boolean };
 
@@ -60,7 +62,7 @@ export const royaleClock = (app: Application, fight: ClockFight) => {
       return;
     }
     if (!fight.timeUp) {
-      fight.timeLeft = Math.max(0, (fight.timeLeft ?? FINISH_SECONDS) - Math.min(ticker.elapsedMS, 250) / 1000);
+      fight.timeLeft = Math.max(0, (fight.timeLeft ?? clockConfig.seconds) - Math.min(ticker.elapsedMS, 250) / 1000);
       if (fight.timeLeft <= 0) fight.timeUp = true;
     }
     root.visible = true;

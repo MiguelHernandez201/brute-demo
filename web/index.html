@@ -11,6 +11,18 @@
           url(/fonts/Movavi_Grotesque_Black.woff) format('woff'),
           url(/fonts/Movavi_Grotesque_Black.ttf) format('truetype');
       }
+      @font-face {
+        font-family: LaBrute;
+        src:
+          url(/fonts/labrute.woff) format('woff'),
+          url(/fonts/labrute.ttf) format('truetype');
+      }
+      @font-face {
+        font-family: Handwritten;
+        src:
+          url(/fonts/acmesa.woff) format('woff'),
+          url(/fonts/acmesa.ttf) format('truetype');
+      }
       :root {
         --bg: #1b1410;
         --panel: #2a201a;
@@ -636,7 +648,11 @@
         border-radius: 0;
         flex-direction: column;
         overflow: hidden;
-        background: radial-gradient(circle at 50% 30%, #3a2a1e, #120c08 75%);
+        background:
+          radial-gradient(ellipse at 50% 35%, transparent 40%, rgba(0, 0, 0, 0.55) 100%),
+          repeating-linear-gradient(0deg, transparent 0 11cqw, rgba(255, 214, 120, 0.05) 11cqw 11.4cqw),
+          repeating-linear-gradient(90deg, transparent 0 14cqw, rgba(255, 214, 120, 0.05) 14cqw 14.4cqw),
+          linear-gradient(180deg, #2f2a14, #1d190c);
       }
       body.tiktok #ttHeader {
         display: flex;
@@ -846,6 +862,10 @@
         z-index: 20;
         width: 340px;
         max-width: calc(100vw - 32px);
+        max-height: calc(100vh - 32px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
         flex-direction: column;
         gap: 8px;
         padding: 12px;
@@ -856,6 +876,9 @@
       }
       body.gifts-open #giftPanel {
         display: flex;
+      }
+      #giftPanel > * {
+        flex-shrink: 0;
       }
       .gift-head {
         display: flex;
@@ -968,6 +991,7 @@
       }
       body.panel-only #giftPanel {
         position: static;
+        max-height: none;
         width: 100%;
         max-width: 420px;
         box-shadow: none;
@@ -1037,6 +1061,727 @@
       body.tiktok .roster-top .gifts {
         font-size: 3.4cqw;
       }
+
+      /* ===== Modo TikTok, distribución tipo directo: la lista de brutes va encima de la arena (columna a la izquierda),
+         los avisos de regalos a la derecha, y abajo la parrilla de regalos con lo que da cada uno ===== */
+      #ttGifts {
+        display: none;
+      }
+      body.tiktok .stage {
+        position: relative;
+        gap: 1.5cqw;
+      }
+      body.tiktok #canvas {
+        order: 0;
+      }
+      body.tiktok #arena.royale #roster {
+        display: contents;
+      }
+      body.tiktok .roster-stats {
+        order: 1;
+        padding: 0 3cqw;
+        font-size: 3.8cqw;
+      }
+      body.tiktok .kill-feed {
+        order: 2;
+        padding: 0 3cqw;
+        font-size: 3cqw;
+      }
+      body.tiktok:not(.tt-controls) ol.roster {
+        display: none;
+        position: absolute;
+        z-index: 4;
+        top: 1cqw;
+        left: 1cqw;
+        width: 27cqw;
+        max-height: 58cqw;
+        flex-direction: column;
+        gap: 0.8cqw;
+        pointer-events: none;
+      }
+      body.tiktok:not(.tt-controls) ol.roster li {
+        padding: 0.4cqw 1.2cqw;
+        border-left-width: 0.8cqw;
+        border-radius: 1cqw;
+        background: rgba(15, 10, 6, 0.55);
+      }
+      body.tiktok:not(.tt-controls) ol.roster li span,
+      body.tiktok:not(.tt-controls) .roster-top .wins {
+        font-size: 2.8cqw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      body.tiktok:not(.tt-controls) ol.roster li small {
+        display: none;
+      }
+      body.tiktok:not(.tt-controls) .roster-bar {
+        height: 1.4cqw;
+      }
+      body.tiktok #giftToasts {
+        left: auto;
+        right: 1.5%;
+        top: 4%;
+        align-items: flex-end;
+        max-width: 62%;
+      }
+      body.tiktok #ttRanking {
+        padding: 1cqw 3cqw;
+        font-size: 3cqw;
+      }
+      body.tiktok #ttRanking .tt-title {
+        font-size: 3.6cqw;
+      }
+      body.tiktok:not(.tt-controls) #ttGifts {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1.5cqw;
+        padding: 1.5cqw;
+        background: rgba(0, 0, 0, 0.45);
+        font-family: GameFont, system-ui, sans-serif;
+      }
+      #ttGifts button {
+        --g1: #2dd4bf;
+        --g2: #0f766e;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4cqw;
+        aspect-ratio: 1 / 1.05;
+        min-width: 0;
+        overflow: hidden;
+        padding: 1cqw;
+        border: 0.6cqw solid rgba(255, 255, 255, 0.55);
+        border-radius: 3cqw;
+        background: linear-gradient(160deg, var(--g1), var(--g2));
+        color: #fff;
+        text-shadow: 0 0.4cqw 0 rgba(0, 0, 0, 0.6);
+        cursor: pointer;
+      }
+      #ttGifts button.t2 {
+        --g1: #f472b6;
+        --g2: #9d174d;
+      }
+      #ttGifts button.t3 {
+        --g1: #fb923c;
+        --g2: #b91c1c;
+      }
+      #ttGifts button.join {
+        --g1: #a78bfa;
+        --g2: #4c1d95;
+        grid-column: span 2;
+        aspect-ratio: auto;
+      }
+      #ttGifts i {
+        font-style: normal;
+        font-size: 7.5cqw;
+        line-height: 1;
+      }
+      #ttGifts span {
+        font-size: 3.2cqw;
+      }
+      #ttGifts small {
+        font-size: 2.8cqw;
+        opacity: 0.9;
+      }
+      #ttGifts b {
+        padding: 0 2cqw;
+        border-radius: 99px;
+        background: rgba(0, 0, 0, 0.55);
+        color: #ffe36b;
+        font-size: 3.4cqw;
+      }
+
+      /* Abajo a la izquierda queda libre: ahí TikTok muestra el chat. Los regalos van en una columna a la derecha */
+      body.tiktok:not(.tt-controls) #ttGifts {
+        left: auto;
+        width: 38cqw;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1cqw;
+        padding: 1cqw;
+        background: transparent;
+      }
+      body.tiktok #ttGifts button {
+        aspect-ratio: auto;
+        padding: 0.6cqw;
+        border-radius: 2.2cqw;
+        border-width: 0.4cqw;
+      }
+      body.tiktok #ttGifts i {
+        font-size: 5.6cqw;
+      }
+      body.tiktok #ttGifts span {
+        font-size: 2.6cqw;
+      }
+      body.tiktok #ttGifts small {
+        display: none;
+      }
+      body.tiktok #ttGifts b {
+        font-size: 2.8cqw;
+      }
+      body.tiktok #ttGifts button.join span {
+        font-size: 2.6cqw;
+      }
+
+      /* ===== Estilo LaBrute (pergamino crema sobre fondo naranja, bordes marrones) para el modo TikTok ===== */
+      body.tiktok {
+        --tt-orange: #eda96a;
+        --tt-cream: #fbf7c0;
+        --tt-line: #7a4a1e;
+        --tt-ink: #5b3516;
+      }
+      body.tiktok #arena {
+        background:
+          radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(120, 60, 10, 0.25) 100%), var(--tt-orange);
+      }
+      body.tiktok #ttHeader {
+        margin: 2.5cqw 3cqw 1.5cqw;
+        padding: 1.6cqw 3.5cqw;
+        align-items: center;
+        color: var(--tt-ink);
+        text-shadow: none;
+        background: var(--tt-cream);
+        border: 0.7cqw solid var(--tt-line);
+        border-radius: 3cqw;
+        box-shadow: 0 0.6cqw 0 rgba(122, 74, 30, 0.45);
+      }
+      body.tiktok #ttRound {
+        color: var(--tt-ink);
+      }
+      body.tiktok #canvas {
+        border-top: 0.7cqw solid var(--tt-line);
+        border-bottom: 0.7cqw solid var(--tt-line);
+      }
+      body.tiktok .roster-stats {
+        color: var(--tt-ink);
+      }
+      body.tiktok .kill-feed {
+        color: var(--tt-ink);
+      }
+      body.tiktok #ttRanking {
+        margin: 0 3cqw;
+        width: fit-content;
+        min-width: 56cqw;
+        max-width: 94cqw;
+        padding: 1.4cqw 3cqw;
+        color: var(--tt-ink);
+        background: var(--tt-cream);
+        border: 0.6cqw solid var(--tt-line);
+        border-radius: 2.5cqw;
+      }
+      body.tiktok #ttRanking .tt-title {
+        color: var(--tt-ink);
+      }
+      body.tiktok:not(.tt-controls) #ttGifts {
+        padding: 1.2cqw;
+        background: rgba(251, 247, 192, 0);
+      }
+      body.tiktok #ttGifts button {
+        --g1: #fffbd0;
+        --g2: #f6eba0;
+        --edge: #3aa99a;
+        color: var(--tt-ink);
+        text-shadow: none;
+        border: 0.6cqw solid var(--edge);
+        box-shadow: 0 0.5cqw 0 rgba(122, 74, 30, 0.5);
+      }
+      body.tiktok #ttGifts button.t2 {
+        --edge: #d6528c;
+      }
+      body.tiktok #ttGifts button.t3 {
+        --edge: #e0702a;
+      }
+      body.tiktok #ttGifts button.join {
+        --edge: var(--tt-line);
+      }
+      body.tiktok #ttGifts b {
+        color: var(--tt-cream);
+        background: var(--tt-line);
+      }
+
+      /* Cabecera: la imagen del juego (El Bruto) con el número de ronda encima */
+      body.tiktok #ttHeader {
+        position: relative;
+        margin: 1.5cqw 2cqw 1cqw;
+        padding: 0;
+        aspect-ratio: 930 / 150;
+        background: url(/images/header.webp) center / 100% 100% no-repeat;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      body.tiktok #ttHeader > span:first-child {
+        display: none;
+      }
+      body.tiktok #ttRound {
+        position: absolute;
+        right: 3cqw;
+        bottom: 1.5cqw;
+        padding: 0.4cqw 2.6cqw;
+        font-size: 3.6cqw;
+        color: var(--tt-cream);
+        background: var(--tt-line);
+        border-radius: 99px;
+      }
+      body.tiktok #ttRound,
+      body.tiktok #ttRound:empty {
+        display: none;
+      }
+
+      /* Cuadro del chat: marco de pergamino abajo a la izquierda, donde TikTok muestra los comentarios */
+      #ttChat {
+        display: none;
+      }
+      /* Mismo estilo que el MuiPaper "mybrute" de LaBrute: papel #fbf2af, esquinas de 5px y borde de cuatro capas
+         (interior #dec37f, relleno #f6ee90, contorno #725254 y sombra #bc7b4a), en cqw */
+      body.tiktok:not(.tt-controls) #ttChat {
+        position: absolute;
+        left: 3.5cqw;
+        bottom: 3.5cqw;
+        z-index: 1;
+        display: block;
+        width: 55cqw;
+        height: 60cqw;
+        background: #fbf2af;
+        border-radius: 1cqw;
+        box-shadow:
+          0 0 0 0.2cqw #dec37f,
+          0 0 0.2cqw 0.8cqw #f6ee90,
+          0 0 0 1.1cqw #725254,
+          0.55cqw 0.55cqw 0 1.1cqw #bc7b4a;
+        pointer-events: none;
+      }
+
+      /* Modo TikTok: sin el registro de eliminaciones (solo con el panel de administración, tecla C) */
+      body.tiktok:not(.tt-controls) .kill-feed {
+        display: none;
+      }
+
+      body.tiktok #ttRanking {
+        margin-left: auto;
+      }
+
+      /* ===== Todo en cajas "El Bruto" (el MuiPaper "mybrute": papel #fbf2af, borde de cuatro capas), en cqw ===== */
+      body.tiktok {
+        --paper: #fbf2af;
+        --box:
+          0 0 0 0.15cqw #dec37f, 0 0 0.15cqw 0.5cqw #f6ee90, 0 0 0 0.75cqw #725254, 0.4cqw 0.4cqw 0 0.75cqw #bc7b4a;
+      }
+      body.tiktok .roster-stats {
+        align-self: flex-start;
+        margin: 1.2cqw 0 0.6cqw 3.5cqw;
+        padding: 0.6cqw 2.4cqw;
+        background: var(--paper);
+        border-radius: 1cqw;
+        box-shadow: var(--box);
+        font-size: 3.2cqw;
+      }
+      body.tiktok #ttRanking {
+        margin: 0.6cqw 3.5cqw 0 auto;
+        min-width: 50cqw;
+        padding: 1cqw 2.6cqw;
+        background: var(--paper);
+        border: 0;
+        border-radius: 1cqw;
+        box-shadow: var(--box);
+        font-size: 2.8cqw;
+      }
+      body.tiktok #ttRanking .tt-title {
+        font-size: 3.4cqw;
+        margin-bottom: 0.4cqw;
+      }
+      body.tiktok #ttRanking ol {
+        gap: 0.2cqw;
+      }
+      body.tiktok:not(.tt-controls) #ttChat {
+        left: 3.5cqw;
+        bottom: 3.5cqw;
+        width: 53cqw;
+        height: 44cqw;
+        box-shadow: var(--box);
+      }
+      #ttChat span {
+        display: block;
+        padding: 1cqw 2cqw;
+        font-family: LaBrute, GameFont, system-ui, sans-serif;
+        font-size: 4.6cqw;
+        color: #b06b4f;
+        text-align: center;
+      }
+      body.tiktok:not(.tt-controls) #ttGifts {
+        right: 0;
+        bottom: 1.5cqw;
+        width: 38cqw;
+        padding: 1cqw 3.5cqw 1cqw 1cqw;
+        gap: 2cqw;
+      }
+      body.tiktok #ttGifts button {
+        --g1: var(--paper);
+        --g2: var(--paper);
+        aspect-ratio: 1 / 0.82;
+        border: 0;
+        border-radius: 1cqw;
+        box-shadow: var(--box);
+        color: #b06b4f;
+      }
+      body.tiktok #ttGifts i {
+        font-size: 5cqw;
+      }
+      body.tiktok #ttGifts span {
+        font-size: 2.6cqw;
+      }
+      body.tiktok #ttGifts button.t1 b {
+        background: #3aa99a;
+      }
+      body.tiktok #ttGifts button.t2 b {
+        background: #d6528c;
+      }
+      body.tiktok #ttGifts button.t3 b {
+        background: #e0702a;
+      }
+
+      /* Modo edición (tecla E): los paneles se pueden mover y cambiar de tamaño (ver ttLayout.js) */
+      body.tiktok #ttRanking {
+        position: relative;
+      }
+      body.tt-edit #ttHeader,
+      body.tt-edit #ttChat,
+      body.tt-edit #ttGifts,
+      body.tt-edit #ttRanking {
+        z-index: 15;
+        outline: 0.5cqw dashed #fe2c55;
+        outline-offset: 1.4cqw;
+        cursor: move;
+        pointer-events: auto !important;
+        touch-action: none;
+        user-select: none;
+      }
+      body.tiktok #ttHeader {
+        z-index: 3;
+      }
+      body.tt-edit #ttGifts button {
+        pointer-events: none;
+      }
+      body.tt-edit #ttHeader::after,
+      body.tt-edit #ttChat::after,
+      body.tt-edit #ttGifts::after,
+      body.tt-edit #ttRanking::after {
+        content: '';
+        position: absolute;
+        right: -1.4cqw;
+        bottom: -1.4cqw;
+        width: 5cqw;
+        height: 5cqw;
+        background: #fe2c55;
+        border-radius: 1cqw;
+        cursor: nwse-resize;
+      }
+      body.tt-edit #arena::after {
+        content: 'Edición: arrastra un panel para moverlo y su esquina rosa para cambiar el tamaño · + adelante · − atrás · E salir · R restablecer';
+        position: absolute;
+        top: 1cqw;
+        left: 50%;
+        z-index: 30;
+        width: 92cqw;
+        transform: translateX(-50%);
+        padding: 1cqw 2cqw;
+        border-radius: 1cqw;
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        font-size: 2.8cqw;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      /* Las tarjetas de regalo escalan con el ancho de su panel (cqw = centésimas del panel, no de la pantalla) */
+      body.tiktok #ttGifts {
+        container-type: inline-size;
+      }
+      body.tiktok #ttGifts button {
+        gap: 0.8cqw;
+        padding: 1.2cqw;
+        border-radius: 2.6cqw;
+        box-shadow:
+          0 0 0 0.4cqw #dec37f,
+          0 0 0.4cqw 1.3cqw #f6ee90,
+          0 0 0 2cqw #725254,
+          1.05cqw 1.05cqw 0 2cqw #bc7b4a;
+      }
+      body.tiktok #ttGifts i {
+        font-size: 22cqw;
+        height: 22cqw;
+      }
+      body.tiktok #ttGifts span {
+        font-size: 6.6cqw;
+      }
+      body.tiktok #ttGifts b {
+        padding: 0 5cqw;
+        font-size: 7.2cqw;
+      }
+
+      /* Ranking con las tipografías del juego: título en LaBrute y filas en Handwritten (la de los textos de LaBrute) */
+      body.tiktok #ttRanking {
+        font-family: Handwritten, system-ui, sans-serif;
+        font-size: 3.1cqw;
+        color: #b06b4f;
+      }
+      body.tiktok #ttRanking .tt-title {
+        font-family: LaBrute, GameFont, system-ui, sans-serif;
+        font-size: 4cqw;
+        letter-spacing: 0.2cqw;
+        color: #733d2c;
+        margin-bottom: 0.6cqw;
+      }
+      body.tiktok #ttRanking li b {
+        font-family: Handwritten, system-ui, sans-serif;
+        font-weight: normal;
+        color: #733d2c;
+      }
+      body.tiktok #ttRanking p {
+        opacity: 1;
+      }
+
+      /* Modo TikTok: sin el contador de brutes en pie (solo con el panel de administración, tecla C) */
+      body.tiktok:not(.tt-controls) .roster-stats {
+        display: none;
+      }
+
+      /* Imagen decorativa colocable (mover y cambiar tamaño con la tecla E, ver ttLayout.js) */
+      #ttMascot,
+      #ttMascot2 {
+        display: none;
+      }
+      body.tiktok #ttMascot,
+      body.tiktok #ttMascot2 {
+        position: absolute;
+        left: 2cqw;
+        bottom: 49cqw;
+        z-index: 2;
+        display: block;
+        width: 26cqw;
+        pointer-events: none;
+      }
+      #ttMascot img,
+      #ttMascot2 img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      body.tt-edit #ttMascot,
+      body.tt-edit #ttMascot2 {
+        z-index: 15;
+        outline: 0.5cqw dashed #fe2c55;
+        outline-offset: 0.6cqw;
+        cursor: move;
+        pointer-events: auto !important;
+        touch-action: none;
+        user-select: none;
+      }
+      body.tt-edit #ttMascot::after,
+      body.tt-edit #ttMascot2::after {
+        content: '';
+        position: absolute;
+        right: -0.6cqw;
+        bottom: -0.6cqw;
+        width: 5cqw;
+        height: 5cqw;
+        background: #fe2c55;
+        border-radius: 1cqw;
+        cursor: nwse-resize;
+      }
+
+      body.tiktok #ttMascot2 {
+        left: auto;
+        right: 2cqw;
+      }
+
+      /* Panel seleccionado en la edición (el que se mueve de capa con + y −) */
+      body.tt-edit .tt-sel {
+        outline-style: solid !important;
+      }
+
+      /* La arena de pelea también se edita: su borde y su esquina van por dentro (tiene overflow oculto) */
+      body.tt-edit #canvas {
+        outline: 0.5cqw dashed #fe2c55;
+        outline-offset: -0.5cqw;
+        cursor: move;
+        user-select: none;
+        touch-action: none;
+      }
+      body.tt-edit #canvas > canvas {
+        pointer-events: none;
+      }
+      body.tt-edit #canvas::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        z-index: 5;
+        width: 5cqw;
+        height: 5cqw;
+        background: #fe2c55;
+        border-radius: 1cqw 0 0 0;
+        cursor: nwse-resize;
+      }
+
+      /* Ronda y reloj en el panel de administración (tecla G) */
+      .gift-round {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #4a3a2e;
+      }
+      .gift-round-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .gift-round-row button {
+        flex: 1;
+        padding: 8px 6px;
+        font-size: 14px;
+      }
+      .gift-check input {
+        flex: none;
+        width: auto;
+        margin: 0;
+      }
+      .gift-check {
+        flex: 1;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 14px;
+      }
+      .tt-timer {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .tt-timer input {
+        width: 3.2em;
+        padding: 4px;
+        border-radius: 6px;
+        border: 1px solid #888;
+        background: #222;
+        color: #fff;
+        text-align: center;
+      }
+
+      /* Modo TikTok: sin los avisos de "X se unió" / "X envió un regalo" sobre la arena */
+      body.tiktok #giftToasts {
+        display: none;
+      }
+
+      .gift-round-row input[type='range'] {
+        flex: 1.4;
+        width: auto;
+        accent-color: #ffd166;
+      }
+      .gift-round-row button.off {
+        opacity: 0.5;
+      }
+      #giftTrack,
+      #giftBg {
+        padding: 7px 4px;
+        border-radius: 6px;
+        border: 1px solid #888;
+        background: #222;
+        color: #fff;
+      }
+      #giftBg {
+        flex: 1;
+        padding: 8px;
+      }
+      .gift-fps-row {
+        justify-content: space-between;
+        font-size: 14px;
+      }
+      #giftFps {
+        font-variant-numeric: tabular-nums;
+      }
+      #giftFps.fps-good {
+        color: #4ade80;
+      }
+      #giftFps.fps-ok {
+        color: #facc15;
+      }
+      #giftFps.fps-bad {
+        color: #ef4444;
+      }
+
+      .gift-img {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        object-fit: contain;
+        vertical-align: -0.15em;
+      }
+      #giftSearch {
+        width: 100%;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #888;
+        background: #222;
+        color: #fff;
+      }
+      .gift-all {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
+        max-height: 190px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+      }
+      .gift-all p {
+        grid-column: 1 / -1;
+        margin: 4px;
+        opacity: 0.7;
+      }
+      .gift-all button {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        padding: 4px 2px;
+        background: #2a201a;
+        color: var(--ink);
+        border: 1px solid #4a3a2e;
+        border-radius: 8px;
+        font-size: 10px;
+        line-height: 1.1;
+      }
+      .gift-all button.t2 {
+        border-color: #ffc62e;
+      }
+      .gift-all button.t3 {
+        border-color: #ff6b5e;
+      }
+      .gift-all i {
+        font-style: normal;
+        font-size: 30px;
+        line-height: 1;
+      }
+      .gift-all span {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .gift-all small {
+        opacity: 0.7;
+      }
+      #giftGrid .gift i {
+        font-size: 26px;
+      }
     </style>
   </head>
   <body>
@@ -1065,6 +1810,10 @@
         <div id="canvas"></div>
       </div>
       <div id="ttRanking"></div>
+      <div id="ttMascot"><img src="/images/mascota.png" alt="" draggable="false" /></div>
+      <div id="ttMascot2" class="tt-img"><img src="/images/mascota2.png" alt="" draggable="false" /></div>
+      <div id="ttChat"><span>Chat</span></div>
+      <div id="ttGifts"></div>
       <div id="ttWinner"></div>
       <div class="controls">
         <button id="pause" title="Pausa" aria-label="Pausa">⏸️</button>
@@ -1107,16 +1856,75 @@
         <input id="giftUser" placeholder="nombre de TikTok (vacío: al azar)" maxlength="24" autocomplete="off" />
         <button id="giftRandom" title="Nombre al azar" aria-label="Nombre al azar">🎲</button>
       </div>
-      <div class="gift-count" id="giftCount">
-        <span>Cantidad</span><button data-count="1" class="on">x1</button><button data-count="5">x5</button
-        ><button data-count="10">x10</button>
-      </div>
-      <div class="gift-grid" id="giftGrid"></div>
       <div class="gift-actions">
         <button id="giftJoin" title="Entra a la pelea sin regalo (como quien comenta para unirse)">🙋 Unirse</button>
         <button id="giftPopup" title="Abrir el panel en otra ventana: así en el directo se captura solo el juego">
           ↗️ Otra ventana
         </button>
+      </div>
+      <div class="gift-count" id="giftCount">
+        <span>Cantidad</span><button data-count="1" class="on">x1</button><button data-count="5">x5</button
+        ><button data-count="10">x10</button>
+      </div>
+      <div class="gift-grid" id="giftGrid"></div>
+      <div class="gift-round">
+        <b>Todos los regalos</b>
+        <input id="giftSearch" type="search" placeholder="Buscar regalo (Rose, Lion, Galaxy…)" autocomplete="off" />
+        <div class="gift-all" id="giftAll"></div>
+      </div>
+      <div class="gift-round">
+        <b>Ronda</b>
+        <div class="gift-round-row">
+          <label class="tt-timer" title="Duración del reloj de la ronda (minutos : segundos)"
+            >⏱ <input id="ttTimerMin" type="number" min="0" max="99" value="3" aria-label="Minutos" />:<input
+              id="ttTimerSec"
+              type="number"
+              min="0"
+              max="59"
+              value="0"
+              aria-label="Segundos"
+          /></label>
+          <button
+            id="ttTimerBtn"
+            title="Activa o para el reloj de la ronda: al llegar a cero gana quien más victorias lleve"
+          >
+            ▶️ Iniciar reloj
+          </button>
+        </div>
+        <div class="gift-round-row">
+          <label class="gift-check" title="Al terminar una ronda empieza otra sola"
+            ><input id="giftAuto" type="checkbox" /> 🔁 Rondas continuas</label
+          >
+          <button id="giftNewRound" title="Empieza una ronda nueva ahora">👑 Nueva ronda</button>
+        </div>
+        <div class="gift-round-row">
+          <button id="giftClearRank" title="Borra el ranking de muertes guardado">🗑️ Limpiar ranking</button>
+        </div>
+      </div>
+      <div class="gift-round">
+        <b>Sonido y rendimiento</b>
+        <div class="gift-round-row">
+          <button id="giftMusic" title="Música de fondo">🎵 Música</button>
+          <select id="giftTrack" aria-label="Pista de música" title="Pista de música">
+            <option value="background">Pelea</option>
+            <option value="menu">Menú</option>
+          </select>
+          <input id="giftMusicVol" type="range" min="0" max="100" value="60" aria-label="Volumen de la música" />
+        </div>
+        <div class="gift-round-row">
+          <button id="giftSfx" title="Efectos de sonido y voces">🔊 Efectos</button>
+          <input id="giftSfxVol" type="range" min="0" max="100" value="100" aria-label="Volumen de los efectos" />
+        </div>
+        <div class="gift-round-row gift-fps-row">
+          <span>Fotogramas por segundo</span
+          ><b id="giftFps" title="Con ⚡ la calidad automática está bajando el detalle">-- fps</b>
+        </div>
+      </div>
+      <div class="gift-round">
+        <b>Fondo de la arena</b>
+        <div class="gift-round-row">
+          <select id="giftBg" aria-label="Fondo de la arena"></select>
+        </div>
       </div>
     </div>
 
