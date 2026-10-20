@@ -59,9 +59,11 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     | Lanza, tridente, cuchillo, sai | Acribillado |
     | Látigo | Arrancacabezas |
     | Sin arma, tazón, piopio, shuriken | Explosión |
+    | Minigun (potenciador +3000 del royale) | Balacera |
 
     Para ver una en concreto se puede forzar con la URL, por ejemplo `?fatality=aplastado`
-    (`decapitacion`, `partido`, `aplastado`, `acribillado`, `latigo` o `explosion`). En el vídeo promocional sale la
+    (`decapitacion`, `partido`, `aplastado`, `acribillado`, `latigo` o `explosion`; la balacera no, que necesita la
+    minigun). En el vídeo promocional sale la
     versión completa: "FINISH HIM!", el remate y el letrero "FATALITY" con voz. La voz del anunciador ("Finish
     him!" / "Finish her!" y "Fatality!") es una grabación, como la de "Multi kill!" (ver abajo).
 - **Battle Royale**: de 3 a 20 brutes, todos contra todos y todos peleando a la vez por toda la arena.
@@ -130,10 +132,11 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       suyo es una ráfaga a distancia a los rivales de su duelo (hasta 3): gira el arma sobre el puño hasta apuntar a
       cada uno (antes apuntaba siempre recto y las balas salían en diagonal), los cañones dan vueltas y sale un chorro
       de 80 balas por segundo, destellos que vuelan hasta el rival (antes eran 24 por segundo y cada una, una raya fija:
-      se veían dos o tres), con fogonazos, chispas donde dan, casquillos y su propio sonido. No se esquiva, ni se bloquea, ni se contraataca, y a cada uno le quita lo
-      de un golpe suyo (x3 con el aura): en 120 royales simulados, unos 400 PV por turno frente a unos 240 de sus
-      turnos normales. Al acabarse la suelta (cae al suelo y se desvanece) y vuelve a su arma; otro +3000 con ella en
-      las manos vuelve a empezar sus 20 s.
+      se veían dos o tres), con fogonazos, chispas donde dan, casquillos y su propio sonido. No se esquiva, ni se
+      bloquea, ni se contraataca, y a cada uno le quita lo de tres golpes suyos (x9 con el aura; antes, lo de uno): en
+      120 royales simulados, unos 1.250 PV por turno frente a unos 250 de sus turnos normales (antes, unos 400). Al
+      acabarse la suelta (cae al suelo y se desvanece) y vuelve a su arma; otro +3000 con ella en las manos vuelve a
+      empezar sus 20 s. Quien cae por ella tiene su propia fatality, la **balacera** (ver el royale, abajo).
 
     "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV (y se le
     quita el veneno). La vida llega al momento de pulsar, esté haciendo lo que esté: sale el número en verde y la vida
@@ -229,6 +232,12 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     y sus sonidos (sin letreros, voz ni cámara), mientras el resto sigue peleando y los que miran
     reaccionan. Sus restos se desvanecen al rato y la sangre se queda en el suelo. La lista cuenta quién
     eliminó a quién ("Mazo decapitó a Brasa").
+  - Con la **minigun** del +3000 en las manos, la fatality es la **balacera**: desde donde está (no se acerca) le
+    vacía encima una ráfaga larga con el arma apuntándole; cada balazo le abre un agujero y le hace sangrar (de algunos
+    sale un chorro), baila con los impactos y al final se hincha, se pone al rojo y revienta en pedazos, como en la
+    explosión. Aunque esté lejos, el zoom del royale le sigue encuadrando hasta el final. La lista lo cuenta como
+    "Tritón acribilló a balazos a Sombra", y en el duelo final sale con "FINISH HIM!" y el letrero "FATALITY ·
+    BALACERA".
   - **Duelo final**: cuando solo quedan dos en pie, la fatality es como la completa: "FINISH HIM!" (o "FINISH HER!")
     con la voz del anunciador mientras el perdedor se tambalea, el fondo se oscurece y, tras el remate, cae el letrero
     "FATALITY" con el nombre del remate, su voz, el golpe y un destello rojo. Lo único que no lleva es la cámara de

@@ -2,6 +2,7 @@
 // promocional). Primero "FINISH HIM!" mientras el ganador se acerca; luego un remate distinto según el arma que lleva:
 //   espadas → decapitación · hachas → partido en dos · contundentes → aplastado
 //   de estocada → acribillado · látigo → arrancacabezas · puños y arrojadizas → explosión
+//   minigun (potenciador +3000 del royale) → balacera
 // y al final el letrero "FATALITY". Para probar una en concreto: ?fatality=aplastado (u otra).
 // Todo se anima con el ticker de la pelea: se detiene con la pausa y respeta la velocidad (x1 / x2).
 // En el battle royale (`royale`) solo se anima lo que les pasa a los personajes, con los sonidos del remate:
@@ -28,6 +29,7 @@ import {
 import { ColorOverlayFilter } from 'pixi-filters/color-overlay';
 import { GlowFilter } from 'pixi-filters/glow';
 import { death } from './death';
+import type { Minigun } from './minigun';
 import { untrap } from './untrap';
 import { AnimationFighter, findFighter } from './utils/findFighter';
 import { getHitDistance } from './utils/getHitDistance';
@@ -36,7 +38,7 @@ import { isHudLayer, screenLayer } from './utils/hud';
 import { Spritesheets } from './utils/spritesheet';
 import { shakeStage } from './utils/stageAnimations';
 
-type Kind = 'decapitacion' | 'partido' | 'aplastado' | 'acribillado' | 'latigo' | 'explosion';
+export type Kind = 'decapitacion' | 'partido' | 'aplastado' | 'acribillado' | 'latigo' | 'explosion' | 'balacera';
 
 // Remate según el arma del ganador (sin arma o con una arrojadiza: explosión)
 const KIND_BY_WEAPON: Record<string, Kind> = {
@@ -71,6 +73,7 @@ const KIND_TITLES: Record<Kind, string> = {
   acribillado: 'ACRIBILLADO',
   latigo: 'ARRANCACABEZAS',
   explosion: 'EXPLOSIÓN',
+  balacera: 'BALACERA',
 };
 // Para contarlo en la lista del royale: "Mazo decapitó a Brasa"
 export const FATALITY_VERBS: Record<Kind, string> = {
@@ -80,6 +83,7 @@ export const FATALITY_VERBS: Record<Kind, string> = {
   acribillado: 'acribilló a',
   latigo: 'le arrancó la cabeza a',
   explosion: 'hizo explotar a',
+  balacera: 'acribilló a balazos a',
 };
 
 const GRAVITY = 540;
@@ -121,7 +125,8 @@ export const isFatalityDeath = (fighters: AnimationFighter[], step: DeathStep) =
 export const fatalityKind = (killer: AnimationFighter): Kind => {
   try {
     const forced = new URLSearchParams(location.search).get('fatality');
-    if (forced && forced in KIND_TITLES) return forced as Kind;
+    // (la balacera necesita la minigun: solo con ella, ver setupFight)
+    if (forced && forced in KIND_TITLES && forced !== 'balacera') return forced as Kind;
   } catch {
     /* sin URL */
   }
@@ -261,8 +266,8 @@ export const fatality = async (
   step: DeathStep,
   speed: React.RefObject<number>,
   // Battle royale: quién remata (el último que lo golpeó), versión sin cine, aviso en el golpe final y si es el duelo
-  // final (quedaban dos en pie: con letreros y voz)
-  royale?: { killer: AnimationFighter; onImpact?: () => void; final?: boolean },
+  // final (quedaban dos en pie: con letreros y voz). Con la minigun del potenciador +3000 (`gun`), su remate (`kind`)
+  royale?: { killer: AnimationFighter; onImpact?: () => void; final?: boolean; kind?: Kind; gun?: Minigun },
 ) => {
   const cinematic = !royale;
   // Letreros, voz y fondo oscurecido: en la completa y en el duelo final del royale
@@ -277,7 +282,7 @@ export const fatality = async (
   }
   // Muerto desde ya: así ninguna animación pendiente lo vuelve a poner en reposo
   victim.dead = true;
-  const kind = fatalityKind(killer);
+  const kind = royale?.kind ?? fatalityKind(killer);
 
   const W = app.screen.width;
   const H = app.screen.height;
@@ -590,11 +595,11 @@ export const fatality = async (
   };
 
   // Del ganador hacia el perdedor. Si por ese lado no cabe (perdedor contra un borde, algo que en el royale pasa),
-  // remata desde el otro
+  // remata desde el otro (con la minigun no se mueve: siempre desde donde está)
   const reach = kind === 'latigo' ? 105 : 45;
   const fits = (side: number) => V.x - side * reach >= 16 && V.x - side * reach <= W - 16;
   const natural = Math.sign(V.x - K.x) || 1;
-  const towards = fits(natural) ? natural : -natural;
+  const towards = kind === 'balacera' || fits(natural) ? natural : -natural;
   const bodyHeight = victim.animation.baseHeight * 0.82;
   const killerHeight = killer.animation.baseHeight * 0.82;
   const baseScaleX = V.scale.x;
@@ -1005,16 +1010,19 @@ export const fatality = async (
   K.scale.x = Math.abs(K.scale.x) * towards;
   // Distancia por el lado desde el que remata (negativa si está al otro lado)
   const gap = (V.x - K.x) * towards;
+  // (con la minigun, desde donde está)
   const targetX =
-    kind === 'latigo'
-      ? gap >= 80 && gap <= 140
-        ? K.x
-        : V.x - towards * 105
-      : clamp(V.x - towards * Math.max(kind === 'acribillado' ? 42 : 32, getHitDistance(killer, victim) * 0.8), 16, W - 16);
+    kind === 'balacera'
+      ? K.x
+      : kind === 'latigo'
+        ? gap >= 80 && gap <= 140
+          ? K.x
+          : V.x - towards * 105
+        : clamp(V.x - towards * Math.max(kind === 'acribillado' ? 42 : 32, getHitDistance(killer, victim) * 0.8), 16, W - 16);
   const approach = async () => {
     const start = { x: K.x, y: K.y };
     const distance = Math.hypot(targetX - start.x, groundY + 1 - start.y);
-    if (distance <= 4) return;
+    if (distance <= 4 || kind === 'balacera') return;
     killer.animation.setAnimation('run');
     await animate(clamp(distance / 320, 0.15, 0.75), (p) => {
       K.x = lerp(start.x, targetX, p);
@@ -1499,25 +1507,9 @@ export const fatality = async (
     await wait(0.3);
   };
 
-  const explosion = async () => {
-    // Tres puñetazos cada vez más rápidos (velocidades que sí pasan por el fotograma del golpe)
-    for (const punchSpeed of [1.25, 1.4, 2]) {
-      await strike('fist', punchSpeed);
-      if (!alive()) return;
-      sfx(pick(['fist1', 'fist2', 'fist3']));
-      spray(V.x, groundY - bodyHeight * 0.62, 10, away(-0.45), 1, [65, 175]);
-      flinch(6);
-      void shake(2.8, 0.12);
-      await wait(0.06);
-    }
-    await finalStrike('fist', 1.65, V.x, groundY - bodyHeight * 0.5);
-    if (!alive()) return;
-    stopSway();
-    recoil();
-    sfx('hammer');
-    void flashTo(0xffffff, 0.75, 0.25);
-    void shake(6, 0.35);
-
+  // Se hincha y enrojece con temblor de presión interna y revienta en pedazos (final de la explosión y de la
+  // balacera)
+  const burst = async () => {
     // Se hincha y enrojece con temblor de presión interna...
     const glow = new ColorOverlayFilter({ color: 0xff1e00, alpha: 0 });
     V.filters = [...baseFilters, glow];
@@ -1594,6 +1586,84 @@ export const fatality = async (
     await settle(pieces, 0.7);
   };
 
+  const explosion = async () => {
+    // Tres puñetazos cada vez más rápidos (velocidades que sí pasan por el fotograma del golpe)
+    for (const punchSpeed of [1.25, 1.4, 2]) {
+      await strike('fist', punchSpeed);
+      if (!alive()) return;
+      sfx(pick(['fist1', 'fist2', 'fist3']));
+      spray(V.x, groundY - bodyHeight * 0.62, 10, away(-0.45), 1, [65, 175]);
+      flinch(6);
+      void shake(2.8, 0.12);
+      await wait(0.06);
+    }
+    await finalStrike('fist', 1.65, V.x, groundY - bodyHeight * 0.5);
+    if (!alive()) return;
+    stopSway();
+    recoil();
+    sfx('hammer');
+    void flashTo(0xffffff, 0.75, 0.25);
+    void shake(6, 0.35);
+
+    await burst();
+  };
+
+  // Minigun (potenciador +3000 del royale, ver minigun.ts): desde donde está le vacía encima una ráfaga larga. Cada
+  // balazo le abre un agujero, le sacude y le hace sangrar (de algunos sale un chorro), y al final se hincha y revienta
+  const balacera = async () => {
+    const jets: (() => void)[] = [];
+    const hole = (lx: number, ly: number, r: number) => {
+      const g = new Graphics()
+        .circle(0, 0, r)
+        .fill(0x5a0000)
+        .circle(0, 0, r * 0.55)
+        .fill(0x1a0000);
+      g.position.set(lx, ly);
+      g.zIndex = 1000;
+      V.addChild(g);
+      return g;
+    };
+    stopSway();
+    const seconds = 2.2;
+    const hits = 16;
+    void royale?.gun?.fire(victim, seconds + 0.3);
+    const x0 = V.x;
+    for (let i = 0; i < hits; i++) {
+      await wait(seconds / hits);
+      if (!alive()) return;
+      // (la grabación de la ráfaga dura menos que esta: a mitad, otra vez)
+      if (i === hits / 2 && sound.exists('minigun')) void sound.play('minigun');
+      const h = hole(rand(-7, 7) * giant, -bodyHeight * rand(0.2, 0.72), rand(1.5, 2.4) * giant);
+      const p = toStage(h);
+      spray(p.x, p.y, 9, away(-0.2), 0.9, [90, 240]);
+      if (i % 3 === 0) {
+        jets.push(
+          gush(
+            () => toStage(h),
+            () => away(-0.25),
+            0.3,
+            0.45,
+          ),
+        );
+      }
+      // Baila con los balazos: cada uno le sacude y le echa un poco hacia atrás
+      flinch(rand(2.5, 5.5));
+      V.rotation = rand(-0.08, 0.08);
+      if (i % 4 === 0) sfx(pick(['blunt1', 'blunt3', 'blunt5', 'blunt7']));
+      void shake(1.8, 0.08);
+    }
+    V.x = x0;
+    V.rotation = 0;
+    if (!alive()) return;
+    jets.forEach((stop) => stop());
+    recoil();
+    sfx('hammer');
+    void flashTo(0xffffff, 0.85, 0.25);
+    void shake(8, 0.45);
+
+    await burst();
+  };
+
   const kills: Record<Kind, () => Promise<void>> = {
     decapitacion,
     partido,
@@ -1601,6 +1671,7 @@ export const fatality = async (
     acribillado,
     latigo,
     explosion,
+    balacera,
   };
   await kills[kind]();
   if (!alive()) return;

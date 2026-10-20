@@ -31,13 +31,16 @@ export const royaleCamera = (app: Application, getFighters: () => AnimationFight
   const camera = { z: 1, x: W / 2, y: H / 2 };
   const view: CameraView = { x0: 0, y0: 0, x1: W, y1: H, z: 1 };
   (globalThis as any).__royaleCamera = view; // depuración: lo que se ve y el zoom
+  // Caídos que se siguen encuadrando mientras se les remata: la víctima de una balacera, a la que la minigun dispara
+  // desde donde esté, a veces lejos (ver setupFight)
+  const framed = new Set<AnimationFighter>();
 
   // Encuadre de los que siguen en pie (con sitio para su etiqueta y un margen): cuanto menos son, más cerca, pero sin
   // dejar a nadie fuera
   const target = () => {
     const standing = royaleZoom.enabled
-      ? getFighters().filter((f) => f.type === 'brute' && !f.master && !f.dead && f.hp > 0
-        && f.animation.container.visible && !f.animation.container.destroyed)
+      ? getFighters().filter((f) => !f.animation.container.destroyed && (framed.has(f)
+        || (f.type === 'brute' && !f.master && !f.dead && f.hp > 0 && f.animation.container.visible)))
       : [];
     if (!standing.length) return { z: 1, x: W / 2, y: H / 2 };
     let x0 = Infinity;
@@ -84,5 +87,5 @@ export const royaleCamera = (app: Application, getFighters: () => AnimationFight
   // Ya desde el principio, antes que cualquier temblor (que se suma a la posición que deja esto)
   apply();
   app.ticker.add(tick);
-  return { view };
+  return { view, framed };
 };
