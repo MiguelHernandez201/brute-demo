@@ -835,6 +835,208 @@
         height: 9cqw;
         font-size: 3.4cqw;
       }
+
+      /* ===== Panel de regalos (simulador del directo, ver main.js): flotante abajo a la derecha; con ?panel, la
+         página entera ===== */
+      #giftPanel {
+        display: none;
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 20;
+        width: 340px;
+        max-width: calc(100vw - 32px);
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border-radius: 12px;
+        border: 2px solid #fe2c55;
+        background: #150f0b;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+      }
+      body.gifts-open #giftPanel {
+        display: flex;
+      }
+      .gift-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .gift-head b {
+        font-size: 17px;
+      }
+      .gift-head span {
+        flex: 1;
+        font-size: 12px;
+        opacity: 0.6;
+      }
+      .gift-head button {
+        padding: 4px 9px;
+        font-size: 14px;
+        background: #3a2c22;
+        color: var(--ink);
+      }
+      #giftPanel label {
+        font-size: 12px;
+        opacity: 0.7;
+      }
+      .gift-user {
+        display: flex;
+        gap: 6px;
+      }
+      .gift-user input {
+        margin: 0;
+        padding: 8px;
+      }
+      .gift-user button {
+        padding: 6px 10px;
+      }
+      .gift-count {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+      }
+      .gift-count span {
+        flex: 1;
+        opacity: 0.7;
+      }
+      .gift-count button {
+        padding: 5px 12px;
+        font-size: 13px;
+        background: #3a2c22;
+        color: var(--ink);
+      }
+      .gift-count button.on {
+        background: var(--gold);
+        color: #2a1a08;
+      }
+      .gift-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+      }
+      .gift-grid .gift {
+        --b: #4ade80;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        padding: 6px 2px;
+        background: #2a201a;
+        border: 2px solid var(--b);
+        color: var(--ink);
+        font-size: 12px;
+        touch-action: manipulation;
+      }
+      .gift-grid .gift.t2 {
+        --b: #ffc62e;
+      }
+      .gift-grid .gift.t3 {
+        --b: #ff6b5e;
+      }
+      .gift-grid .gift:active {
+        transform: scale(0.94);
+      }
+      .gift-grid .gift i {
+        font-style: normal;
+        font-size: 26px;
+      }
+      .gift-grid .gift small {
+        opacity: 0.6;
+        font-weight: 400;
+      }
+      .gift-grid .gift b {
+        color: var(--b);
+      }
+      .gift-actions {
+        display: flex;
+        gap: 6px;
+      }
+      .gift-actions button {
+        flex: 1;
+        padding: 9px 6px;
+        font-size: 14px;
+      }
+      #giftPopup {
+        background: #3a2c22;
+        color: var(--ink);
+      }
+      /* ?panel: solo el panel, en su propia ventana */
+      body.panel-only > :not(#giftPanel):not(script) {
+        display: none !important;
+      }
+      body.panel-only #giftPanel {
+        position: static;
+        width: 100%;
+        max-width: 420px;
+        box-shadow: none;
+      }
+      body.panel-only #giftClose,
+      body.panel-only #giftPopup {
+        display: none;
+      }
+      /* Avisos de regalos, arriba a la izquierda de la arena */
+      #giftToasts {
+        position: absolute;
+        left: 1.5%;
+        top: 13%;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-width: 70%;
+        pointer-events: none;
+      }
+      .gift-toast {
+        --b: #4ade80;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: rgba(20, 12, 8, 0.82);
+        border: 2px solid var(--b);
+        color: #fff;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        animation: toast-in 0.35s ease-out;
+        transition: opacity 0.4s;
+      }
+      .gift-toast.t2 {
+        --b: #ffc62e;
+      }
+      .gift-toast.t3 {
+        --b: #ff6b5e;
+      }
+      .gift-toast.t0 {
+        --b: #4cc9f0;
+      }
+      .gift-toast span {
+        color: var(--b);
+        font-weight: 800;
+      }
+      .gift-toast.out {
+        opacity: 0;
+      }
+      @keyframes toast-in {
+        from {
+          transform: translateX(-30%);
+          opacity: 0;
+        }
+      }
+      body.tiktok .gift-toast {
+        padding: 0.8cqw 2cqw;
+        font-size: 3.4cqw;
+      }
+      /* Regalos de un combo que aún no han salido, en la fila de la lista */
+      .roster-top .gifts {
+        color: #fe7a95;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      body.tiktok .roster-top .gifts {
+        font-size: 3.4cqw;
+      }
     </style>
   </head>
   <body>
@@ -888,8 +1090,33 @@
         >
           ⬇️
         </button>
+        <button id="gifts" title="Panel de regalos (tecla G)" aria-label="Panel de regalos">🎁</button>
         <button id="ttReset" title="Borrar el ranking" aria-label="Borrar el ranking">🗑️</button>
         <button id="back" title="Volver al menú" aria-label="Volver al menú">🏠</button>
+      </div>
+    </div>
+
+    <!-- Panel de regalos: simula los regalos del directo (ver main.js) -->
+    <div id="giftPanel">
+      <div class="gift-head">
+        <b>🎁 Regalos</b><span>simulador del directo</span
+        ><button id="giftClose" title="Cerrar (tecla G)" aria-label="Cerrar">✕</button>
+      </div>
+      <label for="giftUser">Espectador</label>
+      <div class="gift-user">
+        <input id="giftUser" placeholder="nombre de TikTok (vacío: al azar)" maxlength="24" autocomplete="off" />
+        <button id="giftRandom" title="Nombre al azar" aria-label="Nombre al azar">🎲</button>
+      </div>
+      <div class="gift-count" id="giftCount">
+        <span>Cantidad</span><button data-count="1" class="on">x1</button><button data-count="5">x5</button
+        ><button data-count="10">x10</button>
+      </div>
+      <div class="gift-grid" id="giftGrid"></div>
+      <div class="gift-actions">
+        <button id="giftJoin" title="Entra a la pelea sin regalo (como quien comenta para unirse)">🙋 Unirse</button>
+        <button id="giftPopup" title="Abrir el panel en otra ventana: así en el directo se captura solo el juego">
+          ↗️ Otra ventana
+        </button>
       </div>
     </div>
 

@@ -300,6 +300,119 @@ const giftButtons = (disabled) =>
     (b) =>
       `<button class="t${b.tier}" data-add="1" data-gift="${b.tier}" title="Agregar un brute que entra con el potenciador ${b.label}: ${b.text}" ${disabled}>${b.label}</button>`,
   ).join('');
+
+// ===== Panel de regalos =====
+// Simula los regalos del directo de TikTok (aún sin conectar con TikFinity): con el nombre del espectador y un regalo,
+// entra a la pelea con su nombre (si no está en pie) y recibe el potenciador que da ese regalo. Sin regalo ("Unirse",
+// como quien comenta para entrar), solo entra. Se abre con 🎁 o la tecla G, y también en otra ventana (?panel) que manda
+// los regalos a la del juego (BroadcastChannel): así en el directo se captura solo la del juego
+const GIFTS = [
+  { id: 'rosa', icon: '🌹', name: 'Rosa', coins: 1 },
+  { id: 'corazon', icon: '🫰', name: 'Corazón', coins: 5 },
+  { id: 'dona', icon: '🍩', name: 'Dona', coins: 30 },
+  { id: 'gorra', icon: '🧢', name: 'Gorra', coins: 99 },
+  { id: 'corgi', icon: '🐶', name: 'Corgi', coins: 299 },
+  { id: 'leon', icon: '🦁', name: 'León', coins: 29999 },
+];
+// Potenciador según lo que vale el regalo en monedas de TikTok: hasta 29 → +300, hasta 298 → +1000, desde 299 → +3000
+const giftTier = (coins) => (coins >= 299 ? 3 : coins >= 30 ? 2 : 1);
+// Como mucho, potenciadores en cola por brute (un combo de muchos regalos no lo deja disparando ultimates sin fin)
+const GIFT_QUEUE_MAX = 10;
+// Lo pone la lista de la ronda en curso (ver `gift` en renderRoster). Los regalos que llegan sin ronda en la que entrar
+// (entre rondas, o fuera del royale) esperan a la siguiente
+let rosterGift = null;
+const pendingGifts = [];
+function applyGift({ user, gift, count = 1 }) {
+  const name = String(user ?? '')
+    .trim()
+    .slice(0, 24);
+  if (!name) return;
+  const g = GIFTS.find((x) => x.id === gift);
+  const tier = g ? giftTier(g.coins) : 0;
+  const n = Math.max(1, Math.min(GIFT_QUEUE_MAX, Math.round(+count) || 1));
+  giftToast(name, g, n, tier);
+  if (mode === 'royale' && rosterGift?.(name, tier, n)) return;
+  if (pendingGifts.length < 50) pendingGifts.push({ user: name, tier, count: n });
+}
+// Aviso del regalo encima de la arena (los tres últimos)
+function giftToast(name, g, n, tier) {
+  let box = $('giftToasts');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'giftToasts';
+    $('canvas').appendChild(box);
+  }
+  const el = document.createElement('div');
+  el.className = `gift-toast t${tier}`;
+  el.innerHTML = g
+    ? `<b>${escHtml(name)}</b> envió ${g.icon} ${escHtml(g.name)}${n > 1 ? ` x${n}` : ''} <span>${BOOSTS[tier - 1].label}</span>`
+    : `<b>${escHtml(name)}</b> se unió 🙋`;
+  box.prepend(el);
+  while (box.children.length > 3) box.lastChild.remove();
+  setTimeout(() => {
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 400);
+  }, 4000);
+}
+const panelOnly = new URLSearchParams(location.search).has('panel');
+const giftChannel = 'BroadcastChannel' in window ? new BroadcastChannel('brute-demo-regalos') : null;
+if (giftChannel && !panelOnly) giftChannel.onmessage = (e) => applyGift(e.data ?? {});
+const sendGift = (data) => (panelOnly ? giftChannel?.postMessage(data) : applyGift(data));
+// Para conectar después los regalos de verdad (TikFinity u otro): labrute.gift('usuario', 'rosa', 5), labrute.join(…)
+globalThis.labrute = {
+  gift: (user, gift, count = 1) => applyGift({ user, gift, count }),
+  join: (user) => applyGift({ user }),
+  gifts: GIFTS.map((g) => g.id),
+};
+const RANDOM_USERS = [
+  'luna',
+  'elpepe',
+  'sofi_gamer',
+  'tito_mx',
+  'karla_xo',
+  'migue',
+  'dani.fit',
+  'vale',
+  'nico',
+  'pao',
+];
+const randomUser = () =>
+  `${RANDOM_USERS[Math.floor(Math.random() * RANDOM_USERS.length)]}${Math.floor(Math.random() * 90 + 10)}`;
+let giftCount = 1;
+function setupGiftPanel() {
+  $('giftGrid').innerHTML = GIFTS.map((g) => {
+    const b = BOOSTS[giftTier(g.coins) - 1];
+    return `<button class="gift t${b.tier}" data-gift="${g.id}" title="${escHtml(g.name)}: ${b.label} (${b.text})"><i>${g.icon}</i><span>${escHtml(g.name)}</span><small>🪙${g.coins}</small><b>${b.label}</b></button>`;
+  }).join('');
+  const user = () => {
+    if (!$('giftUser').value.trim()) $('giftUser').value = randomUser();
+    return $('giftUser').value.trim();
+  };
+  $('giftGrid').onclick = (e) => {
+    const button = e.target.closest?.('[data-gift]');
+    if (button) sendGift({ user: user(), gift: button.dataset.gift, count: giftCount });
+  };
+  $('giftCount').onclick = (e) => {
+    const button = e.target.closest?.('[data-count]');
+    if (!button) return;
+    giftCount = +button.dataset.count;
+    $('giftCount')
+      .querySelectorAll('[data-count]')
+      .forEach((b) => b.classList.toggle('on', b === button));
+  };
+  $('giftJoin').onclick = () => sendGift({ user: user() });
+  $('giftRandom').onclick = () => {
+    $('giftUser').value = randomUser();
+  };
+  $('giftPopup').onclick = () => {
+    const url = new URL(location.href);
+    url.search = '?panel';
+    window.open(url.toString(), 'brute-demo-regalos', 'width=380,height=640');
+  };
+  $('giftClose').onclick = () => document.body.classList.remove('gifts-open');
+  if (panelOnly) document.body.classList.add('panel-only', 'gifts-open');
+}
+
 function renderRoster(fight) {
   rosterFight = fight;
   const fighters = JSON.parse(fight.fighters).filter((f) => f.type === 'brute' && !f.master);
@@ -383,9 +496,11 @@ function renderRoster(fight) {
         const classes = [index === winner ? 'win' : '', index === pinned ? 'lit' : ''].join(' ');
         // Victorias de la ronda (rivales que eliminó), junto a la vida: desde la primera
         const wins = s.wins ? `<b class="wins${index === popped ? ' pop' : ''}">🏆${s.wins}</b>` : '';
+        // Regalos de un combo que aún no han salido
+        const gifts = s.more?.length ? `<b class="gifts">🎁${s.more.length}</b>` : '';
         return `<li data-index="${index}" class="${classes}" style="--c:${royaleColorCss(index)}">
           <div class="roster-main">
-            <div class="roster-top">${who(index)}${wins}</div>
+            <div class="roster-top">${who(index)}${gifts}${wins}</div>
             <div class="roster-hp"><div class="roster-bar"><div style="width:${pct}%;background:${hpColor(pct)}"></div></div><small class="hp-text">${hpText(s.hp, s.maxHp)}</small></div>
             ${status ? `<small>${status}</small>` : ''}
           </div>
@@ -431,6 +546,34 @@ function renderRoster(fight) {
     }
     draw();
   };
+  // Regalo del panel (ver applyGift): si no está en pie, entra con su nombre; cada regalo le da su potenciador, y los
+  // de un combo quedan en cola (`more`) y salen uno tras otro. False si la ronda ya no admite a nadie
+  const gift = (user, tier, count) => {
+    if (winner || fight.timeUp) return false;
+    const tiers = tier ? Array.from({ length: count }, () => tier) : [];
+    const index = [...state].find(([, s]) => !s.out && s.name === user)?.[0];
+    if (index === undefined) {
+      if (!canAdd()) return false;
+      const brute = fight.addBrute?.(user);
+      if (!brute) return false;
+      const first = tiers.shift();
+      state.set(brute.index, {
+        name: brute.name,
+        out: 0,
+        hp: brute.hp,
+        maxHp: brute.maxHp,
+        wins: 0,
+        more: tiers,
+        ...(first ? { ult: 'queued', tier: first } : { ult: 'ready' }),
+      });
+    } else {
+      const s = state.get(index);
+      s.more = [...(s.more ?? []), ...tiers].slice(0, GIFT_QUEUE_MAX);
+    }
+    draw();
+    return true;
+  };
+  rosterGift = gift;
   // Resaltar en la arena, solo con el ratón: al pasar por una fila, o fijándola con un clic. Tocar la fila (móvil) no
   // hace nada, así no se resalta sin querer al ir a pulsar su ultimate
   let pointer = 'mouse';
@@ -484,7 +627,17 @@ function renderRoster(fight) {
     const elapsed = app?.ticker?.started ? (now - lastTick) / 1000 : 0;
     lastTick = now;
     let fired = false;
+    // Regalos que esperaban una ronda (llegaron entre rondas): entran en cuanto empieza
+    if (pendingGifts.length && elapsed && !winner && canAdd()) {
+      pendingGifts.splice(0).forEach((g) => gift(g.user, g.tier, g.count));
+    }
     for (const [index, s] of state) {
+      // Regalos de un combo: el siguiente, en cuanto se ve el poder del anterior
+      if (s.ult === 'ready' && s.more?.length && !s.out) {
+        s.tier = s.more.shift();
+        s.ult = 'queued';
+        fired = true;
+      }
       // En cola: sale en cuanto se pueda (con la pelea en marcha)
       if (
         s.ult === 'queued' &&
@@ -758,10 +911,15 @@ $('tiktokGo').onclick = () => {
   beginRoyale();
 };
 // Tecla C: muestra u oculta los botones (para manejarlo durante el directo sin que salgan en pantalla)
+// Tecla G: panel de regalos
 document.addEventListener('keydown', (e) => {
-  if (!tiktok.on || e.ctrlKey || e.metaKey || e.altKey || e.key.toLowerCase() !== 'c') return;
-  document.body.classList.toggle('tt-controls');
+  if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea')) return;
+  const key = e.key.toLowerCase();
+  if (key === 'c' && tiktok.on) document.body.classList.toggle('tt-controls');
+  if (key === 'g' && !panelOnly) document.body.classList.toggle('gifts-open');
 });
+$('gifts').onclick = () => document.body.classList.toggle('gifts-open');
+setupGiftPanel();
 $('ttReset').onclick = () => {
   if (!confirm('¿Borrar el ranking?')) return;
   ranking = {};
@@ -840,6 +998,7 @@ $('back').onclick = async () => {
     $('auto').checked = autoChallenge;
   }
   rosterFight = null;
+  rosterGift = null;
   run++;
   await destroyApp();
   $('canvas').innerHTML = '';

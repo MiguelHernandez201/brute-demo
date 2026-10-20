@@ -49,8 +49,21 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - Rondas seguidas solas: cada una dura como mucho 3 minutos (el reloj de "Finalizar"), y si queda uno solo en pie
     acaba a los 10 segundos. El ganador sale en grande ("¡gana la ronda N!") con la cuenta atrás de la siguiente (8 s).
   - Sin botones en pantalla: la tecla **C** los muestra u oculta (los de abajo, los de agregar brutes y los
-    potenciadores de cada uno, y 🗑️ para borrar el ranking). Por ahora los regalos se dan con esos botones; conectar
-    los regalos del directo es el siguiente paso.
+    potenciadores de cada uno, y 🗑️ para borrar el ranking).
+- **🎁 Panel de regalos** (botón 🎁 o tecla **G**; en cualquier royale): simula los regalos del directo de TikTok, aún
+  sin conectar con TikFinity. Se escribe el nombre del espectador (vacío o 🎲: uno al azar), se elige la cantidad (x1,
+  x5, x10) y se pulsa un regalo:
+  - Si no está en pie, entra a la pelea con su nombre; si ya está, recibe el potenciador. Cada regalo da el suyo según
+    lo que vale en monedas de TikTok: 🌹 Rosa (1) y 🫰 Corazón (5) → **+300**; 🍩 Dona (30) y 🧢 Gorra (99) →
+    **+1000**; 🐶 Corgi (299) y 🦁 León (29.999) → **+3000**. Los de un combo van saliendo uno tras otro (🎁N en su
+    fila: los que faltan; como mucho 10).
+  - **🙋 Unirse**: entra sin regalo, como quien comenta para unirse.
+  - Cada regalo sale como aviso arriba a la izquierda de la arena ("luna23 envió 🌹 Rosa x3 +300"), con el color de
+    su potenciador. Los que llegan entre rondas entran al empezar la siguiente.
+  - **↗️ Otra ventana** abre el panel solo (`?panel`), que manda los regalos a la ventana del juego: así en el directo
+    se captura solo la del juego.
+  - Para conectar después los regalos de verdad: `labrute.gift('usuario', 'rosa', 5)` y `labrute.join('usuario')` en
+    la ventana del juego (los regalos: `rosa`, `corazon`, `dona`, `gorra`, `corgi`, `leon`).
 
   El modo 1 vs 1 (dos jugadores con una tienda cada uno) se quitó: el royale lo sustituye. Lo que era solo suyo se
   fue con él (nombres de los jugadores, tiendas, contador de victorias, Acercamiento y la casilla para celebrar tras
