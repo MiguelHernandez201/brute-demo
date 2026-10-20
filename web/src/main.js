@@ -14,7 +14,9 @@ import { FATALITY_VERBS } from './fight/fatality.ts';
 import { royaleColorCss } from './fight/royaleTags.ts';
 import { crowdQuality } from './fight/crowdQuality.ts';
 import { setFightDisposing } from './fight/utils/lifecycle.ts';
-import { renderQuality } from './fight/FighterHolder.ts';
+import { arenaBackground, musicTrack, renderQuality } from './fight/FighterHolder.ts';
+import { clockConfig } from './fight/royaleClock.ts';
+import { applyLayout, resetLayout, toggleEdit } from './ttLayout.js';
 import { royaleZoom } from './fight/royaleCamera.ts';
 import { sound } from '@pixi/sound';
 import { sfx, sounds } from './sfx.ts';
@@ -34,13 +36,17 @@ const t = (key, opts) => (key === 'fight.wonTheFight' ? `${opts.brute} ganó la 
 const loadSheet = (path, cachePrefix) => Assets.load({ src: path, data: { cachePrefix } });
 
 // Sonido: mismos audios y sprites que la pelea original
-const audio = { sfx: true, music: true };
+const audio = { sfx: true, music: true, sfxVol: 1, musicVol: 0.6, track: 'background' };
+// Pistas de música: la de la pelea original y la del menú (sin usar en el juego original)
+const TRACKS = ['background', 'menu'];
 // Voces grabadas del anunciador (suenan con los efectos): "Multi kill!" (ver fight/multiKill) y las de la fatality,
 // "Finish him!" / "Finish her!" y "Fatality!" (ver fight/fatality). Y la ráfaga de la minigun (ver fight/minigun), que
 // tampoco está entre los sonidos de la pelea original
 const VOICES = ['multikill', 'finishhim', 'finishher', 'fatality', 'minigun'];
 function setupSounds() {
-  if (!sound.exists('background')) sound.add('background', `${import.meta.env.BASE_URL}sfx/background.mp3`);
+  for (const track of TRACKS) {
+    if (!sound.exists(track)) sound.add(track, `${import.meta.env.BASE_URL}sfx/${track}.mp3`);
+  }
   for (const voice of VOICES) {
     if (!sound.exists(voice)) sound.add(voice, { url: `${import.meta.env.BASE_URL}sfx/${voice}.mp3`, preload: true });
   }
@@ -56,9 +62,12 @@ function setupSounds() {
 }
 function applyVolumes() {
   sound.volumeAll = 1;
-  if (sound.exists('sfx')) sound.volume('sfx', audio.sfx ? 1 : 0);
-  for (const voice of VOICES) if (sound.exists(voice)) sound.volume(voice, audio.sfx ? 1 : 0);
-  if (sound.exists('background')) sound.volume('background', audio.music ? 0.6 : 0);
+  if (sound.exists('sfx')) sound.volume('sfx', audio.sfx ? audio.sfxVol : 0);
+  for (const voice of VOICES) if (sound.exists(voice)) sound.volume(voice, audio.sfx ? audio.sfxVol : 0);
+  if (!TRACKS.includes(audio.track)) audio.track = 'background';
+  musicTrack.name = audio.track;
+  for (const track of TRACKS) if (sound.exists(track)) sound.volume(track, audio.music ? audio.musicVol : 0);
+  $('giftTrack').value = audio.track;
   // Botones de solo icono: apagados se ven oscuros (y la música, con la nota tachada)
   $('sfx').textContent = audio.sfx ? '🔊' : '🔇';
   for (const [id, on] of [
@@ -68,6 +77,12 @@ function applyVolumes() {
     $(id).classList.toggle('off', !on);
     $(id).setAttribute('aria-pressed', String(on));
   }
+  // Panel G: mismos interruptores y volúmenes
+  $('giftMusic').classList.toggle('off', !audio.music);
+  $('giftSfx').classList.toggle('off', !audio.sfx);
+  $('giftSfx').textContent = audio.sfx ? '🔊 Efectos' : '🔇 Efectos';
+  $('giftMusicVol').value = String(Math.round(audio.musicVol * 100));
+  $('giftSfxVol').value = String(Math.round(audio.sfxVol * 100));
 }
 // Botones de la arena: solo icono; lo que hacen va en su título (sale al pasar el ratón) y para lectores de pantalla
 function setControl(id, icon, label) {
@@ -156,8 +171,8 @@ let royaleCount = 6;
 const tiktok = { on: false, round: 0 };
 // Segundos con el ganador en pantalla antes de la siguiente ronda
 const TIKTOK_DELAY = 8;
-// Si queda uno solo en pie, la ronda acaba a los pocos segundos (en vez de esperar al final del reloj)
-const TIKTOK_LAST_STANDING = 10;
+const TT_AUTO_KEY = 'brute-demo-tt-auto';
+const TT_TIMER_KEY = 'brute-demo-tt-timer';
 const RANKING_KEY = 'brute-demo-tiktok-ranking';
 const escHtml = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -178,12 +193,12 @@ const saveRanking = () => {
 const scoreOf = (name) => (ranking[name] ??= { wins: 0, kills: 0 });
 function renderRanking() {
   const top = Object.entries(ranking)
-    .sort(([, a], [, b]) => b.wins - a.wins || b.kills - a.kills)
+    .sort(([, a], [, b]) => b.kills - a.kills)
     .slice(0, 5);
   const rows = top
     .map(
       ([name, s], i) =>
-        `<li><span>${['🥇', '🥈', '🥉'][i] ?? `${i + 1}.`} ${escHtml(name)}</span><b>${s.wins} 👑 · ${s.kills} ☠️</b></li>`,
+        `<li><span>${['🥇', '🥈', '🥉'][i] ?? `${i + 1}.`} ${escHtml(name)}</span><b>${s.kills} ☠️</b></li>`,
     )
     .join('');
   $('ttRanking').innerHTML =
@@ -230,6 +245,8 @@ let fpsClass = '';
       since = now;
       fpsText = `${fps} fps${QUALITY_LABELS[crowdQuality.level] ?? ''}`;
       fpsClass = fps >= 50 ? 'fps-good' : fps >= 30 ? 'fps-ok' : 'fps-bad';
+      $('giftFps').textContent = `${fps} fps${QUALITY_LABELS[crowdQuality.level] ?? ''}`;
+      $('giftFps').className = fpsClass;
       const el = $('rosterFps');
       if (el) {
         el.textContent = fpsText;
@@ -249,6 +266,8 @@ let fpsClass = '';
 let rosterFight = null;
 // Activa "Finalizar" en la ronda en curso (las rondas continuas lo hacen solas)
 let royaleFinish = null;
+// Activa o desactiva el reloj de la ronda en curso (lo pone la lista del royale, ver renderRoster)
+let ttTimerToggle = null;
 // Mientras se pulsa algo de la lista no se repinta: se repinta al soltar, tras el clic. Si no, con la pelea en marcha
 // (caídas, ultimates…) el botón pulsado podía cambiarse por otro a mitad del toque y el clic se perdía
 let rosterPressed = false;
@@ -307,13 +326,32 @@ const giftButtons = (disabled) =>
 // como quien comenta para entrar), solo entra. Se abre con 🎁 o la tecla G, y también en otra ventana (?panel) que manda
 // los regalos a la del juego (BroadcastChannel): así en el directo se captura solo la del juego
 const GIFTS = [
-  { id: 'rosa', icon: '🌹', name: 'Rosa', coins: 1 },
-  { id: 'corazon', icon: '🫰', name: 'Corazón', coins: 5 },
-  { id: 'dona', icon: '🍩', name: 'Dona', coins: 30 },
-  { id: 'gorra', icon: '🧢', name: 'Gorra', coins: 99 },
-  { id: 'corgi', icon: '🐶', name: 'Corgi', coins: 299 },
-  { id: 'leon', icon: '🦁', name: 'León', coins: 29999 },
+  { id: 'rosa', file: '7906db96d5.webp', icon: '🌹', name: 'Rosa', coins: 1 },
+  { id: 'corazon', file: '0568665007.webp', icon: '🫰', name: 'Corazón', coins: 5 },
+  { id: 'dona', file: '993fc4dd9e.webp', icon: '🍩', name: 'Dona', coins: 30 },
+  { id: 'gorra', file: '6e42085c44.webp', icon: '🧢', name: 'Gorra', coins: 99 },
+  { id: 'corgi', file: 'e2865bffd3.webp', icon: '🐶', name: 'Corgi', coins: 299 },
+  { id: 'leon', file: '3da0f43a1b.webp', icon: '🦁', name: 'León', coins: 29999 },
 ];
+// Catálogo completo de regalos de TikTok (public/images/gifts/gifts.json: nombre, monedas y archivo). Se carga al abrir;
+// los regalos del catálogo se identifican como "f:<archivo>" o por su nombre (labrute.gift('usuario', 'Rose'))
+let catalog = [];
+const giftImg = (file) => `${import.meta.env.BASE_URL}images/gifts/${file}`;
+const findGift = (id) => {
+  if (typeof id !== 'string' || !id) return undefined;
+  const found = GIFTS.find((x) => x.id === id);
+  if (found) return found;
+  const lower = id.toLowerCase();
+  return (
+    catalog.find((x) => `f:${x.file}` === id || x.name.toLowerCase() === lower) ??
+    GIFTS.find((x) => x.name.toLowerCase() === lower)
+  );
+};
+// Icono de un regalo: su imagen si la tiene (si no carga, el emoji) y si no, el emoji
+const giftIcon = (g) =>
+  g.file
+    ? `<img class="gift-img" src="${giftImg(g.file)}" alt="" loading="lazy" draggable="false" onerror="this.replaceWith(document.createTextNode('${g.icon ?? '🎁'}'))" />`
+    : (g.icon ?? '🎁');
 // Potenciador según lo que vale el regalo en monedas de TikTok: hasta 29 → +300, hasta 298 → +1000, desde 299 → +3000
 const giftTier = (coins) => (coins >= 299 ? 3 : coins >= 30 ? 2 : 1);
 // Como mucho, potenciadores en cola por brute (un combo de muchos regalos no lo deja disparando ultimates sin fin)
@@ -327,7 +365,7 @@ function applyGift({ user, gift, count = 1 }) {
     .trim()
     .slice(0, 24);
   if (!name) return;
-  const g = GIFTS.find((x) => x.id === gift);
+  const g = findGift(gift);
   const tier = g ? giftTier(g.coins) : 0;
   const n = Math.max(1, Math.min(GIFT_QUEUE_MAX, Math.round(+count) || 1));
   giftToast(name, g, n, tier);
@@ -345,7 +383,7 @@ function giftToast(name, g, n, tier) {
   const el = document.createElement('div');
   el.className = `gift-toast t${tier}`;
   el.innerHTML = g
-    ? `<b>${escHtml(name)}</b> envió ${g.icon} ${escHtml(g.name)}${n > 1 ? ` x${n}` : ''} <span>${BOOSTS[tier - 1].label}</span>`
+    ? `<b>${escHtml(name)}</b> envió ${giftIcon(g)} ${escHtml(g.name)}${n > 1 ? ` x${n}` : ''} <span>${BOOSTS[tier - 1].label}</span>`
     : `<b>${escHtml(name)}</b> se unió 🙋`;
   box.prepend(el);
   while (box.children.length > 3) box.lastChild.remove();
@@ -379,11 +417,29 @@ const RANDOM_USERS = [
 const randomUser = () =>
   `${RANDOM_USERS[Math.floor(Math.random() * RANDOM_USERS.length)]}${Math.floor(Math.random() * 90 + 10)}`;
 let giftCount = 1;
+let renderCatalog = () => {};
+fetch(`${import.meta.env.BASE_URL}images/gifts/gifts.json`)
+  .then((r) => (r.ok ? r.json() : []))
+  .then((list) => {
+    catalog = Array.isArray(list) ? list : [];
+    renderCatalog();
+  })
+  .catch(() => {});
 function setupGiftPanel() {
   $('giftGrid').innerHTML = GIFTS.map((g) => {
     const b = BOOSTS[giftTier(g.coins) - 1];
-    return `<button class="gift t${b.tier}" data-gift="${g.id}" title="${escHtml(g.name)}: ${b.label} (${b.text})"><i>${g.icon}</i><span>${escHtml(g.name)}</span><small>🪙${g.coins}</small><b>${b.label}</b></button>`;
+    return `<button class="gift t${b.tier}" data-gift="${g.id}" title="${escHtml(g.name)}: ${b.label} (${b.text})"><i>${giftIcon(g)}</i><span>${escHtml(g.name)}</span><small>🪙${g.coins}</small><b>${b.label}</b></button>`;
   }).join('');
+  // Parrilla de regalos del modo TikTok (abajo en la pantalla vertical): lo que da cada regalo, y se puede pulsar
+  $('ttGifts').innerHTML = GIFTS.map((g) => {
+    const b = BOOSTS[giftTier(g.coins) - 1];
+    return `<button class="t${b.tier}" data-gift="${g.id}" title="${escHtml(g.name)}"><i>${giftIcon(g)}</i><span>${escHtml(g.name)}</span><small>🪙${g.coins}</small><b>${b.label}</b></button>`;
+  }).join('');
+  $('ttGifts').onclick = (e) => {
+    const button = e.target.closest?.('button');
+    if (!button) return;
+    sendGift({ user: randomUser(), gift: button.dataset.gift });
+  };
   const user = () => {
     if (!$('giftUser').value.trim()) $('giftUser').value = randomUser();
     return $('giftUser').value.trim();
@@ -401,6 +457,22 @@ function setupGiftPanel() {
       .forEach((b) => b.classList.toggle('on', b === button));
   };
   $('giftJoin').onclick = () => sendGift({ user: user() });
+  // Todos los regalos del catálogo: buscador y lista; cada uno da el potenciador que le toca por sus monedas
+  const renderAll = () => {
+    const q = $('giftSearch').value.trim().toLowerCase();
+    const list = catalog.filter((x) => !q || x.name.toLowerCase().includes(q)).slice(0, 150);
+    $('giftAll').innerHTML = list.length
+      ? list
+          .map(
+            (x) =>
+              `<button class="t${giftTier(x.coins)}" data-gift="f:${x.file}" title="${escHtml(x.name)} · 🪙${x.coins}"><i>${giftIcon(x)}</i><span>${escHtml(x.name)}</span><small>🪙${x.coins}</small></button>`,
+          )
+          .join('')
+      : '<p>Sin resultados</p>';
+  };
+  $('giftSearch').oninput = renderAll;
+  $('giftAll').onclick = $('giftGrid').onclick;
+  renderCatalog = renderAll;
   $('giftRandom').onclick = () => {
     $('giftUser').value = randomUser();
   };
@@ -653,16 +725,6 @@ function renderRoster(fight) {
       }
     }
     if (fired) draw();
-    // Modo TikTok: con uno solo en pie la ronda acaba enseguida (el reloj baja a TIKTOK_LAST_STANDING segundos)
-    if (
-      tiktok.on &&
-      !winner &&
-      fight.finishing &&
-      state.size - fallen === 1 &&
-      (fight.timeLeft ?? 0) > TIKTOK_LAST_STANDING
-    ) {
-      fight.timeLeft = TIKTOK_LAST_STANDING;
-    }
     if (winner || fight.timeUp) document.querySelectorAll('#roster [data-boost]').forEach((b) => (b.disabled = true));
     // Cuenta atrás de "Finalizar": la lleva el reloj de la arena, aquí se copia al botón
     const finish = $('roster').querySelector('[data-finish]');
@@ -723,12 +785,15 @@ function renderRoster(fight) {
       draw();
     }
   };
+  ttTimerToggle = () => {
+    if (rosterFight === fight && !winner && !fight.timeUp) setFinish(!fight.finishing);
+  };
   royaleFinish = () => {
     if (rosterFight === fight && !fight.finishing && !winner) setFinish(true);
   };
   draw();
   // Rondas continuas: cada ronda se finaliza sola (si no, con uno en pie esperaría para siempre)
-  if (autoChallenge) royaleFinish();
+  if (autoChallenge && !tiktok.on) royaleFinish();
 }
 
 async function playFight(id, fight) {
@@ -739,7 +804,10 @@ async function playFight(id, fight) {
   // El escenario lógico es 500x300 (como el juego), pero se muestra más grande:
   // se dibuja a la resolución real de pantalla para que no se vea borroso.
   const displayWidth = Math.min(tiktok.on ? 1080 : 800, $('canvas').clientWidth || 800);
-  const quality = Math.min(4, (window.devicePixelRatio || 1) * (displayWidth / 500));
+  // Modo TikTok: se dibuja con más resolución (al menos x2 de pantalla y un 50 % más), porque el zoom dinámico agranda la
+  // arena y la captura del directo la vuelve a comprimir
+  const pixelRatio = tiktok.on ? Math.max(2, window.devicePixelRatio || 1) * 1.5 : window.devicePixelRatio || 1;
+  const quality = Math.min(4, pixelRatio * (displayWidth / 500));
   // Royale con zoom dinámico: los luchadores se dibujan con más detalle, para que de cerca no se vean borrosos
   renderQuality.value = mode === 'royale' && royaleZoom.enabled ? Math.min(4, quality * 1.6) : quality;
   await a.init({ backgroundColor: 0xfbf7c0, width: 500, height: 300, resolution: quality, antialias: true });
@@ -904,8 +972,14 @@ $('tiktokGo').onclick = () => {
   tiktok.on = true;
   tiktok.round = 0;
   document.body.classList.add('tiktok');
-  autoChallenge = true;
-  $('auto').checked = true;
+  applyLayout();
+  // Rondas continuas: solo si se activan en el panel de administración (se recuerda aparte de las del modo normal)
+  try {
+    autoChallenge = localStorage.getItem(TT_AUTO_KEY) === 'true';
+  } catch {
+    autoChallenge = false;
+  }
+  $('auto').checked = autoChallenge;
   renderRanking();
   enterArena('royale');
   beginRoyale();
@@ -915,17 +989,25 @@ $('tiktokGo').onclick = () => {
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea')) return;
   const key = e.key.toLowerCase();
-  if (key === 'c' && tiktok.on) document.body.classList.toggle('tt-controls');
+  if (key === 'c' && tiktok.on) {
+    document.body.classList.toggle('tt-controls');
+    toggleEdit(false);
+  }
+  // Tecla E: modo edición de los paneles (mover y cambiar tamaño); R, ya en edición, los restablece
+  if (key === 'e' && tiktok.on) toggleEdit();
+  if (key === 'r' && tiktok.on && document.body.classList.contains('tt-edit')) resetLayout();
   if (key === 'g' && !panelOnly) document.body.classList.toggle('gifts-open');
 });
 $('gifts').onclick = () => document.body.classList.toggle('gifts-open');
 setupGiftPanel();
-$('ttReset').onclick = () => {
+const clearRanking = () => {
   if (!confirm('¿Borrar el ranking?')) return;
   ranking = {};
   saveRanking();
   renderRanking();
 };
+$('ttReset').onclick = clearRanking;
+$('giftClearRank').onclick = clearRanking;
 $('downloadPromo').onclick = () => {
   if (!promoDownloadUrl) return;
   const a = document.createElement('a');
@@ -974,7 +1056,7 @@ $('zoom').onchange = (e) => {
 $('auto').onchange = (e) => {
   autoChallenge = e.target.checked;
   try {
-    localStorage.setItem('brute-demo-auto', String(autoChallenge));
+    localStorage.setItem(tiktok.on ? TT_AUTO_KEY : 'brute-demo-auto', String(autoChallenge));
   } catch {
     /* sin storage */
   }
@@ -982,13 +1064,13 @@ $('auto').onchange = (e) => {
   if (autoChallenge && !$('again').disabled) scheduleAutoChallenge(run);
   else if (!autoChallenge) cancelAutoChallenge();
   // En plena ronda del royale, se finaliza para poder pasar a la siguiente
-  if (autoChallenge && mode === 'royale') royaleFinish?.();
+  if (autoChallenge && mode === 'royale' && !tiktok.on) royaleFinish?.();
 };
 $('back').onclick = async () => {
   cancelAutoChallenge();
   if (tiktok.on) {
     tiktok.on = false;
-    document.body.classList.remove('tiktok', 'tt-controls');
+    document.body.classList.remove('tiktok', 'tt-controls', 'tt-edit');
     hideWinner();
     try {
       autoChallenge = localStorage.getItem('brute-demo-auto') === 'true';
@@ -1045,6 +1127,29 @@ $('music').onclick = () => {
   saveAudio();
   applyVolumes();
 };
+// Cambiar de pista: suena la nueva desde el principio (si la pelea está en curso y sin pausa)
+$('giftTrack').onchange = (e) => {
+  const playing = TRACKS.some((t) => sound.exists(t) && sound.find(t).isPlaying);
+  for (const t of TRACKS) if (sound.exists(t)) sound.stop(t);
+  audio.track = e.target.value;
+  saveAudio();
+  applyVolumes();
+  if (playing && app?.ticker?.started) sound.play(audio.track, { loop: true });
+};
+$('giftMusic').onclick = () => $('music').click();
+$('giftSfx').onclick = () => $('sfx').click();
+$('giftMusicVol').oninput = (e) => {
+  audio.musicVol = +e.target.value / 100;
+  if (audio.musicVol > 0) audio.music = true;
+  saveAudio();
+  applyVolumes();
+};
+$('giftSfxVol').oninput = (e) => {
+  audio.sfxVol = +e.target.value / 100;
+  if (audio.sfxVol > 0) audio.sfx = true;
+  saveAudio();
+  applyVolumes();
+};
 applyVolumes();
 
 const trailerParam = new URLSearchParams(location.search).get('trailer');
@@ -1069,3 +1174,73 @@ if (royaleParam) {
   $('royaleCount').value = royaleParam;
   $('royaleGo').click();
 }
+
+// Panel de administración (modo TikTok): duración del reloj de la ronda y botón para activarlo cuando se quiera.
+// El reloj solo corre si se activa (⏱ aquí o 🏁 en la lista); al llegar a cero gana quien más victorias lleva
+const ttMin = $('ttTimerMin');
+const ttSec = $('ttTimerSec');
+const readTimer = () => {
+  const seconds = Math.max(5, Math.min(5999, (+ttMin.value || 0) * 60 + (+ttSec.value || 0)));
+  clockConfig.seconds = seconds;
+  return seconds;
+};
+try {
+  const saved = +localStorage.getItem(TT_TIMER_KEY);
+  if (saved >= 5) {
+    ttMin.value = Math.floor(saved / 60);
+    ttSec.value = saved % 60;
+  }
+} catch {
+  /* sin storage */
+}
+readTimer();
+const onTimerInput = () => {
+  const seconds = readTimer();
+  try {
+    localStorage.setItem(TT_TIMER_KEY, String(seconds));
+  } catch {
+    /* sin storage */
+  }
+};
+ttMin.oninput = onTimerInput;
+ttSec.oninput = onTimerInput;
+$('ttTimerBtn').onclick = () => ttTimerToggle?.();
+
+// Resto de la sección "Ronda" del panel G: rondas continuas (refleja la casilla 🔁 de los botones), nueva ronda y el
+// texto del botón del reloj según esté corriendo o no
+$('giftAuto').onchange = (e) => {
+  $('auto').checked = e.target.checked;
+  $('auto').dispatchEvent(new Event('change'));
+};
+$('giftNewRound').onclick = () => {
+  if (!$('again').disabled) $('again').click();
+};
+setInterval(() => {
+  $('giftAuto').checked = autoChallenge;
+  const running = !!rosterFight?.finishing && !rosterFight.timeUp;
+  const text = running ? '⏹ Parar reloj' : '▶️ Iniciar reloj';
+  if ($('ttTimerBtn').textContent.trim() !== text) $('ttTimerBtn').textContent = text;
+  $('ttTimerBtn').disabled = !rosterFight || rosterFight.timeUp;
+  $('giftNewRound').disabled = $('again').disabled;
+}, 400);
+
+// Fondo de la arena: "auto" (el que toque en cada ronda) o uno fijo; se cambia al instante y se recuerda
+const BG_KEY = 'brute-demo-bg';
+try {
+  arenaBackground.name = localStorage.getItem(BG_KEY) || 'auto';
+} catch {
+  /* sin storage */
+}
+$('giftBg').innerHTML =
+  '<option value="auto">Automático</option>' +
+  Array.from({ length: 13 }, (_, i) => `<option value="${i + 1}">Fondo ${i + 1}</option>`).join('');
+$('giftBg').value = arenaBackground.name;
+$('giftBg').onchange = (e) => {
+  arenaBackground.name = e.target.value;
+  arenaBackground.apply?.(arenaBackground.name);
+  try {
+    localStorage.setItem(BG_KEY, arenaBackground.name);
+  } catch {
+    /* sin storage */
+  }
+};

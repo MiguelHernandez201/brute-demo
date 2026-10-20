@@ -444,6 +444,13 @@ const SCALE = 1;
 // Demo: multiplicador de resolución de los SVG (lo fija main.js según el tamaño en pantalla)
 export const renderQuality = { value: 1 };
 
+// Demo: pista de música que suena durante la pelea (la elige la interfaz; ver main.js)
+export const musicTrack = { name: 'background' };
+
+// Demo: fondo de la arena. `name`: 'auto' (el que sale en cada ronda) o el número de fondo elegido; `apply` lo pone
+// setupFight para cambiarlo en plena pelea
+export const arenaBackground: { name: string; apply: ((name: string) => void) | null } = { name: 'auto', apply: null };
+
 type SvgLoadEntry = {
   svg: Svg;
   renderScale: number;

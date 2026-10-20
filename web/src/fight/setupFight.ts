@@ -27,7 +27,7 @@ import { eat } from './eat';
 import { end } from './end';
 import { equip } from './equip';
 import { evade } from './evade';
-import { FighterHolder } from './FighterHolder';
+import { arenaBackground, FighterHolder, musicTrack } from './FighterHolder';
 import { flashFlood } from './flashFlood';
 import { hammer } from './hammer';
 import { haste } from './haste';
@@ -309,10 +309,16 @@ export const setupFight: (
     if (shouldAbort()) return;
 
     // TODO: Remove this on release, as background extensions were changed
-    const fightBackground = `${fight.background.split('.')[0]}.jpg`;
+    const roundBackground = fight.background.split('.')[0];
+    const backgroundTexture = (name: string) =>
+      miscSheet.textures[`background/${name === 'auto' ? roundBackground : name}.jpg`];
 
     // Add background
-    const background = new Sprite(miscSheet.textures[`background/${fightBackground}`]);
+    const background = new Sprite(backgroundTexture(arenaBackground.name));
+    // Demo: cambiar de fondo desde la interfaz, también en plena pelea
+    arenaBackground.apply = (name) => {
+      if (!background.destroyed) background.texture = backgroundTexture(name);
+    };
     background.zIndex = -1;
 
     // Fill screen
@@ -610,7 +616,7 @@ export const setupFight: (
 
     // Set background music
     if (shouldAbort()) return;
-    await sound.play('background', { loop: true });
+    await sound.play(musicTrack.name, { loop: true });
 
     // Get fighters animations
     if (shouldAbort()) return;
