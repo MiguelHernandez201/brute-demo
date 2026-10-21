@@ -30,6 +30,10 @@ const THROW_WEAPON_ODDS = 80;
 // (el juego original: 50 % y se reducía a la mitad)
 const KEEP_WEAPON_CHANCE = 0.85;
 const KEEP_WEAPON_DECAY = 0.85;
+// Demo battle royale: peso de "no sacar arma" al ir a sacar una (el juego original: NO_WEAPON_TOSS, 10). Más alto, para
+// que sacarla por su cuenta cueste y el arma segura sea la del regalo Quiéreme (ver ultimates.boostGear): sin arma, en
+// cada turno saca una con probabilidad (peso de sus armas) / (peso de sus armas + esto)
+const ROYALE_NO_WEAPON_TOSS = 50;
 // Demo battle royale: el aura de ki (potenciadores 2 y 3, ver ultimates.boost) multiplica por tanto el daño que hace
 export const KI_DAMAGE = 3;
 // Demo battle royale: quien ha usado un potenciador (ver ultimates.boost) no pierde nunca el arma que lleva: ni se la
@@ -448,7 +452,7 @@ export const randomlyDrawWeapon = (
   }
 
   if (!forceDraw && !fightData.modifiers[FightModifier.drawEveryWeapon]) {
-    totalToss += NO_WEAPON_TOSS;
+    totalToss += fightData.royaleDuels ? ROYALE_NO_WEAPON_TOSS : NO_WEAPON_TOSS;
   }
 
   const randomWeapon = randomBetween(0, totalToss);
