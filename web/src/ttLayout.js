@@ -1,14 +1,13 @@
-// Modo TikTok: tamaño y posición de los paneles (arena de pelea, cabecera, chat, regalos, ranking e imágenes) personalizables. Con la tecla E se entra en
+// Modo TikTok: tamaño y posición de los paneles (arena de pelea, cabecera, chat, cuadro de regalos, ranking e imágenes) personalizables. Con la tecla E se entra en
 // modo edición: se arrastra un panel para moverlo y su esquina inferior derecha para cambiar el tamaño. Se guarda en
 // este navegador (localStorage). Las medidas van en cqw (centésimas del ancho de la pantalla vertical), igual que el CSS.
 const KEY = 'brute-demo-tiktok-layout';
-// Qué se puede ajustar de cada panel: `h` false = la altura sale sola (regalos: por la proporción de sus tarjetas;
-// ranking: por su contenido)
+// Qué se puede ajustar de cada panel: `h` false = la altura sale sola (ranking: por su contenido)
 const PANELS = [
   { id: 'canvas', h: false },
   { id: 'ttHeader', h: false },
   { id: 'ttChat', h: true },
-  { id: 'ttGifts', h: false },
+  { id: 'ttBanner', h: true },
   { id: 'ttRanking', h: false },
   { id: 'ttMascot', h: false },
   { id: 'ttMascot2', h: false },
@@ -32,7 +31,7 @@ const persist = () => {
 };
 
 // Orden de capas de fábrica (de atrás hacia delante), para cuando aún no se ha tocado
-const DEFAULT_ORDER = ['canvas', 'ttChat', 'ttGifts', 'ttRanking', 'ttMascot', 'ttMascot2', 'ttHeader'];
+const DEFAULT_ORDER = ['canvas', 'ttChat', 'ttBanner', 'ttRanking', 'ttMascot', 'ttMascot2', 'ttHeader'];
 let selected = null;
 const select = (id) => {
   selected = id;

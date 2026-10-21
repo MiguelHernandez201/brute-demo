@@ -885,6 +885,15 @@ export const setupFight: (
       const f = findFighter(fighters, index);
       return !!f && !f.dead && !dying.has(index) && f.animation.container.visible;
     };
+    // Si `index` (o su amo, si es una mascota) tiene ahora algún rival: otro brute en pie que ya está en la arena. Sin
+    // rivales (esperando retador) no corre el tiempo de lo que dura (minigun, mascota, Súper gigante): antes corría, y
+    // quien quería entrar esperaba a que se le acabara
+    const hasRivals = (index: number) => {
+      const self = findFighter(fighters, index);
+      const owner = self?.master ? fighters.find((f) => f.id === self.master && !f.master) : self;
+      return fighters.some((f) => f !== owner && f.type === 'brute' && !f.master && !f.dead && f.hp > 0
+        && !dying.has(f.index) && f.animation.container.visible);
+    };
     const stomp = (index: number, target?: number) => {
       const giant = findFighter(fighters, index);
       const last = stompers.get(index);
@@ -1294,7 +1303,13 @@ export const setupFight: (
           before?.cancel();
           const gun = before && !before.gun.removed ? before.gun : minigun(app, brute, speed);
           void sound.play('sfx', { sprite: 'equip' });
-          const cancel = fightTimer(app, speed, MINIGUN_SECONDS, () => demoFight.endMinigun?.(brute.index));
+          const cancel = fightTimer(
+            app,
+            speed,
+            MINIGUN_SECONDS,
+            () => demoFight.endMinigun?.(brute.index),
+            () => hasRivals(brute.index),
+          );
           miniguns.set(brute.index, { gun, cancel });
           break;
         }
@@ -1342,7 +1357,13 @@ export const setupFight: (
         // Demo royale: mascota del potenciador 3 → pelea un minuto desde que llega y luego se va (ver endPet)
         case 'demoPet' as never: {
           const petStep = step as unknown as { f: number };
-          fightTimer(app, speed, PET_SECONDS, () => demoFight.endPet?.(petStep.f));
+          fightTimer(
+            app,
+            speed,
+            PET_SECONDS,
+            () => demoFight.endPet?.(petStep.f),
+            () => hasRivals(petStep.f),
+          );
           break;
         }
         // Demo: Súper gigante → el brute crece (daño x2 y resistencia x2 en el motor)
@@ -1378,11 +1399,16 @@ export const setupFight: (
             giantEnds.get(giant.index)?.();
             giantEnds.set(
               giant.index,
-              giantTimer(app, speed, () => {
-                giantEnds.delete(giant.index);
-                stompers.delete(giant.index);
-                demoFight.endGiant?.(giant.index);
-              }),
+              giantTimer(
+                app,
+                speed,
+                () => {
+                  giantEnds.delete(giant.index);
+                  stompers.delete(giant.index);
+                  demoFight.endGiant?.(giant.index);
+                },
+                () => hasRivals(giant.index),
+              ),
             );
           }
           break;

@@ -13,7 +13,7 @@ import {
   Stats, activateSuper, checkDeaths, fighterArrives, orderFighters, playFighterTurn, royalePace, saboteur,
 } from './fightMethods';
 import {
-  BOOST_HP, BoostTier, Ultimate, boostGear, boostHeal, canCastUltimate, castUltimate as playUltimate, cleave, endGiant,
+  BOOST_HP, BoostTier, Ultimate, boostCasts, boostGear, boostHeal, canCastUltimate, castUltimate as playUltimate, cleave, endGiant,
   endMinigun,
 } from './ultimates';
 import { PetName } from '@labrute/prisma';
@@ -231,25 +231,31 @@ export class FightSession {
     return !!caster && canCastUltimate(this.fightData, caster, kind);
   }
 
-  // Battle royale: potenciador `tier` del brute `index` (botones de la lista, ver ultimates.boostHeal y boostGear): le
-  // cura (o le suma) vida, lanza la ultimate `kind`, le da un arma que ya no pierde, le enciende el aura de ki
-  // (niveles 2 y 3) y le trae una mascota (nivel 3) que pelea con él hasta que la animación la despide (ver endPet).
-  // La vida va lo primero y nunca espera a nada: si en el motor ya había caído por golpes que en pantalla aún no se
-  // ven, le llega antes que ellos y se salva (ver #revive). Si no puede (ver #boostCaster), no se hace nada
-  castBoost(index: number, kind: Ultimate, tier: BoostTier, rescuable?: (index: number) => boolean) {
+  // Battle royale: potenciador `tier` del brute `index` (regalos y botones de la lista, ver ultimates.BoostTier): le
+  // cura (o le suma) vida y, salvo el 1 y el 4, lanza la ultimate `kind`; el 2 y el 3 le dan además un arma que ya no
+  // pierde y el aura de ki (el 4, solo un arma sencilla), y el 3 una mascota que pelea con él hasta que la animación la despide (ver endPet). La vida va lo
+  // primero y nunca espera a nada: si en el motor ya había caído por golpes que en pantalla aún no se ven, le llega
+  // antes que ellos y se salva (ver #revive). Si no puede (ver #boostCaster), no se hace nada
+  castBoost(index: number, kind: Ultimate | undefined, tier: BoostTier, rescuable?: (index: number) => boolean) {
     const caster = this.#boostCaster(index, tier, rescuable);
     const fd = this.fightData;
-    if (!caster || !canCastUltimate(fd, caster, kind)) return false;
+    const casts = boostCasts(tier);
+    if (!caster || (casts && (!kind || !canCastUltimate(fd, caster, kind)))) return false;
     const fallen = caster.hp <= 0;
     if (fallen && rescuable) this.#revive(caster, rescuable);
-    boostHeal(fd, caster, tier);
+    if (BOOST_HP[tier]) boostHeal(fd, caster, tier);
     if (fallen) {
       // Vuelve a haber más de uno en pie: la pelea sigue (ver #royaleEliminations)
       const alive = fd.fighters.filter((f) => f.type === 'brute' && !f.master && f.hp > 0);
       fd.loser = alive.length > 1 ? null : (this.eliminated[this.eliminated.length - 1]?.id ?? null);
     }
+    // El 4 solo trae el arma
+    if (tier === 4) {
+      boostGear(fd, caster, tier);
+      return true;
+    }
     // (ya se comprobó que puede)
-    if (!this.castUltimate(index, kind)) return true;
+    if (!casts || !kind || !this.castUltimate(index, kind) || tier < 2) return true;
     const calculated = this.#brutes.find((b) => b.id === caster.id);
     boostGear(fd, caster, tier);
     if (tier === 3 && calculated) {
