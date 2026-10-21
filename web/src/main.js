@@ -21,6 +21,7 @@ import { royaleZoom } from './fight/royaleCamera.ts';
 import { sound } from '@pixi/sound';
 import { sfx, sounds } from './sfx.ts';
 import { playPromotionalTrailer } from './trailer.ts';
+import { BOOST_HP } from './engine/ultimates.ts';
 
 const $ = (id) => document.getElementById(id);
 const renderer = createRenderer();
@@ -287,12 +288,14 @@ window.addEventListener('pointerup', () => {
   rosterReleaseTimer = setTimeout(releaseRoster, 400);
 });
 // Potenciadores de cada brute: los dan los regalos y también tres botones en su fila de la lista (ver
-// engine/ultimates.BoostTier). Valen según lo que cuesta su regalo, para que 30 rosas no rindan más que una dona: el 1
+// engine/ultimates.BoostTier). Valen según lo que cuesta su regalo, para que 30 Rose no rindan más que una dona: el 1
 // solo cura o suma un poco de vida; el 2 y el 3 lanzan poderes (ultimates, cada vez una de las cuatro, ver
 // sim.castBoost; el botón no dice cuál), le curan o le suman vida, le dan un arma poderosa que ya no pierde y un aura
 // de ki para el resto de la pelea (daño x3), y el 3 además una mascota que pelea con él un minuto y una minigun durante
 // 20 s (ver fight/minigun). `powers`: poderes que lanza, uno tras otro (ver `launched` en renderRoster). Sin recarga:
 // en cuanto se ve el anterior se pueden volver a pulsar
+// Icono de la minigun (no hay emoji: 🔫 parecía una pistola de agua)
+const MINIGUN_ICON = `<img class="gift-img minigun-img" src="${import.meta.env.BASE_URL}images/minigun.png" alt="minigun" draggable="false" />`;
 const BOOSTS = [
   {
     tier: 1,
@@ -313,8 +316,8 @@ const BOOSTS = [
   {
     tier: 3,
     label: '+3000',
-    perks: '🔥🐾🔫✨x2',
-    offer: '⚔️ arma poderosa · 🔥 aura de ki (daño x3) · 🐾 mascota 1 min · 🔫 minigun 20 s · ✨ 2 poderes',
+    perks: `🔥🐾${MINIGUN_ICON}✨x2`,
+    offer: `⚔️ arma poderosa · 🔥 aura de ki (daño x3) · 🐾 mascota 1 min · ${MINIGUN_ICON} minigun 20 s · ✨ 2 poderes`,
     powers: 2,
     text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki para toda la pelea (daño x3), una mascota que pelea con él un minuto, una minigun durante 20 s y lanza dos poderes, uno tras otro (cada vez uno distinto)',
   },
@@ -336,9 +339,12 @@ const giftButtons = (disabled) =>
 // los regalos a la del juego (BroadcastChannel): así en el directo se captura solo la del juego
 // `boost`: el potenciador que da, si no es el que le toca por sus monedas (ver giftTier)
 const GIFTS = [
-  { id: 'rosa', file: '7906db96d5.webp', icon: '🌹', name: 'Rosa', coins: 1 },
+  // (con los nombres de TikTok: "Rose" es la de 1 moneda y "Rosa", la de 10)
+  { id: 'rose', file: '7906db96d5.webp', icon: '🌹', name: 'Rose', coins: 1 },
   { id: 'quiereme', file: 'f856132638.webp', icon: '🫶', name: 'Quiéreme', coins: 1, boost: 4 },
+  { id: 'rosa', file: 'fc9f17a510.webp', icon: '🌹', name: 'Rosa', coins: 10, boost: 5 },
   { id: 'dona', file: '993fc4dd9e.webp', icon: '🍩', name: 'Dona', coins: 30 },
+  { id: 'handheart', file: '11ab716bcf.webp', icon: '💗', name: 'Hand Heart', coins: 100, boost: 6 },
   { id: 'corgi', file: 'e2865bffd3.webp', icon: '🐶', name: 'Corgi', coins: 299 },
 ];
 // Catálogo completo de regalos de TikTok (public/images/gifts/gifts.json: nombre, monedas y archivo). Se carga al abrir;
@@ -362,7 +368,7 @@ const giftIcon = (g) =>
     ? `<img class="gift-img" src="${giftImg(g.file)}" alt="" loading="lazy" draggable="false" onerror="this.replaceWith(document.createTextNode('${g.icon ?? '🎁'}'))" />`
     : (g.icon ?? '🎁');
 // Lo que da un potenciador, para las tarjetas del panel de regalos: cruz verde vida, ⚔️ arma poderosa, 🔥 aura de ki
-// (daño x3), 🐾 mascota, 🔫 minigun y ✨ poder
+// (daño x3), 🐾 mascota, minigun (MINIGUN_ICON) y ✨ poder
 const HEAL_ICON =
   '<svg class="heal" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>';
 const boostOffer = (b) =>
@@ -371,22 +377,51 @@ const boostOffer = (b) =>
 const giftTier = (coins) => (coins >= 299 ? 3 : coins >= 30 ? 2 : 1);
 // El que da un regalo (los de la lista pueden dar otro, como el Quiéreme)
 const tierOf = (g) => (GIFTS.find((x) => x.file === g.file) ?? g).boost ?? giftTier(g.coins);
-// Potenciador 4: solo un arma (el del Quiéreme, ver engine/ultimates.BoostTier). No va en los botones de la lista
+// Regalos grandes que no están en la lista (desde 299 monedas, como el León): lo del +3000, pero con la vida en
+// proporción a lo que valen (la del Corgi: 3000 por 299 monedas, unas 10 por moneda). Si no, un León de 29.999
+// monedas daba lo mismo que un Corgi. Undefined: la de su nivel
+const BIG_GIFT_COINS = 299;
+const giftHp = (g) =>
+  g.coins >= BIG_GIFT_COINS && !GIFTS.some((x) => x.file === g.file)
+    ? Math.round((g.coins * BOOST_HP[3]) / BIG_GIFT_COINS)
+    : undefined;
+// Potenciadores que solo dan regalos concretos (ver engine/ultimates.BoostTier), no los botones de la lista: el 4,
+// solo un arma (Quiéreme); el 5, +300 y un arma (Rosa, la de 10 monedas), y el 6, entre la Dona y el Corgi (Hand Heart)
 const WEAPON_TIER = 4;
-const WEAPON_BOOST = {
-  tier: WEAPON_TIER,
-  label: 'Arma',
-  perks: '🗡️',
-  offer: '🗡️ un arma que ya no pierde',
-  powers: 0,
-  text: 'trae un arma sencilla que equipa al momento y ya no pierde',
+const GIFT_BOOSTS = {
+  [WEAPON_TIER]: {
+    tier: WEAPON_TIER,
+    label: 'Arma',
+    perks: '🗡️',
+    offer: '🗡️ un arma para toda la pelea',
+    powers: 0,
+    text: 'trae un arma sencilla que equipa al momento y le dura toda la pelea',
+  },
+  5: {
+    tier: 5,
+    label: '+300',
+    perks: '🗡️',
+    offer: '🗡️ un arma para toda la pelea',
+    powers: 0,
+    text: 'cura o suma 300 PV y trae un arma sencilla que equipa al momento y le dura toda la pelea',
+  },
+  6: {
+    tier: 6,
+    label: '+2000',
+    perks: '⚔️🔥🐾✨',
+    offer: '⚔️ arma poderosa · 🔥 aura de ki (daño x3) · 🐾 mascota 1 min · ✨ un poder',
+    powers: 1,
+    text: 'cura o suma 2000 PV, trae un arma poderosa, aura de ki para toda la pelea (daño x3), una mascota que pelea con él un minuto y lanza un poder (cada vez uno distinto)',
+  },
 };
-const boostOf = (tier) => (tier === WEAPON_TIER ? WEAPON_BOOST : BOOSTS[tier - 1]);
+const boostOf = (tier) => GIFT_BOOSTS[tier] ?? BOOSTS[tier - 1];
 // Como mucho, potenciadores en cola por brute (un combo de muchos regalos no lo deja disparando ultimates sin fin)
 const GIFT_QUEUE_MAX = 10;
 // Lo pone la lista de la ronda en curso (ver `gift` en renderRoster). Los regalos que llegan sin ronda en la que entrar
 // (entre rondas, o fuera del royale) esperan a la siguiente
 let rosterGift = null;
+// También de la lista de la ronda (ver renderRoster): 'in' si `user` sigue en pie, 'out' si ya cayó en ella
+let rosterWho = null;
 const pendingGifts = [];
 const cleanUser = (user) =>
   String(user ?? '')
@@ -397,26 +432,41 @@ function applyGift({ user, gift, count = 1 }) {
   if (!name) return;
   const g = findGift(gift);
   const tier = g ? tierOf(g) : 0;
+  const hp = g ? giftHp(g) : undefined;
   const n = Math.max(1, Math.min(GIFT_QUEUE_MAX, Math.round(+count) || 1));
   showToast(
     g
-      ? `<b>${escHtml(name)}</b> envió ${giftIcon(g)} ${escHtml(g.name)}${n > 1 ? ` x${n}` : ''} <span>${boostOf(tier).label}</span>`
+      ? `<b>${escHtml(name)}</b> envió ${giftIcon(g)} ${escHtml(g.name)}${n > 1 ? ` x${n}` : ''} <span>${hp ? `+${hp}` : boostOf(tier).label}</span>`
       : `<b>${escHtml(name)}</b> se unió 🙋`,
     tier,
   );
-  if (mode === 'royale' && rosterGift?.(name, tier, n)) return;
-  if (pendingGifts.length < 50) pendingGifts.push({ user: name, tier, count: n });
+  if (mode === 'royale' && rosterGift?.(name, tier, n, hp)) return;
+  if (pendingGifts.length < 50) pendingGifts.push({ user: name, tier, count: n, hp });
 }
 // Tap tap (los "me gusta" del directo: toques en la pantalla). Son gratis, así que dan poco: el primer toque mete al
 // espectador en la pelea (como comentar) y cada LIKES_PER_HEAL toques suyos le dan el potenciador 1 (+30, lo de una
-// rosa). Los toques se cuentan por espectador mientras dura el directo (esta página)
+// Rose). Los toques se cuentan por espectador mientras dura el directo (esta página). Volver tras caer cuesta: quien
+// ya cayó en la ronda necesita LIKES_TO_RETURN toques para entrar otra vez (antes volvía con uno solo), y esos toques
+// no curan
 const LIKES_PER_HEAL = 100;
+const LIKES_TO_RETURN = 100;
 const likes = new Map();
+// Toques que lleva para volver quien ya cayó en la ronda
+const returnLikes = new Map();
 function applyLikes({ user, count = 1 }) {
   const name = cleanUser(user);
   if (!name) return;
+  const n = Math.max(1, Math.round(+count) || 1);
+  if (mode === 'royale' && rosterWho?.(name) === 'out') {
+    const paid = (returnLikes.get(name) ?? 0) + n;
+    if (paid < LIKES_TO_RETURN) return void returnLikes.set(name, paid);
+    returnLikes.delete(name);
+    if (rosterGift?.(name, 0, 1) === 'joined') showToast(`<b>${escHtml(name)}</b> volvió 👆`, 0);
+    return;
+  }
+  returnLikes.delete(name);
   const before = likes.get(name) ?? 0;
-  const total = before + Math.max(1, Math.round(+count) || 1);
+  const total = before + n;
   likes.set(name, total);
   const heals = Math.min(GIFT_QUEUE_MAX, Math.floor(total / LIKES_PER_HEAL) - Math.floor(before / LIKES_PER_HEAL));
   const result = mode === 'royale' ? rosterGift?.(name, heals ? 1 : 0, heals || 1) : false;
@@ -450,7 +500,7 @@ const panelOnly = new URLSearchParams(location.search).has('panel');
 const giftChannel = 'BroadcastChannel' in window ? new BroadcastChannel('brute-demo-regalos') : null;
 if (giftChannel && !panelOnly) giftChannel.onmessage = (e) => applyEvent(e.data);
 const sendGift = (data) => (panelOnly ? giftChannel?.postMessage(data) : applyEvent(data));
-// Para conectar después los regalos de verdad (TikFinity u otro): labrute.gift('usuario', 'rosa', 5),
+// Para conectar después los regalos de verdad (TikFinity u otro): labrute.gift('usuario', 'rose', 5),
 // labrute.join('usuario') y labrute.like('usuario', 15) (los toques de cada aviso de "me gusta")
 globalThis.labrute = {
   gift: (user, gift, count = 1) => applyGift({ user, gift, count }),
@@ -493,42 +543,57 @@ function setupGiftPanel() {
   // la que se recorre, la de arriba hace de historial y la de abajo deja dar la vuelta sin salto
   const track = $('ttBannerTrack');
   const message = (avatar, title, text) => `<p><i>${avatar}</i><span><b>${title}</b> ${text}</span></p>`;
+  // (cómo se entra a pelear lo dice el cuadro ¿Cómo jugar?, más abajo)
   const messages = [
-    message('🎁', '¿Cómo jugar?', 'Manda un regalo y entras a pelear con tu nombre'),
     ...GIFTS.map((g) => {
       const b = boostOf(tierOf(g));
-      if (b.tier === WEAPON_TIER) return message(giftIcon(g), escHtml(g.name), `${b.offer} y entras a pelear`);
+      if (b.tier === WEAPON_TIER) return message(giftIcon(g), escHtml(g.name), b.offer);
       const life = `${HEAL_ICON}${b.label} vida`;
-      return message(giftIcon(g), escHtml(g.name), b.offer ? `${life} · ${b.offer}` : `${life} y entras a pelear`);
+      return message(giftIcon(g), escHtml(g.name), b.offer ? `${life} · ${b.offer}` : life);
     }),
-    message('👆', 'Tap tap', `Toca la pantalla y entras a pelear; cada ${LIKES_PER_HEAL} toques, ${HEAL_ICON}+30 vida`),
+    message(
+      '👆',
+      'Tap tap',
+      `cada ${LIKES_PER_HEAL} toques, ${HEAL_ICON}+30 vida; si caes, ${LIKES_TO_RETURN} toques para volver`,
+    ),
   ];
   track.innerHTML = messages.join('').repeat(3);
   const n = messages.length;
   let bannerStep = n;
-  // El mensaje más nuevo, entero y pegado abajo
-  const showMessage = () => {
+  // El mensaje más nuevo, entero y pegado abajo. Los de arriba que ya no caben enteros se desvanecen del todo (antes
+  // se difuminaban o quedaban cortados, y no se leían). `jump`: sin animación
+  const showMessage = (jump = false) => {
     const el = track.children[bannerStep];
-    track.style.transform = `translateY(${track.parentElement.clientHeight - el.offsetTop - el.offsetHeight}px)`;
+    const y = track.parentElement.clientHeight - el.offsetTop - el.offsetHeight;
+    track.classList.toggle('jump', jump);
+    track.style.transform = `translateY(${y}px)`;
+    for (const p of track.children) p.classList.toggle('gone', p.offsetTop + y < -1);
+    if (!jump) return;
+    // (se aplica ya, y lo siguiente vuelve a animarse)
+    void track.offsetHeight;
+    track.classList.remove('jump');
   };
   // Al mostrarse o cambiar de tamaño (tecla E) se recoloca sin animación
-  new ResizeObserver(() => {
-    track.style.transition = 'none';
-    showMessage();
-  }).observe(track.parentElement);
+  new ResizeObserver(() => showMessage(true)).observe(track.parentElement);
   setInterval(() => {
     if (!track.offsetParent) return;
     bannerStep++;
-    track.style.transition = '';
     showMessage();
     // Al llegar a la tercera copia (igual que la de en medio) vuelve a la de en medio sin que se note
     if (bannerStep === 2 * n)
       setTimeout(() => {
-        track.style.transition = 'none';
         bannerStep = n;
-        showMessage();
+        showMessage(true);
       }, 800);
   }, BANNER_STEP_MS);
+  // ¿Cómo jugar? (modo TikTok): todas las maneras de entrar a pelear con tu nombre
+  const heartMe = GIFTS.find((g) => g.boost === WEAPON_TIER);
+  $('ttHowTo').innerHTML = `<div class="tt-title">¿Cómo jugar?</div><ul>
+    <li><i>💬</i>Comenta</li>
+    <li><i>👆</i>Tap tap</li>
+    ${heartMe ? `<li><i>${giftIcon(heartMe)}</i>${escHtml(heartMe.name)}</li>` : ''}
+    <li><i>🎁</i>Cualquier regalo</li>
+  </ul>`;
   const user = () => {
     if (!$('giftUser').value.trim()) $('giftUser').value = randomUser();
     return $('giftUser').value.trim();
@@ -556,7 +621,8 @@ function setupGiftPanel() {
       ? list
           .map((x) => {
             const b = boostOf(tierOf(x));
-            return `<button class="t${b.tier}" data-gift="f:${x.file}" title="${escHtml(x.name)} · 🪙${x.coins} · ${b.label} (${b.text})"><i>${giftIcon(x)}</i><span>${escHtml(x.name)}</span><small>🪙${x.coins}${b.perks ? ` · ${b.perks}` : ''}</small></button>`;
+            const hp = giftHp(x);
+            return `<button class="t${b.tier}" data-gift="f:${x.file}" title="${escHtml(x.name)} · 🪙${x.coins} · ${hp ? `+${hp} (lo del +3000 con ${hp} PV)` : `${b.label} (${b.text})`}"><i>${giftIcon(x)}</i><span>${escHtml(x.name)}</span><small>🪙${x.coins}${b.perks ? ` · ${b.perks}` : ''}</small></button>`;
           })
           .join('')
       : '<p>Sin resultados</p>';
@@ -640,6 +706,7 @@ function renderRoster(fight) {
     if (s.ult === 'queued' && s.tier === tier) s.ult = 'ready';
     else {
       s.tier = tier;
+      s.boostHp = undefined;
       if (onStage(index) && fight.castBoost?.(index, tier)) launched(s);
       else s.ult = 'queued';
     }
@@ -651,7 +718,7 @@ function renderRoster(fight) {
   const launched = (s) => {
     s.ult = s.tier === WEAPON_TIER ? 'ready' : 'pending';
     const extra = (boostOf(s.tier)?.powers ?? 1) - 1;
-    if (extra > 0) s.more = [...Array(extra).fill(0), ...(s.more ?? [])];
+    if (extra > 0) s.more = [...Array.from({ length: extra }, () => ({ tier: 0 })), ...(s.more ?? [])];
   };
   const draw = () => {
     if (rosterPressed) {
@@ -669,7 +736,7 @@ function renderRoster(fight) {
         // Victorias de la ronda (rivales que eliminó), junto a la vida: desde la primera
         const wins = s.wins ? `<b class="wins${index === popped ? ' pop' : ''}">🏆${s.wins}</b>` : '';
         // Regalos de un combo que aún no han salido (sin contar los poderes de más del 3)
-        const waiting = s.more?.filter(Boolean).length;
+        const waiting = s.more?.filter((e) => e.tier).length;
         const gifts = waiting ? `<b class="gifts">🎁${waiting}</b>` : '';
         return `<li data-index="${index}" class="${classes}" style="--c:${royaleColorCss(index)}">
           <div class="roster-main">
@@ -720,34 +787,43 @@ function renderRoster(fight) {
     draw();
   };
   // Regalo del panel (ver applyGift): si no está en pie, entra con su nombre; cada regalo le da su potenciador, y los
-  // de un combo quedan en cola (`more`) y salen uno tras otro. False si la ronda ya no admite a nadie, y 'joined' si
-  // acaba de entrar
-  const gift = (user, tier, count) => {
+  // de un combo quedan en cola (`more`: { tier, hp }) y salen uno tras otro. `hp`: su vida, si no es la de su nivel
+  // (regalos grandes, ver giftHp). False si la ronda ya no admite a nadie, y 'joined' si acaba de entrar
+  const gift = (user, tier, count, hp) => {
     if (winner || fight.timeUp) return false;
-    const tiers = tier ? Array.from({ length: count }, () => tier) : [];
+    const queue = tier ? Array.from({ length: count }, () => ({ tier, hp })) : [];
     const index = [...state].find(([, s]) => !s.out && s.name === user)?.[0];
     if (index === undefined) {
       if (!canAdd()) return false;
       const brute = fight.addBrute?.(user);
       if (!brute) return false;
-      const first = tiers.shift();
+      const first = queue.shift();
       state.set(brute.index, {
         name: brute.name,
         out: 0,
         hp: brute.hp,
         maxHp: brute.maxHp,
         wins: 0,
-        more: tiers,
-        ...(first ? { ult: 'queued', tier: first } : { ult: 'ready' }),
+        more: queue,
+        ...(first ? { ult: 'queued', tier: first.tier, boostHp: first.hp } : { ult: 'ready' }),
       });
     } else {
       const s = state.get(index);
-      s.more = [...(s.more ?? []), ...tiers].slice(0, GIFT_QUEUE_MAX);
+      s.more = [...(s.more ?? []), ...queue].slice(0, GIFT_QUEUE_MAX);
     }
     draw();
     return index === undefined ? 'joined' : true;
   };
   rosterGift = gift;
+  rosterWho = (user) => {
+    let out;
+    for (const s of state.values()) {
+      if (s.name !== user) continue;
+      if (!s.out) return 'in';
+      out = 'out';
+    }
+    return out;
+  };
   // Resaltar en la arena, solo con el ratón: al pasar por una fila, o fijándola con un clic. Tocar la fila (móvil) no
   // hace nada, así no se resalta sin querer al ir a pulsar su ultimate
   let pointer = 'mouse';
@@ -803,12 +879,14 @@ function renderRoster(fight) {
     let fired = false;
     // Regalos que esperaban una ronda (llegaron entre rondas): entran en cuanto empieza
     if (pendingGifts.length && elapsed && !winner && canAdd()) {
-      pendingGifts.splice(0).forEach((g) => gift(g.user, g.tier, g.count));
+      pendingGifts.splice(0).forEach((g) => gift(g.user, g.tier, g.count, g.hp));
     }
     for (const [index, s] of state) {
       // Regalos de un combo: el siguiente, en cuanto se ve el poder del anterior
       if (s.ult === 'ready' && s.more?.length && !s.out) {
-        s.tier = s.more.shift();
+        const next = s.more.shift();
+        s.tier = next.tier;
+        s.boostHp = next.hp;
         s.ult = 'queued';
         fired = true;
       }
@@ -820,7 +898,7 @@ function renderRoster(fight) {
         !fight.timeUp &&
         elapsed &&
         onStage(index) &&
-        fight.castBoost?.(index, s.tier)
+        fight.castBoost?.(index, s.tier, s.boostHp)
       ) {
         launched(s);
         fired = true;
@@ -1161,6 +1239,7 @@ $('back').onclick = async () => {
   }
   rosterFight = null;
   rosterGift = null;
+  rosterWho = null;
   run++;
   await destroyApp();
   $('canvas').innerHTML = '';

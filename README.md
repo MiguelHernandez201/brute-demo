@@ -45,6 +45,13 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     (en dos columnas, con letras grandes), las últimas eliminaciones y un **ranking** con los 5 mejores (rondas
     ganadas 👑 y rivales eliminados ☠️), que se recuerda en el navegador. Lo de abajo queda libre, porque ahí TikTok
     pone los comentarios.
+  - Bajo la arena, un cuadro tipo chat explica qué da cada regalo (un mensaje nuevo cada 3,5 s), y abajo a la
+    derecha, bajo el ranking, **¿Cómo jugar?** dice cómo se entra a pelear: 💬 comentando, 👆 con tap tap, 🫶 con un
+    Quiéreme o 🎁 con cualquier regalo.
+  - Los paneles se mueven y cambian de tamaño con la tecla **E** (R, en edición, los restablece). La distribución de
+    fábrica es la que se dejó puesta así para el directo: la arena arriba, el cuadro de regalos debajo, el chat con
+    las dos imágenes a la izquierda y el ranking y ¿Cómo jugar? a la derecha. Lo que se mueva se guarda en el
+    navegador, panel a panel, por encima de la de fábrica.
   - Todo se mide en proporción al ancho de la pantalla vertical: se ve igual en una ventana pequeña que a pantalla
     completa, y si la ventana es más ancha queda centrada con bandas negras.
   - Rondas seguidas solas: cada una dura como mucho 3 minutos (el reloj de "Finalizar"), y si queda uno solo en pie
@@ -55,27 +62,39 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   sin conectar con TikFinity. Se escribe el nombre del espectador (vacío o 🎲: uno al azar), se elige la cantidad (x1,
   x5, x10) y se pulsa un regalo:
   - Si no está en pie, entra a la pelea con su nombre; si ya está, recibe el potenciador. Cada regalo da el suyo según
-    lo que vale en monedas de TikTok: 🌹 Rosa (1) → **+30** (hasta 29); 🍩 Dona (30) → **+1000** (de 30 a
+    lo que vale en monedas de TikTok: 🌹 Rose (1) → **+30** (hasta 29); 🍩 Dona (30) → **+1000** (de 30 a
     298); 🐶 Corgi (299) → **+3000** (desde 299). Valen según lo que cuestan, para que muchos regalos pequeños no
-    rindan más que uno grande: 30 rosas dan +900 de vida y nada más, y una dona +1000, arma, aura y un poder; el
-    corgi lanza 2 poderes (con 3 vaciaba la arena en segundos). Antes la rosa daba +300, arma y un poder, y con
-    30 rosas se sacaban 30 poderes por lo que cuesta una dona. Los de un combo van saliendo uno tras otro (🎁N en su
+    rindan más que uno grande: 30 Rose dan +900 de vida y nada más, y una dona +1000, arma, aura y un poder; el
+    corgi lanza 2 poderes (con 3 vaciaba la arena en segundos). Antes la Rose daba +300, arma y un poder, y con
+    30 se sacaban 30 poderes por lo que cuesta una dona. Los de un combo van saliendo uno tras otro (🎁N en su
     fila: los que faltan; como mucho 10).
+  - Los regalos se llaman como en TikTok: **Rose** es la rosa de 1 moneda y **Rosa**, la de 10.
+  - En la lista hay dos más que no van por sus monedas, para que no rindan más que juntar regalos más baratos:
+    🌹 **Rosa** (10) da **+300** y un arma sencilla para toda la pelea, y
+    💗 **Hand Heart** (100) da **+2000**, arma poderosa, aura de ki, la mascota del Corgi durante 1 minuto y un poder:
+    un escalón entre la Dona y el Corgi, que se queda con la minigun y los 2 poderes.
+  - **Regalos más grandes** que no están en la lista (desde 299 monedas, como el León): lo del +3000, pero con la
+    vida en proporción a lo que valen, la del Corgi (3000 por 299 monedas, unas 10 por moneda). Un León (29.999)
+    da +300.993. Antes daba lo mismo que un Corgi.
   - 🫶 **Quiéreme** ("Heart Me" en TikTok, 1 moneda) no va por sus monedas: da un **arma** sencilla (espada ancha,
-    cuchillo, bastón, lanza o hachuela) que equipa al momento y ya no pierde, sin vida ni poder. Si ya lleva el arma
-    poderosa de una dona o un corgi, no se la cambia: se guarda la nueva.
+    cuchillo, bastón, lanza o hachuela) que equipa al momento y le dura toda la pelea, sin vida ni poder. Si ya lleva
+    el arma poderosa de una dona o un corgi, no se la cambia: se guarda la nueva. Sacar un arma por su cuenta cuesta
+    (ver abajo), así que es la manera segura de ir armado.
   - **🙋 Unirse**: entra sin regalo, como quien comenta para unirse.
   - **👆 Tap tap**: los toques en la pantalla (los "me gusta" del directo), 20 por la cantidad elegida (x5: 100). Son
     gratis, así que dan poco: el primer toque mete al espectador en la pelea y cada 100 toques suyos le dan **+30** de
-    vida (lo de una rosa). Los toques se cuentan por espectador mientras la página sigue abierta.
-  - Cada regalo genera un aviso ("luna23 envió 🌹 Rosa x3 +30", con el color de su potenciador), pero el modo TikTok
+    vida (lo de una Rose). Los toques se cuentan por espectador mientras la página sigue abierta. Volver tras caer
+    cuesta: quien ya cayó en la ronda necesita **100 toques** para entrar otra vez (antes volvía con uno solo), y esos
+    toques no curan. En la ronda siguiente vuelve a entrar con el primero.
+  - Cada regalo genera un aviso ("luna23 envió 🌹 Rose x3 +30", con el color de su potenciador), pero el modo TikTok
     los oculta, y era el royale normal el que los mostraba arriba a la izquierda de la arena: ahora no se ven. Los
     regalos que llegan entre rondas entran al empezar la siguiente.
   - **↗️ Otra ventana** abre el panel solo (`?panel`), que manda los regalos a la ventana del juego: así en el directo
     se captura solo la del juego.
-  - Para conectar después los regalos de verdad: `labrute.gift('usuario', 'rosa', 5)`, `labrute.join('usuario')` y
+  - Para conectar después los regalos de verdad: `labrute.gift('usuario', 'rose', 5)`, `labrute.join('usuario')` y
     `labrute.like('usuario', 15)` (los toques de cada aviso de "me gusta") en la ventana del juego (los regalos:
-    `rosa`, `quiereme`, `dona`, `corgi`, o el nombre en inglés de cualquiera del catálogo, como `'Heart Me'`).
+    `rose`, `quiereme`, `rosa`, `dona`, `handheart`, `corgi`, o el nombre de cualquiera del catálogo, como
+    `'Heart Me'` o `'Rose'`).
 
   El modo 1 vs 1 (dos jugadores con una tienda cada uno) se quitó: el royale lo sustituye. Lo que era solo suyo se
   fue con él (nombres de los jugadores, tiendas, contador de victorias, Acercamiento y la casilla para celebrar tras
@@ -88,6 +107,10 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - Conservan más tiempo el arma que sacan: los desarmes son la mitad de probables, lanzan el arma que llevan con
     menos frecuencia y tardan más en cambiarla por otra (ver las constantes al principio de
     `engine/fightMethods.ts`). La probabilidad de perder el arma en cada golpe baja de ~11 % a ~6 %.
+  - En el royale cuesta más **sacar un arma por su cuenta**: todos entran sin arma en la mano (y con al menos una
+    guardada), y en cada turno sin arma la sacan con probabilidad (peso de sus armas) / (peso de sus armas + 50).
+    Antes era + 10, como en el juego original. De media, un ~11 % por turno (antes ~36 %): el ~28 % va armado tras
+    3 turnos y el ~41 % tras 5 (antes, ~71 % y ~85 %). El tráiler sigue como antes.
   - Quien cae lo hace con una **fatality** según el arma de quien lo remata:
 
     | Arma de quien remata | Fatality |
@@ -160,7 +183,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - **Potenciadores**: los dan los regalos (ver el panel de regalos, arriba), y cada brute tiene además tres botones
     en su fila de la lista, **+30**, **+1000** y **+3000**. El +1000 y el +3000 lanzan poderes (las ultimates, ver
     abajo, cada vez una distinta; el botón no dice cuál):
-    - **+30**: solo le cura o le suma 30 PV (el del regalo pequeño, la rosa: sobre todo, para entrar a pelear). Antes
+    - **+30**: solo le cura o le suma 30 PV (el del regalo pequeño, la Rose: sobre todo, para entrar a pelear). Antes
       daba 300 PV, un arma sencilla y un poder.
     - **+1000**: 1000 PV, un poder, un arma poderosa (hacha, espada, mayal, lucero del alba, alabarda o maza, de
       nivel 2) y un **aura de ki** al estilo Dragon Ball para el resto de la pelea: llamas doradas y translúcidas que

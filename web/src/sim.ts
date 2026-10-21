@@ -181,16 +181,16 @@ export function createRoyale(count: number) {
     // Potenciadores de cada brute (regalos y botones de su fila, ver engine/ultimates.BoostTier): salvo el 1, lanzan
     // una ultimate (la que le toque de su bolsa, ver ultimateOrder) y le dan vida, arma, aura de ki y mascota según el
     // nivel. Se juegan ya en el motor y la animación los muestra en cuanto puede (`wake` la avisa, ver setupFight). La
-    // mascota dura un minuto: la animación avisa al acabar
-    castBoost: (index: number, tier: BoostTier) => {
+    // mascota dura un minuto: la animación avisa al acabar. `hp`: la vida, si no es la de su nivel (regalos grandes)
+    castBoost: (index: number, tier: BoostTier, hp?: number) => {
       if (fight.timeUp) return false;
       // También a quien en el motor ya cayó pero en pantalla aún no: le salva (ver session.castBoost)
       const rescuable = (i: number) => !!fight.rescuable?.(i);
       const casts = boostCasts(tier);
       const kind = casts
-        ? ultimateOrder(index).find((k) => session.canCastBoost(index, k, tier, rescuable))
+        ? ultimateOrder(index).find((k) => session.canCastBoost(index, k, tier, rescuable, hp))
         : undefined;
-      if ((casts && !kind) || !session.castBoost(index, kind, tier, rescuable)) return false;
+      if ((casts && !kind) || !session.castBoost(index, kind, tier, rescuable, hp)) return false;
       if (kind) {
         const rest = bagOf(index).filter((k) => k !== kind);
         bags.set(index, rest);
