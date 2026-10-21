@@ -40,23 +40,27 @@ const state = (f: DetailedFighter) => f as DetailedFighter & {
   demoMinigun?: boolean;
 };
 
-// Potenciadores (los tres botones de cada fila de la lista, ver main.js): todos lanzan una ultimate y además
-// le curan (o le suman) vida y le dan un arma que equipa al momento y que ya nunca pierde (ver keepsWeapon en
-// fightMethods); los dos mayores le encienden un aura de ki para el resto de la pelea y el último le trae una mascota
-// (esa la pone session.castBoost, que tiene los datos del brute para sus estadísticas):
-//   1 → +300 PV y un arma sencilla
-//   2 → +1000 PV, un arma poderosa y aura de ki (daño x3, ver KI_DAMAGE)
-//   3 → +3000 PV, un arma poderosa, aura de ki, una mascota que pelea con él durante un minuto y una minigun durante
-//       MINIGUN_SECONDS (mientras, cada turno suyo es una ráfaga: ver fightMethods.minigunBurst)
+// Potenciadores (los regalos y los botones de cada fila de la lista, ver main.js). Valen según lo que cuesta su regalo,
+// para que muchos regalos pequeños no rindan más que uno grande:
+//   0 → solo una ultimate (los poderes de más del 3, que salen en cola tras él, ver main.js)
+//   1 → +30 PV y nada más (el regalo pequeño: sobre todo, para entrar a pelear)
+//   2 → +1000 PV, una ultimate, un arma poderosa que equipa al momento y ya nunca pierde (ver keepsWeapon en
+//       fightMethods) y aura de ki para el resto de la pelea (daño x3, ver KI_DAMAGE)
+//   3 → lo del 2 con +3000 PV, y además una mascota que pelea con él durante un minuto (la pone session.castBoost,
+//       que tiene los datos del brute para sus estadísticas) y una minigun durante MINIGUN_SECONDS (mientras, cada
+//       turno suyo es una ráfaga: ver fightMethods.minigunBurst)
+//   4 → solo un arma sencilla que equipa al momento y ya nunca pierde (el regalo Quiéreme)
 // "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV
-export type BoostTier = 1 | 2 | 3;
-export const BOOST_HP: Record<BoostTier, number> = { 1: 300, 2: 1000, 3: 3000 };
-// Armas sencillas (las de siempre) y poderosas (las que más pegan), y a qué nivel las trae cada uno
+export type BoostTier = 0 | 1 | 2 | 3 | 4;
+export const BOOST_HP: Record<BoostTier, number> = { 0: 0, 1: 30, 2: 1000, 3: 3000, 4: 0 };
+// Si el potenciador lanza una ultimate (el 1 solo cura y el 4 solo da un arma)
+export const boostCasts = (tier: BoostTier) => tier !== 1 && tier !== 4;
+// Armas sencillas (las de siempre: las trae el 4) y poderosas (las que más pegan: el 2 y el 3), y a qué nivel
 const SIMPLE_WEAPONS = [WeaponName.broadsword, WeaponName.knife, WeaponName.baton, WeaponName.lance, WeaponName.hatchet];
 const POWERFUL_WEAPONS = [
   WeaponName.axe, WeaponName.sword, WeaponName.flail, WeaponName.morningStar, WeaponName.halbard, WeaponName.bumps,
 ];
-const BOOST_WEAPON_TIER: Record<BoostTier, number> = { 1: 1, 2: 2, 3: 3 };
+const BOOST_WEAPON_TIER: Partial<Record<BoostTier, number>> = { 2: 2, 3: 3, 4: 1 };
 // Segundos de pelea que dura la mascota (los cuenta la animación desde que llega, ver session.endPet)
 export const PET_SECONDS = 60;
 // Segundos de pelea que lleva la minigun (los cuenta la animación desde que la saca, ver endMinigun)
@@ -177,7 +181,8 @@ export const castUltimate = (
   return true;
 };
 
-// Vida de un potenciador: va antes que su ultimate (ver session.castBoost)
+// Vida de un potenciador: va antes que su ultimate (ver session.castBoost). Si no lanza ninguna (`o`: solo vida), al
+// verse esta queda listo para el siguiente (ver main.js)
 export const boostHeal = (fightData: DetailedFight, caster: DetailedFighter, tier: BoostTier) => {
   const hp = BOOST_HP[tier];
   caster.hp += hp;
@@ -185,16 +190,17 @@ export const boostHeal = (fightData: DetailedFight, caster: DetailedFighter, tie
   // (también le quita el veneno, como una poción)
   const cured = !!caster.poisonedBy;
   caster.poisonedBy = null;
-  fightData.steps.push({ a: 'demoBoost', f: caster.index, h: hp, m: caster.maxHp, c: cured ? 1 : 0 } as never);
+  const only = boostCasts(tier) ? 0 : 1;
+  fightData.steps.push({ a: 'demoBoost', f: caster.index, h: hp, m: caster.maxHp, c: cured ? 1 : 0, o: only } as never);
 };
 
-// Arma y aura de un potenciador (tras lanzar su ultimate, ver session.castBoost)
+// Arma y aura de un potenciador 2 o 3 (tras lanzar su ultimate, ver session.castBoost), o solo el arma del 4
 export const boostGear = (fightData: DetailedFight, caster: DetailedFighter, tier: BoostTier) => {
-  const list = tier === 1 ? SIMPLE_WEAPONS : POWERFUL_WEAPONS;
-  const name = list[Math.floor(Math.random() * list.length)] ?? WeaponName.broadsword;
-  const weapon = { ...structuredClone(weapons[name]), tier: BOOST_WEAPON_TIER[tier] };
-  // La equipa, salvo que ya lleve en la mano una igual o mejor de otro potenciador: entonces se la guarda (así un +300
-  // no le cambia el arma poderosa de un +3000 por una sencilla)
+  const list = tier === 4 ? SIMPLE_WEAPONS : POWERFUL_WEAPONS;
+  const name = list[Math.floor(Math.random() * list.length)] ?? WeaponName.axe;
+  const weapon = { ...structuredClone(weapons[name]), tier: BOOST_WEAPON_TIER[tier] ?? 2 };
+  // La equipa, salvo que ya lleve en la mano una igual o mejor de otro potenciador: entonces se la guarda (así un
+  // Quiéreme no le cambia el arma poderosa de un +1000 por una sencilla)
   const held = caster.activeWeapon ? (state(caster).demoWeaponTier ?? 0) : 0;
   if (held >= weapon.tier) caster.weapons[name] ??= weapon;
   else {
@@ -202,7 +208,7 @@ export const boostGear = (fightData: DetailedFight, caster: DetailedFighter, tie
     state(caster).demoWeaponTier = weapon.tier;
   }
   state(caster).demoKeepWeapon = true;
-  if (tier >= 2) {
+  if (tier === 2 || tier === 3) {
     state(caster).demoKi = true;
     fightData.steps.push({ a: 'demoKi', f: caster.index, n: tier } as never);
   }

@@ -35,8 +35,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
 
 ## Modos
 
-- **Battle Royale** (abajo) y **🎬 vídeo promocional**, que se graba en tiempo real con el motor del juego y se
-  puede descargar.
+- **🎬 Vídeo promocional**, que se graba en tiempo real con el motor del juego y se puede descargar.
+- El **Battle Royale** normal (en horizontal, con el botón 👑 de la pantalla de inicio o `?royale`) se quitó: el royale
+  solo se juega en el modo TikTok, que usa el mismo motor (ver **Battle Royale**, abajo).
 - **📱 Modo TikTok (vertical)**: el Battle Royale en una pantalla vertical 9:16, pensada para transmitirla en TikTok
   LIVE (capturando la ventana con TikTok LIVE Studio u OBS). También se entra con `?tiktok` en la dirección
   (`?tiktok=8` para elegir cuántos brutes por ronda).
@@ -50,20 +51,31 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     acaba a los 10 segundos. El ganador sale en grande ("¡gana la ronda N!") con la cuenta atrás de la siguiente (8 s).
   - Sin botones en pantalla: la tecla **C** los muestra u oculta (los de abajo, los de agregar brutes y los
     potenciadores de cada uno, y 🗑️ para borrar el ranking).
-- **🎁 Panel de regalos** (botón 🎁 o tecla **G**; en cualquier royale): simula los regalos del directo de TikTok, aún
+- **🎁 Panel de regalos** (botón 🎁 o tecla **G**; en el modo TikTok): simula los regalos del directo de TikTok, aún
   sin conectar con TikFinity. Se escribe el nombre del espectador (vacío o 🎲: uno al azar), se elige la cantidad (x1,
   x5, x10) y se pulsa un regalo:
   - Si no está en pie, entra a la pelea con su nombre; si ya está, recibe el potenciador. Cada regalo da el suyo según
-    lo que vale en monedas de TikTok: 🌹 Rosa (1) y 🫰 Corazón (5) → **+300**; 🍩 Dona (30) y 🧢 Gorra (99) →
-    **+1000**; 🐶 Corgi (299) y 🦁 León (29.999) → **+3000**. Los de un combo van saliendo uno tras otro (🎁N en su
+    lo que vale en monedas de TikTok: 🌹 Rosa (1) → **+30** (hasta 29); 🍩 Dona (30) → **+1000** (de 30 a
+    298); 🐶 Corgi (299) → **+3000** (desde 299). Valen según lo que cuestan, para que muchos regalos pequeños no
+    rindan más que uno grande: 30 rosas dan +900 de vida y nada más, y una dona +1000, arma, aura y un poder; el
+    corgi lanza 2 poderes (con 3 vaciaba la arena en segundos). Antes la rosa daba +300, arma y un poder, y con
+    30 rosas se sacaban 30 poderes por lo que cuesta una dona. Los de un combo van saliendo uno tras otro (🎁N en su
     fila: los que faltan; como mucho 10).
+  - 🫶 **Quiéreme** ("Heart Me" en TikTok, 1 moneda) no va por sus monedas: da un **arma** sencilla (espada ancha,
+    cuchillo, bastón, lanza o hachuela) que equipa al momento y ya no pierde, sin vida ni poder. Si ya lleva el arma
+    poderosa de una dona o un corgi, no se la cambia: se guarda la nueva.
   - **🙋 Unirse**: entra sin regalo, como quien comenta para unirse.
-  - Cada regalo sale como aviso arriba a la izquierda de la arena ("luna23 envió 🌹 Rosa x3 +300"), con el color de
-    su potenciador. Los que llegan entre rondas entran al empezar la siguiente.
+  - **👆 Tap tap**: los toques en la pantalla (los "me gusta" del directo), 20 por la cantidad elegida (x5: 100). Son
+    gratis, así que dan poco: el primer toque mete al espectador en la pelea y cada 100 toques suyos le dan **+30** de
+    vida (lo de una rosa). Los toques se cuentan por espectador mientras la página sigue abierta.
+  - Cada regalo genera un aviso ("luna23 envió 🌹 Rosa x3 +30", con el color de su potenciador), pero el modo TikTok
+    los oculta, y era el royale normal el que los mostraba arriba a la izquierda de la arena: ahora no se ven. Los
+    regalos que llegan entre rondas entran al empezar la siguiente.
   - **↗️ Otra ventana** abre el panel solo (`?panel`), que manda los regalos a la ventana del juego: así en el directo
     se captura solo la del juego.
-  - Para conectar después los regalos de verdad: `labrute.gift('usuario', 'rosa', 5)` y `labrute.join('usuario')` en
-    la ventana del juego (los regalos: `rosa`, `corazon`, `dona`, `gorra`, `corgi`, `leon`).
+  - Para conectar después los regalos de verdad: `labrute.gift('usuario', 'rosa', 5)`, `labrute.join('usuario')` y
+    `labrute.like('usuario', 15)` (los toques de cada aviso de "me gusta") en la ventana del juego (los regalos:
+    `rosa`, `quiereme`, `dona`, `corgi`, o el nombre en inglés de cualquiera del catálogo, como `'Heart Me'`).
 
   El modo 1 vs 1 (dos jugadores con una tienda cada uno) se quitó: el royale lo sustituye. Lo que era solo suyo se
   fue con él (nombres de los jugadores, tiendas, contador de victorias, Acercamiento y la casilla para celebrar tras
@@ -93,7 +105,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     minigun). En el vídeo promocional sale la
     versión completa: "FINISH HIM!", el remate y el letrero "FATALITY" con voz. La voz del anunciador ("Finish
     him!" / "Finish her!" y "Fatality!") es una grabación, como la de "Multi kill!" (ver abajo).
-- **Battle Royale**: de 3 a 20 brutes, todos contra todos y todos peleando a la vez por toda la arena.
+- **Battle Royale** (el del modo TikTok): de 3 a 20 brutes, todos contra todos y todos peleando a la vez por toda la
+  arena.
   - Duelos simultáneos: cada brute (con sus mascotas) pelea solo con los de su grupo, una pareja o un trío,
     hasta que caen sus rivales, y entonces busca otro: alguien libre; si no hay, saca a uno de un trío; y si
     todos están en pareja, se suma a una y forman un trío donde los tres pelean entre sí. Así cada turno solo
@@ -144,14 +157,16 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     vida. Lo que el motor ya había jugado y aún no se veía no cuenta. Los últimos 10 segundos el reloj se pone en
     rojo y late. Si los últimos caen a la vez y no queda nadie, la ronda se cierra ahí (ya no puede entrar nadie).
     Con **🔁 Rondas continuas** cada ronda empieza con el reloj en marcha, así terminan solas y pasa la siguiente.
-  - **Potenciadores**: cada brute tiene tres botones en su fila de la lista, **+300**, **+1000** y **+3000**. Los tres
-    lanzan un poder (una de las ultimates, ver abajo, cada vez una distinta; el botón no dice cuál) y además:
-    - **+300**: le cura o le suma 300 PV y le da un arma sencilla (espada ancha, cuchillo, bastón, lanza o hachuela)
-      que equipa al momento.
-    - **+1000**: 1000 PV, un arma poderosa (hacha, espada, mayal, lucero del alba, alabarda o maza, de nivel 2) y un
-      **aura de ki** al estilo Dragon Ball para el resto de la pelea: llamas doradas y translúcidas que le envuelven y
-      suben, con chispas, y hace el triple de daño (con el Súper gigante, x6).
-    - **+3000**: 3000 PV, un arma poderosa de nivel 3, el aura de ki (esta con rayos, como el Súper Saiyajin 2), una
+  - **Potenciadores**: los dan los regalos (ver el panel de regalos, arriba), y cada brute tiene además tres botones
+    en su fila de la lista, **+30**, **+1000** y **+3000**. El +1000 y el +3000 lanzan poderes (las ultimates, ver
+    abajo, cada vez una distinta; el botón no dice cuál):
+    - **+30**: solo le cura o le suma 30 PV (el del regalo pequeño, la rosa: sobre todo, para entrar a pelear). Antes
+      daba 300 PV, un arma sencilla y un poder.
+    - **+1000**: 1000 PV, un poder, un arma poderosa (hacha, espada, mayal, lucero del alba, alabarda o maza, de
+      nivel 2) y un **aura de ki** al estilo Dragon Ball para el resto de la pelea: llamas doradas y translúcidas que
+      le envuelven y suben, con chispas, y hace el triple de daño (con el Súper gigante, x6).
+    - **+3000**: 3000 PV, **2 poderes** uno tras otro (antes, uno), un arma poderosa de nivel 3, el aura de ki (esta
+      con rayos, como el Súper Saiyajin 2), una
       **mascota** (perro, pantera u oso) que pelea con él durante un minuto y luego se va, y una **minigun** durante
       20 s de pelea. La agarra por el asa de arriba con la mano con la que coge las armas (se ve su propio puño encima
       del asa) y, mientras la lleva, en vez de la guardia de reposo se planta con el brazo adelantado y el arma a la
@@ -169,7 +184,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     quita el veneno). La vida llega al momento de pulsar, esté haciendo lo que esté: sale el número en verde y la vida
     de su etiqueta y de la lista lo reflejan, y si está libre, además bebe una poción. Antes esperaba a que acabara lo
     que tuviera pendiente en pantalla (por ejemplo, recibir la ultimate de otro). Con muchos seguidos el número verde
-    pasa a ser la suma de todos (+300 → +1300 → +4300…) y bebe como mucho con el primero, mientras le queden más en
+    pasa a ser la suma de todos (+1000 → +4000 → +5000…) y bebe como mucho con el primero, mientras le queden más en
     cola o hasta 8 s de pelea después del último. Antes bebía con cada uno: con 10 seguidos se pasaba más de 25 s
     bebiendo.
     - **La cura nunca llega tarde**: las ultimates y los golpes se calculan en el motor al lanzarse y tardan unos
@@ -177,16 +192,19 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       su potenciador antes de que empiece a verse su caída, la vida le llega antes que esos golpes: si le alcanza para
       seguir en pie, no cae (su caída se anula, y la de sus mascotas) y sigue peleando. Antes el potenciador se quedaba
       en cola y caía igual: en un duelo, si uno lanzaba su ultimate, el otro ya no podía curarse a tiempo.
-    - Sin recarga: en cuanto se ve su poder, los botones se pueden volver a pulsar (antes se recargaban 30, 60 o
-      90 s). Cada pulsación lanza otro poder y le suma la vida; si ya tenía el aura, estalla otra vez (y la del
+    - Sin recarga: en cuanto se ve su poder (o su vida, el +30), los botones se pueden volver a pulsar (antes se
+      recargaban 30, 60 o 90 s). Cada pulsación lanza otros poderes y le suma la vida; si ya tenía el aura, estalla otra vez (y la del
       +1000 pasa a la de rayos con un +3000), y cada +3000 trae otra mascota.
     - El aura no se apaga en toda la pelea (antes duraba un minuto); solo si cae, y al momento. La mascota cuenta su
       minuto desde que llega (se para con la pausa y va al doble a x2).
+    - **Lo que dura un tiempo solo cuenta mientras tiene rivales**: la minigun (20 s), la mascota (1 min) y el Súper
+      gigante (15 s) se paran mientras está solo en la arena esperando retador, y siguen en cuanto aparece otro.
+      Antes corrían igual, y quien quería entrar esperaba a que se le acabaran para no comerse la minigun.
     - **Quien usa un potenciador ya no pierde nunca el arma que lleva**: no se la quitan (desarmes al golpearle o al
       contraatacar, el Martillo, el Ladrón), no la lanza (ni sola ni con el Diluvio, que tira las que tenga guardadas)
       y no la cambia por otra. Antes, al rato, acababan peleando a puñetazos. La que llevaba en la mano al recibir el
-      arma vuelve con las suyas, y un potenciador menor no le cambia el arma de uno mayor: se la guarda (un +300 no le
-      quita el arma poderosa de un +3000).
+      arma vuelve con las suyas, y un potenciador menor no le cambia el arma de uno mayor: se la guarda (un +1000 no le
+      quita el arma de nivel 3 de un +3000).
   - **Ultimates** (el poder que lanza cada potenciador): una versión mucho más fuerte y de área de una técnica del
     juego, hecha para eliminar a varios de golpe, que alcanza a rivales de cualquier duelo. Van cambiando: cada brute
     las saca de su propia bolsa con las cuatro barajadas, así no repite ninguna hasta haberlas lanzado todas ni lanza
@@ -235,8 +253,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - **➕ Agregar** / **+5** meten brutes nuevos en plena pelea, en cualquier momento hasta que se ve el final. El
     que llega entra en un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y
     recibe golpes enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
-    - **➕ con regalo** (**+300** / **+1000** / **+3000**, debajo): agrega un brute que entra con ese potenciador. En
-      cuanto aparece en la arena recibe todo lo del potenciador (vida, arma, aura de ki, mascota y su poder), como si
+    - **➕ con regalo** (**+30** / **+1000** / **+3000**, debajo): agrega un brute que entra con ese potenciador. En
+      cuanto aparece en la arena recibe todo lo del potenciador (vida, arma, aura de ki, mascota y sus poderes), como si
       se pulsara en su fila; hasta entonces su botón de la lista lleva el ⏳ de los que esperan en cola.
     - El motor no va por delante de la animación (ver arriba), así que el recién llegado entra en cuanto aparece.
       Antes se adelantaba al menos 16 turnos: con pocos en pie, todos esos turnos eran del mismo duelo y el recién
