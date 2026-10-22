@@ -1,0 +1,12 @@
+{
+  "name": "brute-demo-live",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node puente.js"
+  },
+  "dependencies": {
+    "tiktok-live-connector": "2.5.0",
+    "ws": "8.22.0"
+  }
+}

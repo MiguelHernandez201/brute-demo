@@ -22,6 +22,7 @@ import { sound } from '@pixi/sound';
 import { sfx, sounds } from './sfx.ts';
 import { playPromotionalTrailer } from './trailer.ts';
 import { BOOST_HP } from './engine/ultimates.ts';
+import { connectLive } from './live.js';
 
 const $ = (id) => document.getElementById(id);
 const renderer = createRenderer();
@@ -225,6 +226,8 @@ async function startRoyale(count) {
   const { fight } = createRoyale(count);
   if (id !== run) return;
   renderRoster(fight);
+  // (los espectadores del directo que siguen por aquí vuelven a pelear: entran en cuanto empieza)
+  queueRecentViewers();
   await playFight(id, fight);
 }
 
@@ -352,11 +355,25 @@ const GIFTS = [
 // uno de los de arriba (el mismo archivo: "Heart Me" es el Quiéreme), cuenta como ese
 let catalog = [];
 const giftImg = (file) => `${import.meta.env.BASE_URL}images/gifts/${file}`;
-const findGift = (id) => {
+// `coins`: lo que vale uno, cuando se sabe (los del directo llegan con su nombre y su precio). Entonces solo cuenta
+// como uno del catálogo con ese nombre y ese precio, y si no hay ninguno, como un regalo cualquiera de lo que vale:
+// así un nombre que no casa (otro idioma, uno nuevo) nunca da más de lo que se pagó
+const findGift = (id, coins) => {
   if (typeof id !== 'string' || !id) return undefined;
   const found = GIFTS.find((x) => x.id === id);
   if (found) return found;
   const lower = id.toLowerCase();
+  if (coins > 0) {
+    const same = (x) => x.name.toLowerCase() === lower && x.coins === coins;
+    const listed = catalog.find(same);
+    return (
+      (listed ? (GIFTS.find((x) => x.file === listed.file) ?? listed) : GIFTS.find(same)) ?? {
+        name: id.slice(0, 40),
+        coins,
+        icon: '🎁',
+      }
+    );
+  }
   const listed = catalog.find((x) => `f:${x.file}` === id || x.name.toLowerCase() === lower);
   return (
     (listed && GIFTS.find((x) => x.file === listed.file)) ?? listed ?? GIFTS.find((x) => x.name.toLowerCase() === lower)
@@ -427,10 +444,10 @@ const cleanUser = (user) =>
   String(user ?? '')
     .trim()
     .slice(0, 24);
-function applyGift({ user, gift, count = 1 }) {
+function applyGift({ user, gift, count = 1, coins }) {
   const name = cleanUser(user);
   if (!name) return;
-  const g = findGift(gift);
+  const g = findGift(gift, Math.round(+coins) || 0);
   const tier = g ? tierOf(g) : 0;
   const hp = g ? giftHp(g) : undefined;
   const n = Math.max(1, Math.min(GIFT_QUEUE_MAX, Math.round(+count) || 1));
@@ -498,16 +515,104 @@ function showToast(html, tier) {
 }
 const panelOnly = new URLSearchParams(location.search).has('panel');
 const giftChannel = 'BroadcastChannel' in window ? new BroadcastChannel('brute-demo-regalos') : null;
-if (giftChannel && !panelOnly) giftChannel.onmessage = (e) => applyEvent(e.data);
 const sendGift = (data) => (panelOnly ? giftChannel?.postMessage(data) : applyEvent(data));
-// Para conectar después los regalos de verdad (TikFinity u otro): labrute.gift('usuario', 'rose', 5),
-// labrute.join('usuario') y labrute.like('usuario', 15) (los toques de cada aviso de "me gusta")
+// Para mandar regalos desde fuera (consola, TikFinity u otro): labrute.gift('usuario', 'rose', 5), con lo que vale
+// uno si se sabe (labrute.gift('usuario', 'Rose', 5, 1)), labrute.join('usuario') y labrute.like('usuario', 15) (los
+// toques de cada aviso de "me gusta"). Los del directo llegan solos por el puente (ver connectLive, abajo)
 globalThis.labrute = {
-  gift: (user, gift, count = 1) => applyGift({ user, gift, count }),
+  gift: (user, gift, count = 1, coins) => applyGift({ user, gift, count, coins }),
   join: (user) => applyGift({ user }),
   like: (user, count = 1) => applyLikes({ user, count }),
   gifts: GIFTS.map((g) => g.id),
 };
+// ===== Directo de TikTok de verdad =====
+// El puente (live/puente.js, con iniciar-directo.bat) lee tu directo y lo pasa aquí (ver live.js): regalos, toques y
+// comentarios (comentar mete a pelear, como 🙋 Unirse). En tu PC se conecta solo; en la versión publicada, solo con
+// ?live en la dirección (si no, cualquiera que la abriera intentaría conectarse a su propio PC). El panel de regalos
+// dice cómo va, también el de la otra ventana (?panel), que lo recibe de esta
+const liveParam = new URLSearchParams(location.search).has('live');
+const liveEnabled = liveParam || ['localhost', '127.0.0.1'].includes(location.hostname);
+const LIVE_TEXT = {
+  off: () => '⚪ Directo sin conectar: abre <b>iniciar-directo.bat</b>',
+  conectando: (s) => `🟡 Conectando con el directo de <b>@${escHtml(s.streamer)}</b>…`,
+  esperando: (s) => `🟡 <b>@${escHtml(s.streamer)}</b> no está en directo: esperando a que empieces`,
+  conectado: (s) => `🟢 Conectado al directo de <b>@${escHtml(s.streamer)}</b>`,
+  error: (s) => `🟠 No conecta con el directo de <b>@${escHtml(s.streamer)}</b>: reintentando`,
+  disabled: () => '⚪ El directo solo se conecta en tu PC (o con <b>?live</b> en la dirección)',
+};
+let liveStatus = { state: liveEnabled ? 'off' : 'disabled' };
+const showLiveStatus = (s) => {
+  liveStatus = s;
+  const el = $('giftLive');
+  if (!el) return;
+  el.innerHTML = (LIVE_TEXT[s.state] ?? LIVE_TEXT.off)(s);
+  el.title = s.text ?? '';
+  el.dataset.state = s.state;
+};
+showLiveStatus(liveStatus);
+// Quien entra a ver el directo entra a pelear aunque no comente (casilla 🚪 del panel de regalos, marcada de
+// fábrica): con poca gente llena la arena de espectadores de verdad; con mucha, mejor desmarcarla. Se lee en cada
+// aviso, así también cuenta lo que se marque en el panel de la otra ventana (comparten el navegador)
+const JOIN_ON_ENTER_KEY = 'brute-demo-live-join-on-enter';
+const joinOnEnter = () => {
+  try {
+    return localStorage.getItem(JOIN_ON_ENTER_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+};
+$('giftMembers').checked = joinOnEnter();
+$('giftMembers').onchange = (e) => {
+  try {
+    localStorage.setItem(JOIN_ON_ENTER_KEY, String(e.target.checked));
+  } catch {
+    /* sin storage */
+  }
+};
+// Espectadores del directo que siguen por aquí: los que entraron, comentaron, tocaron o regalaron hace menos de
+// VIEWER_KEEP_MS. Con la casilla 🚪 marcada vuelven a pelear al empezar cada ronda (si no, solo peleaban en la que
+// entraron); como mucho VIEWER_ROUND_MAX, los más recientes. TikTok no avisa de quién se va: por eso el plazo
+const VIEWER_KEEP_MS = 10 * 60_000;
+const VIEWER_ROUND_MAX = 30;
+const recentViewers = new Map();
+const queueRecentViewers = () => {
+  if (!joinOnEnter()) return;
+  const since = Date.now() - VIEWER_KEEP_MS;
+  for (const [user, at] of recentViewers) if (at < since) recentViewers.delete(user);
+  [...recentViewers]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, VIEWER_ROUND_MAX)
+    .forEach(([user]) => pendingGifts.some((g) => g.user === user) || pendingGifts.push({ user, tier: 0, count: 1 }));
+};
+const applyLiveEvent = (e) => {
+  const viewer = cleanUser(e.user);
+  if (viewer) recentViewers.set(viewer, Date.now());
+  if (e.type === 'gift') applyGift({ user: e.user, gift: e.gift, count: e.count, coins: e.coins });
+  else if (e.type === 'like') applyLikes({ user: e.user, count: e.count });
+  else if (e.type === 'comment' || (e.type === 'join' && joinOnEnter())) applyGift({ user: e.user });
+};
+if (panelOnly) {
+  if (giftChannel) {
+    giftChannel.onmessage = (e) => e.data?.liveStatus && showLiveStatus(e.data.liveStatus);
+    giftChannel.postMessage({ liveStatusAsk: true });
+  }
+} else {
+  // (a la otra ventana del panel: al cambiar y cuando lo pregunta al abrirse)
+  const shareStatus = () => giftChannel?.postMessage({ liveStatus });
+  if (giftChannel)
+    giftChannel.onmessage = ({ data }) => {
+      if (data?.liveStatusAsk) shareStatus();
+      else if (!data?.liveStatus) applyEvent(data);
+    };
+  if (liveEnabled)
+    connectLive({
+      onEvent: applyLiveEvent,
+      onStatus: (s) => {
+        showLiveStatus(s);
+        shareStatus();
+      },
+    });
+}
 const RANDOM_USERS = [
   'luna',
   'elpepe',
