@@ -896,6 +896,18 @@
         background: #3a2c22;
         color: var(--ink);
       }
+      /* Cómo va la conexión con el directo de verdad (ver connectLive en main.js) */
+      .gift-live {
+        padding: 6px 9px;
+        border-radius: 8px;
+        border: 1px solid #4a3a2e;
+        background: #1f1712;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .gift-live[data-state='conectado'] {
+        border-color: #22c55e;
+      }
       #giftPanel label {
         font-size: 12px;
         opacity: 0.7;
@@ -1848,6 +1860,12 @@
         <b>🎁 Regalos</b><span>simulador del directo</span
         ><button id="giftClose" title="Cerrar (tecla G)" aria-label="Cerrar">✕</button>
       </div>
+      <div class="gift-live" id="giftLive" aria-live="polite"></div>
+      <label
+        class="gift-check"
+        title="Quien entra a ver el directo entra a pelear aunque no comente, y en cada ronda nueva vuelven a pelear los que pasaron por el directo en los últimos 10 minutos (con poca gente llena la arena; con mucha, mejor desmarcarlo)"
+        ><input id="giftMembers" type="checkbox" checked /> 🚪 Quien entra al directo, a pelear</label
+      >
       <label for="giftUser">Espectador</label>
       <div class="gift-user">
         <input id="giftUser" placeholder="nombre de TikTok (vacío: al azar)" maxlength="24" autocomplete="off" />

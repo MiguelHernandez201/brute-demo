@@ -15,6 +15,8 @@ npx vite --port 3100
 
 y abrir http://localhost:3100/.
 
+Para transmitir con los regalos de verdad: doble clic en `iniciar-directo.bat` (ver **Directo de TikTok**, abajo).
+
 También se puede jugar en línea en https://miguelhernandez201.github.io/brute-demo/
 (se publica solo con cada push a `main`).
 
@@ -58,9 +60,10 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     acaba a los 10 segundos. El ganador sale en grande ("¡gana la ronda N!") con la cuenta atrás de la siguiente (8 s).
   - Sin botones en pantalla: la tecla **C** los muestra u oculta (los de abajo, los de agregar brutes y los
     potenciadores de cada uno, y 🗑️ para borrar el ranking).
-- **🎁 Panel de regalos** (botón 🎁 o tecla **G**; en el modo TikTok): simula los regalos del directo de TikTok, aún
-  sin conectar con TikFinity. Se escribe el nombre del espectador (vacío o 🎲: uno al azar), se elige la cantidad (x1,
-  x5, x10) y se pulsa un regalo:
+- **🎁 Panel de regalos** (botón 🎁 o tecla **G**; en el modo TikTok): simula los regalos del directo de TikTok (los
+  de verdad llegan solos con el puente: ver **Directo de TikTok**, abajo), y arriba dice cómo va la conexión con el
+  directo. Se escribe el nombre del espectador (vacío o 🎲: uno al azar), se elige la cantidad (x1, x5, x10) y se
+  pulsa un regalo:
   - Si no está en pie, entra a la pelea con su nombre; si ya está, recibe el potenciador. Cada regalo da el suyo según
     lo que vale en monedas de TikTok: 🌹 Rose (1) → **+30** (hasta 29); 🍩 Dona (30) → **+1000** (de 30 a
     298); 🐶 Corgi (299) → **+3000** (desde 299). Valen según lo que cuestan, para que muchos regalos pequeños no
@@ -91,10 +94,12 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     regalos que llegan entre rondas entran al empezar la siguiente.
   - **↗️ Otra ventana** abre el panel solo (`?panel`), que manda los regalos a la ventana del juego: así en el directo
     se captura solo la del juego.
-  - Para conectar después los regalos de verdad: `labrute.gift('usuario', 'rose', 5)`, `labrute.join('usuario')` y
-    `labrute.like('usuario', 15)` (los toques de cada aviso de "me gusta") en la ventana del juego (los regalos:
-    `rose`, `quiereme`, `rosa`, `dona`, `handheart`, `corgi`, o el nombre de cualquiera del catálogo, como
-    `'Heart Me'` o `'Rose'`).
+  - Para mandar regalos desde fuera (la consola, TikFinity u otro programa): `labrute.gift('usuario', 'rose', 5)`,
+    `labrute.join('usuario')` y `labrute.like('usuario', 15)` (los toques de cada aviso de "me gusta") en la ventana
+    del juego (los regalos: `rose`, `quiereme`, `rosa`, `dona`, `handheart`, `corgi`, o el nombre de cualquiera del
+    catálogo, como `'Heart Me'` o `'Rose'`). Con lo que vale uno como cuarto dato
+    (`labrute.gift('usuario', 'Rose', 5, 1)`) solo cuenta como ese regalo si el nombre y el precio casan; si no, da
+    lo que le toca por sus monedas.
 
   El modo 1 vs 1 (dos jugadores con una tienda cada uno) se quitó: el royale lo sustituye. Lo que era solo suyo se
   fue con él (nombres de los jugadores, tiendas, contador de victorias, Acercamiento y la casilla para celebrar tras
@@ -321,12 +326,44 @@ Los botones de la arena son solo iconos, en una fila (al pasar el ratón por enc
 promocional; con las rondas continuas lleva la cuenta atrás en la esquina), 🔁 rondas continuas y 🔍 zoom dinámico
 (dorados si están activados), ⬇️ descargar el vídeo grabado y 🏠 volver al menú.
 
+## Directo de TikTok
+
+Los regalos, toques y comentarios de tu directo de verdad entran solos a la pelea.
+
+- `iniciar-directo.bat` pregunta tu usuario de TikTok la primera vez (lo guarda en `live/usuario.txt`; para cambiarlo,
+  `iniciar-directo.bat otro_usuario`), abre el **puente** en otra ventana y el juego en modo TikTok
+  (http://localhost:3100/?tiktok). Para el directo se captura esa página (con TikTok LIVE Studio u OBS).
+- El puente (`live/puente.js`, con [tiktok-live-connector](https://www.npmjs.com/package/tiktok-live-connector))
+  lee el directo como un espectador más, solo con tu usuario: no hay API oficial de TikTok para esto, así que si
+  TikTok cambia algo puede dejar de funcionar hasta que se actualice la librería (`npm install
+  tiktok-live-connector@latest` en `live/`). Se lo pasa al juego por un WebSocket local (`ws://127.0.0.1:21214`, ver
+  `web/src/live.js`). Si aún no estás en directo, espera y lo vuelve a intentar cada 30 s; si se corta, se reconecta
+  solo. En su ventana va escribiendo cada regalo, toque y comentario que pasa.
+- Lo que llega: un **comentario** mete a pelear a quien lo escribe (como 🙋 Unirse); los **toques** (tap tap)
+  cuentan como los del panel, y los **regalos** dan lo suyo. Quien **entra a ver el directo** también entra a pelear
+  aunque no comente, mientras esté marcada la casilla **🚪 Quien entra al directo, a pelear** del panel de regalos
+  (marcada de fábrica: con poca gente llena la arena de espectadores de verdad; con mucha, mejor desmarcarla). Con
+  ella marcada, además, al empezar cada ronda vuelven a pelear los que pasaron por el directo (entraron, comentaron,
+  tocaron o regalaron) en los últimos 10 minutos, como mucho 30, los más recientes: si no, cada uno peleaba solo la
+  ronda en la que llegó. TikTok no avisa de quién se va, por eso el plazo. Los de racha (como la Rose) entran uno a uno según
+  llegan, sin esperar a que acabe la racha. El nombre del brute es el usuario de TikTok del espectador (sin la @).
+- Los regalos se reconocen por su nombre y su precio en monedas: si los dos casan con uno del catálogo, cuenta como
+  ese (Heart Me es el Quiéreme); si no (otro idioma, un regalo nuevo), da lo que le toca por sus monedas. Así un
+  nombre que no casa nunca da más de lo que se pagó.
+- El panel de regalos (G, o el de la otra ventana) dice arriba cómo va: ⚪ sin el puente abierto, 🟡 conectando o
+  esperando a que empieces, 🟢 conectado.
+- El juego se conecta solo cuando corre en tu PC (localhost). La versión publicada en GitHub Pages solo lo intenta
+  con `?live` en la dirección, para que quien la abra no intente conectarse a su propio PC.
+- El uso gratuito del servicio con el que se conecta la librería ([Euler Stream](https://www.eulerstream.com))
+  tiene un límite; si se queda corto, el puente avisa y se le puede poner una clave en la variable `EULER_API_KEY`.
+
 ## Estructura (`web/src`)
 
 - `engine/` — motor de peleas del servidor original, sin Prisma; `session.ts` lo juega turno a turno.
 - `fight/` — animación de la pelea del cliente original (PixiJS), con ajustes para la demo.
 - `core/` — copia de `@labrute/core`.
 - `sim.ts` — genera brutes y el royale; `trailer.ts` — vídeo promocional; `main.js` — interfaz.
+- `live.js` — recibe el directo de TikTok del puente (`live/puente.js`, fuera de `web/`).
 
 ## Origen y licencia
 

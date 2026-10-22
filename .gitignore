@@ -6,3 +6,6 @@ web/dist/
 .DS_Store
 Thumbs.db
 *.log
+
+# Usuario de TikTok del directo (lo guarda iniciar-directo.bat)
+live/usuario.txt
