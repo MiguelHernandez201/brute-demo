@@ -340,14 +340,15 @@ const giftButtons = (disabled) =>
 // entra a la pelea con su nombre (si no está en pie) y recibe el potenciador que da ese regalo. Sin regalo ("Unirse",
 // como quien comenta para entrar), solo entra. Se abre con 🎁 o la tecla G, y también en otra ventana (?panel) que manda
 // los regalos a la del juego (BroadcastChannel): así en el directo se captura solo la del juego
-// `boost`: el potenciador que da, si no es el que le toca por sus monedas (ver giftTier)
+// Uno de cada escalón de monedas (ver COIN_TIERS), para probar. `boost`: el potenciador que da, si no es el que le toca
+// por sus monedas (solo el Quiéreme)
 const GIFTS = [
   // (con los nombres de TikTok: "Rose" es la de 1 moneda y "Rosa", la de 10)
   { id: 'rose', file: '7906db96d5.webp', icon: '🌹', name: 'Rose', coins: 1 },
   { id: 'quiereme', file: 'f856132638.webp', icon: '🫶', name: 'Quiéreme', coins: 1, boost: 4 },
-  { id: 'rosa', file: 'fc9f17a510.webp', icon: '🌹', name: 'Rosa', coins: 10, boost: 5 },
+  { id: 'rosa', file: 'fc9f17a510.webp', icon: '🌹', name: 'Rosa', coins: 10 },
   { id: 'dona', file: '993fc4dd9e.webp', icon: '🍩', name: 'Dona', coins: 30 },
-  { id: 'handheart', file: '11ab716bcf.webp', icon: '💗', name: 'Hand Heart', coins: 100, boost: 6 },
+  { id: 'handheart', file: '11ab716bcf.webp', icon: '💗', name: 'Hand Heart', coins: 100 },
   { id: 'corgi', file: 'e2865bffd3.webp', icon: '🐶', name: 'Corgi', coins: 299 },
 ];
 // Catálogo completo de regalos de TikTok (public/images/gifts/gifts.json: nombre, monedas y archivo). Se carga al abrir;
@@ -390,20 +391,32 @@ const HEAL_ICON =
   '<svg class="heal" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>';
 const boostOffer = (b) =>
   `<b>${b.tier === WEAPON_TIER ? '' : HEAL_ICON}${b.label}</b><em class="perks">${b.perks}</em>`;
-// Potenciador según lo que vale el regalo en monedas de TikTok: hasta 29 → +30, hasta 298 → +1000, desde 299 → +3000
-const giftTier = (coins) => (coins >= 299 ? 3 : coins >= 30 ? 2 : 1);
+// Moneda de TikTok (dibujada: dorada, con la nota del logo de TikTok)
+const COIN_ICON =
+  '<svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11.5" fill="#f2a900"/><circle cx="12" cy="12" r="9.3" fill="#ffd335"/><path transform="translate(6.6 6.3) scale(0.46)" fill="#e08a00" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>';
+// Potenciador según lo que vale el regalo en monedas de TikTok, sea el que sea (antes cada regalo de la lista daba lo
+// suyo): desde 1 → +30, desde 10 → +300 y un arma, desde 30 → +1000 y aura, desde 100 → +2000 y mascota, desde 299 →
+// +3000 y minigun. Es lo que dice ¿Cómo jugar?, con `short` (lo que más se nota, aparte de la vida)
+const COIN_TIERS = [
+  { coins: 1, tier: 1, short: '' },
+  { coins: 10, tier: 5, short: '🗡️ arma' },
+  { coins: 30, tier: 2, short: '🔥 aura' },
+  { coins: 100, tier: 6, short: '🐾 mascota' },
+  { coins: 299, tier: 3, short: `${MINIGUN_ICON} minigun` },
+];
+const giftTier = (coins) => COIN_TIERS.findLast((t) => coins >= t.coins)?.tier ?? 1;
 // El que da un regalo (los de la lista pueden dar otro, como el Quiéreme)
 const tierOf = (g) => (GIFTS.find((x) => x.file === g.file) ?? g).boost ?? giftTier(g.coins);
 // Regalos grandes que no están en la lista (desde 299 monedas, como el León): lo del +3000, pero con la vida en
 // proporción a lo que valen (la del Corgi: 3000 por 299 monedas, unas 10 por moneda). Si no, un León de 29.999
 // monedas daba lo mismo que un Corgi. Undefined: la de su nivel
-const BIG_GIFT_COINS = 299;
+const BIG_GIFT_COINS = COIN_TIERS.at(-1).coins;
 const giftHp = (g) =>
   g.coins >= BIG_GIFT_COINS && !GIFTS.some((x) => x.file === g.file)
     ? Math.round((g.coins * BOOST_HP[3]) / BIG_GIFT_COINS)
     : undefined;
-// Potenciadores que solo dan regalos concretos (ver engine/ultimates.BoostTier), no los botones de la lista: el 4,
-// solo un arma (Quiéreme); el 5, +300 y un arma (Rosa, la de 10 monedas), y el 6, entre la Dona y el Corgi (Hand Heart)
+// Potenciadores que solo dan los regalos (ver engine/ultimates.BoostTier), no los botones de la lista: el 4, solo un
+// arma (Quiéreme); el 5, +300 y un arma (desde 10 monedas), y el 6, entre el 2 y el 3 (desde 100)
 const WEAPON_TIER = 4;
 const GIFT_BOOSTS = {
   [WEAPON_TIER]: {
@@ -460,21 +473,24 @@ function applyGift({ user, gift, count = 1, coins }) {
   if (mode === 'royale' && rosterGift?.(name, tier, n, hp)) return;
   if (pendingGifts.length < 50) pendingGifts.push({ user: name, tier, count: n, hp });
 }
-// Tap tap (los "me gusta" del directo: toques en la pantalla). Son gratis, así que dan poco: el primer toque mete al
-// espectador en la pelea (como comentar) y cada LIKES_PER_HEAL toques suyos le dan el potenciador 1 (+30, lo de una
-// Rose). Los toques se cuentan por espectador mientras dura el directo (esta página). Volver tras caer cuesta: quien
-// ya cayó en la ronda necesita LIKES_TO_RETURN toques para entrar otra vez (antes volvía con uno solo), y esos toques
-// no curan
+// Tap tap (los "me gusta" del directo: toques en la pantalla). Son gratis, así que dan poco: LIKES_TO_JOIN toques
+// meten al espectador en la pelea (antes bastaba el primero, como comentar) y cada LIKES_PER_HEAL toques suyos le dan
+// el potenciador 1 (+30, lo de una Rose). Los toques se cuentan por espectador mientras dura el directo (esta página);
+// los de entrar también curan, pero al entrar. Volver tras caer cuesta: quien ya cayó en la ronda necesita
+// LIKES_TO_RETURN toques para entrar otra vez, y esos toques no curan
+const LIKES_TO_JOIN = 30;
 const LIKES_PER_HEAL = 100;
 const LIKES_TO_RETURN = 100;
 const likes = new Map();
-// Toques que lleva para volver quien ya cayó en la ronda
+// Toques que lleva para entrar quien no está en la ronda, y para volver quien ya cayó en ella
+const joinLikes = new Map();
 const returnLikes = new Map();
 function applyLikes({ user, count = 1 }) {
   const name = cleanUser(user);
   if (!name) return;
-  const n = Math.max(1, Math.round(+count) || 1);
-  if (mode === 'royale' && rosterWho?.(name) === 'out') {
+  let n = Math.max(1, Math.round(+count) || 1);
+  const who = mode === 'royale' ? rosterWho?.(name) : undefined;
+  if (who === 'out') {
     const paid = (returnLikes.get(name) ?? 0) + n;
     if (paid < LIKES_TO_RETURN) return void returnLikes.set(name, paid);
     returnLikes.delete(name);
@@ -482,6 +498,13 @@ function applyLikes({ user, count = 1 }) {
     return;
   }
   returnLikes.delete(name);
+  // (quien ya espera la ronda siguiente, por un regalo o por sus toques, no tiene que volver a pagar la entrada)
+  const entering = who !== 'in' && !pendingGifts.some((g) => g.user === name);
+  if (entering) {
+    n += joinLikes.get(name) ?? 0;
+    if (n < LIKES_TO_JOIN) return void joinLikes.set(name, n);
+  }
+  joinLikes.delete(name);
   const before = likes.get(name) ?? 0;
   const total = before + n;
   likes.set(name, total);
@@ -490,8 +513,9 @@ function applyLikes({ user, count = 1 }) {
   if (result === 'joined') showToast(`<b>${escHtml(name)}</b> se unió 👆`, 0);
   if (heals)
     showToast(`<b>${escHtml(name)}</b> 👆 ${heals * LIKES_PER_HEAL} toques <span>${BOOSTS[0].label}</span>`, 1);
-  // Sin ronda en la que entrar, solo esperan las curas (si no, cada toque entre rondas sería alguien esperando)
-  if (!result && heals && pendingGifts.length < 50) pendingGifts.push({ user: name, tier: 1, count: heals });
+  // Sin ronda en la que entrar, esperan a la siguiente quien ya pagó la entrada y las curas
+  if (!result && (heals || entering) && pendingGifts.length < 50)
+    pendingGifts.push({ user: name, tier: heals ? 1 : 0, count: heals || 1 });
 }
 // Lo que llega del panel (aquí o en su otra ventana) o de labrute.*: toques o un regalo
 const applyEvent = (data) => (data?.likes ? applyLikes(data) : applyGift(data ?? {}));
@@ -628,8 +652,6 @@ const RANDOM_USERS = [
 const randomUser = () =>
   `${RANDOM_USERS[Math.floor(Math.random() * RANDOM_USERS.length)]}${Math.floor(Math.random() * 90 + 10)}`;
 let giftCount = 1;
-// Cada cuánto sube un mensaje el cuadro que explica los regalos
-const BANNER_STEP_MS = 3500;
 let renderCatalog = () => {};
 fetch(`${import.meta.env.BASE_URL}images/gifts/gifts.json`)
   .then((r) => (r.ok ? r.json() : []))
@@ -643,62 +665,20 @@ function setupGiftPanel() {
     const b = boostOf(tierOf(g));
     return `<button class="gift t${b.tier}" data-gift="${g.id}" title="${escHtml(g.name)}: ${b.label} (${b.text})"><i>${giftIcon(g)}</i><span>${escHtml(g.name)}</span><small>🪙${g.coins}</small>${boostOffer(b)}</button>`;
   }).join('');
-  // Cuadro bajo la arena (modo TikTok) que explica qué da cada regalo, como un chat: cada pocos segundos entra el
-  // siguiente mensaje por abajo y los anteriores suben. Los mensajes van tres veces seguidos: la copia de en medio es
-  // la que se recorre, la de arriba hace de historial y la de abajo deja dar la vuelta sin salto
-  const track = $('ttBannerTrack');
-  const message = (avatar, title, text) => `<p><i>${avatar}</i><span><b>${title}</b> ${text}</span></p>`;
-  // (cómo se entra a pelear lo dice el cuadro ¿Cómo jugar?, más abajo)
-  const messages = [
-    ...GIFTS.map((g) => {
-      const b = boostOf(tierOf(g));
-      if (b.tier === WEAPON_TIER) return message(giftIcon(g), escHtml(g.name), b.offer);
-      const life = `${HEAL_ICON}${b.label} vida`;
-      return message(giftIcon(g), escHtml(g.name), b.offer ? `${life} · ${b.offer}` : life);
-    }),
-    message(
-      '👆',
-      'Tap tap',
-      `cada ${LIKES_PER_HEAL} toques, ${HEAL_ICON}+30 vida; si caes, ${LIKES_TO_RETURN} toques para volver`,
-    ),
-  ];
-  track.innerHTML = messages.join('').repeat(3);
-  const n = messages.length;
-  let bannerStep = n;
-  // El mensaje más nuevo, entero y pegado abajo. Los de arriba que ya no caben enteros se desvanecen del todo (antes
-  // se difuminaban o quedaban cortados, y no se leían). `jump`: sin animación
-  const showMessage = (jump = false) => {
-    const el = track.children[bannerStep];
-    const y = track.parentElement.clientHeight - el.offsetTop - el.offsetHeight;
-    track.classList.toggle('jump', jump);
-    track.style.transform = `translateY(${y}px)`;
-    for (const p of track.children) p.classList.toggle('gone', p.offsetTop + y < -1);
-    if (!jump) return;
-    // (se aplica ya, y lo siguiente vuelve a animarse)
-    void track.offsetHeight;
-    track.classList.remove('jump');
-  };
-  // Al mostrarse o cambiar de tamaño (tecla E) se recoloca sin animación
-  new ResizeObserver(() => showMessage(true)).observe(track.parentElement);
-  setInterval(() => {
-    if (!track.offsetParent) return;
-    bannerStep++;
-    showMessage();
-    // Al llegar a la tercera copia (igual que la de en medio) vuelve a la de en medio sin que se note
-    if (bannerStep === 2 * n)
-      setTimeout(() => {
-        bannerStep = n;
-        showMessage(true);
-      }, 800);
-  }, BANNER_STEP_MS);
-  // ¿Cómo jugar? (modo TikTok): todas las maneras de entrar a pelear con tu nombre
+  // ¿Cómo jugar? (modo TikTok, bajo la arena): a la izquierda cómo se entra a pelear con tu nombre y a la derecha qué
+  // da un regalo según sus monedas. Antes ahí había un cuadro tipo chat que lo explicaba regalo a regalo, con un
+  // mensaje largo cada 3,5 s
   const heartMe = GIFTS.find((g) => g.boost === WEAPON_TIER);
-  $('ttHowTo').innerHTML = `<div class="tt-title">¿Cómo jugar?</div><ul>
-    <li><i>💬</i>Comenta</li>
-    <li><i>👆</i>Tap tap</li>
-    ${heartMe ? `<li><i>${giftIcon(heartMe)}</i>${escHtml(heartMe.name)}</li>` : ''}
-    <li><i>🎁</i>Cualquier regalo</li>
-  </ul>`;
+  const row = (icon, what, gives) => `<li><i>${icon}</i><span>${what}</span><b>${gives}</b></li>`;
+  const life = (tier) => `${HEAL_ICON}${boostOf(tier).label}`;
+  $('ttHowTo').innerHTML = `<div class="tt-cols"><div><div class="tt-title">¿Cómo jugar?</div><ul>
+    ${row('👆', `${LIKES_TO_JOIN} tap tap`, '¡a pelear!')}
+    ${row('💬', 'Comenta', '¡a pelear!')}
+    ${row('👆', `${LIKES_PER_HEAL} tap tap`, life(1))}
+    ${heartMe ? row(giftIcon(heartMe), escHtml(heartMe.name), `${boostOf(WEAPON_TIER).perks} arma`) : ''}
+  </ul></div><ul>
+    ${COIN_TIERS.map((t) => row(COIN_ICON, t.coins, [life(t.tier), t.short].filter(Boolean).join(' '))).join('')}
+  </ul></div>`;
   const user = () => {
     if (!$('giftUser').value.trim()) $('giftUser').value = randomUser();
     return $('giftUser').value.trim();
@@ -716,8 +696,8 @@ function setupGiftPanel() {
       .forEach((b) => b.classList.toggle('on', b === button));
   };
   $('giftJoin').onclick = () => sendGift({ user: user() });
-  // Toques: 20 por cantidad elegida (x5: 100, lo que da una cura)
-  $('giftTap').onclick = () => sendGift({ user: user(), likes: true, count: 20 * giftCount });
+  // Toques: LIKES_TO_JOIN por cantidad elegida (x1: lo que cuesta entrar)
+  $('giftTap').onclick = () => sendGift({ user: user(), likes: true, count: LIKES_TO_JOIN * giftCount });
   // Todos los regalos del catálogo: buscador y lista; cada uno da el potenciador que le toca por sus monedas
   const renderAll = () => {
     const q = $('giftSearch').value.trim().toLowerCase();
