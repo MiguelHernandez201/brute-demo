@@ -49,25 +49,26 @@ const state = (f: DetailedFighter) => f as DetailedFighter & {
 //   3 → lo del 2 con +3000 PV, y además una mascota que pelea con él durante un minuto (la pone session.castBoost,
 //       que tiene los datos del brute para sus estadísticas) y una minigun durante MINIGUN_SECONDS (mientras, cada
 //       turno suyo es una ráfaga: ver fightMethods.minigunBurst)
-//   4 → solo un arma sencilla que equipa al momento y ya nunca pierde (el regalo Quiéreme)
-//   5 → +300 PV y un arma sencilla (la Rosa, de 10 monedas; la Rose, de 1, da el 1)
+//   4 → solo un arma sencilla que equipa al momento y ya nunca pierde (lo daba el Quiéreme, que ahora da el 7)
+//   5 → +300 PV y un arma sencilla (los regalos desde 10 monedas, como la Rosa)
 //   6 → lo del 2 con +2000 PV y además la mascota del 3 (el Hand Heart, de 100 monedas: entre la Dona y el Corgi)
+//   7 → +30 PV y un arma sencilla (los regalos de 1 a 9 monedas, como la Rose y el Quiéreme; los 100 tap tap dan el 1)
 // "Cura o suma": recupera la vida que le falte y lo que sobra sube su vida máxima, así siempre gana esos PV
-export type BoostTier = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-export const BOOST_HP: Record<BoostTier, number> = { 0: 0, 1: 30, 2: 1000, 3: 3000, 4: 0, 5: 300, 6: 2000 };
-// Si el potenciador lanza una ultimate (el 1 solo cura, y el 4 y el 5 solo traen un arma, el 5 con vida)
-export const boostCasts = (tier: BoostTier) => tier !== 1 && tier !== 4 && tier !== 5;
+export type BoostTier = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export const BOOST_HP: Record<BoostTier, number> = { 0: 0, 1: 30, 2: 1000, 3: 3000, 4: 0, 5: 300, 6: 2000, 7: 30 };
+// Si el potenciador lanza una ultimate (el 1 solo cura, y el 4, el 5 y el 7 solo traen un arma, el 5 y el 7 con vida)
+export const boostCasts = (tier: BoostTier) => tier !== 1 && !boostOnlyWeapon(tier);
 // Si solo trae un arma sencilla (y la vida de su nivel): ni ultimate ni aura
-export const boostOnlyWeapon = (tier: BoostTier) => tier === 4 || tier === 5;
+export const boostOnlyWeapon = (tier: BoostTier) => tier === 4 || tier === 5 || tier === 7;
 // Si trae la mascota del 3
 export const boostPet = (tier: BoostTier) => tier === 3 || tier === 6;
-// Armas sencillas (las de siempre: las traen el 4 y el 5) y poderosas (las que más pegan: el 2, el 3 y el 6), y a
+// Armas sencillas (las de siempre: las traen el 4, el 5 y el 7) y poderosas (las que más pegan: el 2, el 3 y el 6), y a
 // qué nivel
 const SIMPLE_WEAPONS = [WeaponName.broadsword, WeaponName.knife, WeaponName.baton, WeaponName.lance, WeaponName.hatchet];
 const POWERFUL_WEAPONS = [
   WeaponName.axe, WeaponName.sword, WeaponName.flail, WeaponName.morningStar, WeaponName.halbard, WeaponName.bumps,
 ];
-const BOOST_WEAPON_TIER: Partial<Record<BoostTier, number>> = { 2: 2, 3: 3, 4: 1, 5: 1, 6: 2 };
+const BOOST_WEAPON_TIER: Partial<Record<BoostTier, number>> = { 2: 2, 3: 3, 4: 1, 5: 1, 6: 2, 7: 1 };
 // Segundos de pelea que dura la mascota (los cuenta la animación desde que llega, ver session.endPet)
 export const PET_SECONDS = 60;
 // Segundos de pelea que lleva la minigun (los cuenta la animación desde que la saca, ver endMinigun)
@@ -200,7 +201,8 @@ export const boostHeal = (fightData: DetailedFight, caster: DetailedFighter, tie
   fightData.steps.push({ a: 'demoBoost', f: caster.index, h: hp, m: caster.maxHp, c: cured ? 1 : 0, o: only } as never);
 };
 
-// Arma y aura de un potenciador 2, 3 o 6 (tras lanzar su ultimate, ver session.castBoost), o solo el arma del 4 y el 5
+// Arma y aura de un potenciador 2, 3 o 6 (tras lanzar su ultimate, ver session.castBoost), o solo el arma del 4, el 5
+// y el 7
 export const boostGear = (fightData: DetailedFight, caster: DetailedFighter, tier: BoostTier) => {
   const list = boostOnlyWeapon(tier) ? SIMPLE_WEAPONS : POWERFUL_WEAPONS;
   const name = list[Math.floor(Math.random() * list.length)] ?? WeaponName.axe;

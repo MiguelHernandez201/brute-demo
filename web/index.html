@@ -908,6 +908,40 @@
       .gift-live[data-state='conectado'] {
         border-color: #22c55e;
       }
+      /* Si los que se unen al live entran a la arena (ver joinOnEnter en main.js): bien a la vista, en verde si está
+         activado (antes era una casilla pequeña y apagada como las etiquetas) */
+      #giftPanel .gift-switch {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 10px;
+        border: 1px solid #4a3a2e;
+        border-radius: 8px;
+        background: #1f1712;
+        font-size: 14px;
+        opacity: 1;
+        cursor: pointer;
+      }
+      #giftPanel .gift-switch:has(input:checked) {
+        border-color: #22c55e;
+        background: #16261a;
+      }
+      .gift-switch input {
+        flex: none;
+        width: 20px;
+        height: 20px;
+        margin: 0;
+        accent-color: #22c55e;
+      }
+      .gift-switch span {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .gift-switch small {
+        font-size: 11.5px;
+        opacity: 0.7;
+      }
       #giftPanel label {
         font-size: 12px;
         opacity: 0.7;
@@ -1572,69 +1606,6 @@
         height: 1.3em;
         vertical-align: -0.3em;
       }
-      #giftSearch {
-        width: 100%;
-        padding: 8px;
-        border-radius: 6px;
-        border: 1px solid #888;
-        background: #222;
-        color: #fff;
-      }
-      .gift-all {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 4px;
-        max-height: 190px;
-        overflow-y: auto;
-        scrollbar-width: thin;
-      }
-      .gift-all p {
-        grid-column: 1 / -1;
-        margin: 4px;
-        opacity: 0.7;
-      }
-      .gift-all button {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1px;
-        padding: 4px 2px;
-        background: #2a201a;
-        color: var(--ink);
-        border: 1px solid #4a3a2e;
-        border-radius: 8px;
-        font-size: 10px;
-        line-height: 1.1;
-      }
-      .gift-all button.t2 {
-        border-color: #ffc62e;
-      }
-      .gift-all button.t3 {
-        border-color: #ff6b5e;
-      }
-      .gift-all button.t4 {
-        border-color: #c084fc;
-      }
-      .gift-all button.t5 {
-        border-color: #2dd4bf;
-      }
-      .gift-all button.t6 {
-        border-color: #f472b6;
-      }
-      .gift-all i {
-        font-style: normal;
-        font-size: 30px;
-        line-height: 1;
-      }
-      .gift-all span {
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .gift-all small {
-        opacity: 0.7;
-      }
       #giftGrid .gift i {
         font-size: 26px;
       }
@@ -1746,6 +1717,114 @@
         height: 1em;
         vertical-align: -0.15em;
       }
+
+      /* ===== Arena alta (modo TikTok): la pelea ocupa casi toda la pantalla. El lienzo (5:3, como el juego) llena el
+         alto de la arena y se recortan los lados, así los luchadores se ven casi el doble de grandes; la cámara y los
+         brutes se quedan en lo que se ve (ver syncArenaView en main.js y royaleCamera). ¿Cómo jugar? va encima, sobre
+         la pared del fondo, y el ranking debajo, a la derecha (a la izquierda TikTok pone los comentarios) ===== */
+      body.tiktok #canvas {
+        height: 112cqw;
+        aspect-ratio: auto;
+        border: 0;
+        /* (lo de detrás de los bordes que se funden, el escenario de fuera: ver abajo) */
+        background: transparent;
+      }
+      body.tiktok #canvas canvas {
+        left: 50%;
+        right: auto;
+        width: auto !important;
+        aspect-ratio: 5 / 3;
+        transform: translateX(-50%);
+        /* Los bordes de arriba y abajo se funden con el escenario de fuera (#ttScene, que es el mismo fondo): si no, la
+           sangre del suelo y las sombras se cortaban en seco en el borde y se notaba que lo de fuera es otra imagen. La
+           cámara no deja a nadie en la franja de abajo (ver FADE_BOTTOM en royaleCamera) */
+        -webkit-mask-image: linear-gradient(transparent, #000 2%, #000 95%, transparent);
+        mask-image: linear-gradient(transparent, #000 2%, #000 95%, transparent);
+      }
+      body.tiktok:not(.tt-controls) #ttHowTo {
+        top: 25.5cqw;
+      }
+      /* (sin el cuadro del chat ni sus dos imágenes: ocupaban un tercio de la pantalla, y TikTok pinta los comentarios
+         encima igual) */
+      body.tiktok #ttChat,
+      body.tiktok #ttMascot,
+      body.tiktok #ttMascot2 {
+        display: none !important;
+      }
+
+      /* Escenario a pantalla completa (ver followScene en main.js): detrás de todo, el fondo de la ronda en las mismas
+         coordenadas que la arena (500x300, movido y escalado como su cámara). Si hay versión alta del fondo (hecha con
+         IA, ver fondos-ia/LEEME.txt), esa (.tall); si no, una copia reflejada encima y otra debajo que enseguida se
+         funden a oscuro (el reflejo se notaba: la estrella del suelo salía repetida del revés) */
+      #ttScene {
+        display: none;
+      }
+      body.tiktok #ttScene {
+        position: absolute;
+        inset: 0;
+        display: block;
+        overflow: hidden;
+        pointer-events: none;
+        background: #1a0d04;
+      }
+      #ttSceneWorld {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 500px;
+        height: 300px;
+        transform-origin: 0 0;
+      }
+      #ttSceneWorld i {
+        position: absolute;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--scene-img) var(--scene-pos) / var(--scene-size) no-repeat;
+      }
+      #ttSceneWorld i:nth-child(1) {
+        top: -100%;
+        transform: scaleY(-1);
+      }
+      #ttSceneWorld i:nth-child(2) {
+        top: 0;
+      }
+      #ttSceneWorld i:nth-child(3) {
+        top: 100%;
+        transform: scaleY(-1);
+      }
+      /* (lo reflejado: transparente junto a la arena, para que no se note el borde, y enseguida oscuro; va dado la
+         vuelta) */
+      #ttSceneWorld i:nth-child(1)::after,
+      #ttSceneWorld i:nth-child(3)::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(transparent, rgba(26, 13, 4, 0.85) 8%, #1a0d04 22%);
+      }
+      #ttSceneWorld i:nth-child(3)::after {
+        background: linear-gradient(to top, transparent, rgba(26, 13, 4, 0.85) 8%, #1a0d04 22%);
+      }
+      /* Versión alta (plantilla de 4:5 con el fondo en medio: 500x625 en coordenadas de la arena, de -162,5 a 462,5) */
+      #ttSceneWorld .tall {
+        top: -162.5px;
+        height: 625px;
+        display: none;
+        background: var(--scene-tall) 0 0 / 100% 100% no-repeat;
+      }
+      #ttScene.has-tall #ttSceneWorld i {
+        display: none;
+      }
+      #ttScene.has-tall #ttSceneWorld .tall {
+        display: block;
+      }
+      /* (la sombra del remate final, como la de la arena) */
+      #ttSceneShade {
+        position: absolute;
+        inset: 0;
+        background: #120000;
+        opacity: 0;
+      }
     </style>
   </head>
   <body>
@@ -1766,6 +1845,10 @@
     </div>
 
     <div class="panel" id="arena">
+      <div id="ttScene">
+        <div id="ttSceneWorld"><i></i><i></i><i></i><i class="tall"></i></div>
+        <b id="ttSceneShade"></b>
+      </div>
       <div id="ttHeader"><span>⚔️ BATTLE ROYALE</span><span id="ttRound"></span></div>
       <div id="status"></div>
       <div class="stage">
@@ -1816,9 +1899,12 @@
       </div>
       <div class="gift-live" id="giftLive" aria-live="polite"></div>
       <label
-        class="gift-check"
-        title="Quien entra a ver el directo entra a pelear aunque no comente, y en cada ronda nueva vuelven a pelear los que pasaron por el directo en los últimos 10 minutos (con poca gente llena la arena; con mucha, mejor desmarcarlo)"
-        ><input id="giftMembers" type="checkbox" checked /> 🚪 Quien entra al directo, a pelear</label
+        class="gift-switch"
+        title="Marcado: quien se une al live entra a pelear aunque no comente, y en cada ronda nueva vuelven a pelear los que pasaron por el live en los últimos 10 minutos (con poca gente llena la arena; con mucha, mejor desmarcarlo)"
+        ><input id="giftMembers" type="checkbox" checked /><span
+          ><b>🚪 Los que se unen al live entran a la arena</b
+          ><small>Desmarcado, solo entran comentando, con 30 tap tap o con un regalo</small></span
+        ></label
       >
       <label for="giftUser">Espectador</label>
       <div class="gift-user">
@@ -1842,11 +1928,6 @@
         ><button data-count="10">x10</button>
       </div>
       <div class="gift-grid" id="giftGrid"></div>
-      <div class="gift-round">
-        <b>Todos los regalos</b>
-        <input id="giftSearch" type="search" placeholder="Buscar regalo (Rose, Lion, Galaxy…)" autocomplete="off" />
-        <div class="gift-all" id="giftAll"></div>
-      </div>
       <div class="gift-round">
         <b>Ronda</b>
         <div class="gift-round-row">

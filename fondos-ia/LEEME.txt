@@ -1,0 +1,45 @@
+FONDOS ALTOS PARA EL MODO TIKTOK (hechos con IA)
+=================================================
+
+En el modo TikTok el fondo de la arena sigue por encima y por debajo de ella hasta llenar la pantalla. Los fondos del
+juego son apaisados, así que, sin versión alta, lo de fuera de la arena es un reflejo que se funde a oscuro. Con una
+versión alta de cada fondo, extendida con IA, se ve el escenario de verdad.
+
+
+1. LAS PLANTILLAS (carpeta plantillas/)
+
+   fondo-1.png ... fondo-13.png: cada fondo del juego en medio de una imagen de 1200x1500 (4:5), con franjas grises
+   arriba y abajo. El fondo va exactamente de y=390 a y=1110: el juego lo coloca ahí, así que esa parte no debe
+   moverse. (Si faltan, pídeselas a Claude: salen de web/public/images/game/misc.webp. Ojo: en esa hoja el fondo 10
+   va girado 90° ("rotated": true en misc.json) y hay que enderezarlo.)
+
+
+2. EXTENDERLAS CON LA IA DE GOOGLE (Gemini, la de editar imágenes)
+
+   Sube una plantilla y pídele, por ejemplo:
+
+   Rellena las franjas grises de arriba y de abajo continuando el escenario de la imagen, con el mismo estilo de
+   dibujo (ilustración 2D de videojuego, mismos colores y la misma luz). Arriba continúa lo que hay al fondo (cielo,
+   pared, techo...) y abajo continúa el suelo hacia delante. No cambies nada de la parte central, no añadas
+   personajes, texto ni marcas de agua, y mantén el tamaño y la proporción de la imagen (vertical, 4:5).
+
+   Revisa el resultado:
+   - Que siga siendo vertical 4:5 (si sale cuadrada o de otra forma, vuelve a pedirlo).
+   - Que la parte central no se haya movido ni encogido.
+   - Que no queden restos grises ni bordes rectos entre lo original y lo nuevo.
+   - Abajo va a pasar el suelo por detrás del ranking y de los comentarios de TikTok: mejor suelo liso que cosas
+     llamativas.
+
+
+3. DÓNDE DEJARLAS
+
+   Guarda cada resultado en resultados/ con el mismo número: fondo-1.png, fondo-6.jpg... y pídele a Claude que las
+   meta en el juego. Las ajusta a 1200x1500, las pasa a .webp y las deja en web/public/images/fondos-altos/N.webp,
+   que es donde el juego las busca. Las que falten siguen con el reflejo. No hace falta hacerlas todas de golpe.
+
+   (plantillas/ y resultados/ no se suben al repositorio: son de trabajo.)
+
+
+4. HECHOS
+
+   1, 2, 3, 4, 5, 6, 7, 8 y 12 ya están en el juego. Faltan 9, 10, 11 y 13 (siguen con el reflejo).

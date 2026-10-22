@@ -254,7 +254,7 @@ export class FightSession {
       const alive = fd.fighters.filter((f) => f.type === 'brute' && !f.master && f.hp > 0);
       fd.loser = alive.length > 1 ? null : (this.eliminated[this.eliminated.length - 1]?.id ?? null);
     }
-    // El 4 y el 5 solo traen el arma (el 5, tras su vida)
+    // El 4, el 5 y el 7 solo traen el arma (el 5 y el 7, tras su vida)
     if (boostOnlyWeapon(tier)) {
       boostGear(fd, caster, tier);
       return true;

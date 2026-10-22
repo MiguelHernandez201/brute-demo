@@ -27,7 +27,7 @@ import { eat } from './eat';
 import { end } from './end';
 import { equip } from './equip';
 import { evade } from './evade';
-import { arenaBackground, FighterHolder, musicTrack } from './FighterHolder';
+import { arenaBackground, BACKGROUND_BLEED, FighterHolder, musicTrack } from './FighterHolder';
 import { flashFlood } from './flashFlood';
 import { hammer } from './hammer';
 import { haste } from './haste';
@@ -321,9 +321,10 @@ export const setupFight: (
     };
     background.zIndex = -1;
 
-    // Fill screen
+    // Fill screen (demo: sobresaliendo un poco por arriba y por abajo, ver BACKGROUND_BLEED)
+    background.y = -BACKGROUND_BLEED;
     background.width = app.screen.width;
-    background.height = app.screen.height;
+    background.height = app.screen.height + 2 * BACKGROUND_BLEED;
 
     app.stage?.addChild(background);
 

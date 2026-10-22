@@ -1,10 +1,11 @@
 // Modo TikTok: tamaño y posición de los paneles (arena de pelea, cabecera, chat, cómo jugar, ranking e imágenes) personalizables. Con la tecla E se entra en
 // modo edición: se arrastra un panel para moverlo y su esquina inferior derecha para cambiar el tamaño. Se guarda en
 // este navegador (localStorage). Las medidas van en cqw (centésimas del ancho de la pantalla vertical), igual que el CSS.
-const KEY = 'brute-demo-tiktok-layout';
+// (-2: desde la arena alta, lo guardado de antes ya no casa con nada)
+const KEY = 'brute-demo-tiktok-layout-2';
 // Qué se puede ajustar de cada panel: `h` false = la altura sale sola (ranking y cómo jugar: por su contenido)
 const PANELS = [
-  { id: 'canvas', h: false },
+  { id: 'canvas', h: true },
   { id: 'ttHeader', h: false },
   { id: 'ttChat', h: true },
   { id: 'ttHowTo', h: false },
@@ -19,8 +20,8 @@ const DEFAULT_LAYOUT = {
   canvas: { x: 0, y: 4.6, w: 100 },
   ttHeader: { x: -1.9, y: 0.7, w: 100, z: 4 },
   ttChat: { x: -1.3, y: 1.7, w: 47, h: 61.2, z: 1 },
-  ttHowTo: { x: -2.4, y: -0.5, w: 96 },
-  ttRanking: { x: -1.6, y: 35, w: 38.5, z: 3 },
+  ttHowTo: { x: -2.4, w: 96 },
+  ttRanking: { x: -1.6, y: 6.5, w: 38.5, z: 3 },
   ttMascot: { x: -10.9, y: 21.3, w: 35.8, z: 6 },
   ttMascot2: { x: -41.8, y: 25.9, w: 33.2, z: 5 },
 };
@@ -75,6 +76,10 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
 });
 
+// Para quien necesite saber dónde quedó cada panel (la arena alta, ver syncArenaView en main.js)
+let changed = () => {};
+export const onLayoutChange = (fn) => (changed = fn);
+
 const unit = () => (document.getElementById('arena').clientWidth || 540) / 100;
 
 function applyOne({ id }) {
@@ -86,6 +91,7 @@ function applyOne({ id }) {
   el.style.height = s.h != null ? `${s.h}cqw` : '';
   el.style.zIndex = s.z != null ? String(s.z) : '';
   el.style.transform = s.x || s.y ? `translate(${s.x ?? 0}cqw, ${s.y ?? 0}cqw)` : '';
+  changed();
 }
 export const applyLayout = () => PANELS.forEach(applyOne);
 

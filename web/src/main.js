@@ -1,4 +1,4 @@
-import { Application, Assets, Filter, Rectangle, TextureSource } from 'pixi.js';
+import { Application, Assets, Filter, Rectangle, TextureSource, UPDATE_PRIORITY } from 'pixi.js';
 
 // Pixi dibuja los filtros (contornos de textos, iconos, colores de mascotas) a resolución 1
 // por defecto; con 'inherit' usan la resolución real del lienzo y no se pixelan.
@@ -14,10 +14,10 @@ import { FATALITY_VERBS } from './fight/fatality.ts';
 import { royaleColorCss } from './fight/royaleTags.ts';
 import { crowdQuality } from './fight/crowdQuality.ts';
 import { setFightDisposing } from './fight/utils/lifecycle.ts';
-import { arenaBackground, musicTrack, renderQuality } from './fight/FighterHolder.ts';
+import { arenaBackground, BACKGROUND_BLEED, musicTrack, renderQuality } from './fight/FighterHolder.ts';
 import { clockConfig } from './fight/royaleClock.ts';
-import { applyLayout, resetLayout, toggleEdit } from './ttLayout.js';
-import { royaleZoom } from './fight/royaleCamera.ts';
+import { applyLayout, onLayoutChange, resetLayout, toggleEdit } from './ttLayout.js';
+import { royaleZoom, setRoyaleView } from './fight/royaleCamera.ts';
 import { sound } from '@pixi/sound';
 import { sfx, sounds } from './sfx.ts';
 import { playPromotionalTrailer } from './trailer.ts';
@@ -45,6 +45,9 @@ const TRACKS = ['background', 'menu'];
 // "Finish him!" / "Finish her!" y "Fatality!" (ver fight/fatality). Y la ráfaga de la minigun (ver fight/minigun), que
 // tampoco está entre los sonidos de la pelea original
 const VOICES = ['multikill', 'finishhim', 'finishher', 'fatality', 'minigun'];
+// Al irse a otra ventana (la de TikTok LIVE Studio, por ejemplo) el juego tiene que seguir sonando: de fábrica,
+// @pixi/sound lo calla todo, música y efectos, en cuanto la ventana pierde el foco
+sound.disableAutoPause = true;
 function setupSounds() {
   for (const track of TRACKS) {
     if (!sound.exists(track)) sound.add(track, `${import.meta.env.BASE_URL}sfx/${track}.mp3`);
@@ -306,7 +309,7 @@ const BOOSTS = [
     perks: '',
     offer: '',
     powers: 0,
-    text: 'cura o suma 30 PV y nada más (el regalo pequeño: sobre todo, para entrar a pelear)',
+    text: 'cura o suma 30 PV y nada más (lo que dan los 100 tap tap; un regalo de 1 moneda trae además un arma)',
   },
   {
     tier: 2,
@@ -341,11 +344,12 @@ const giftButtons = (disabled) =>
 // como quien comenta para entrar), solo entra. Se abre con 🎁 o la tecla G, y también en otra ventana (?panel) que manda
 // los regalos a la del juego (BroadcastChannel): así en el directo se captura solo la del juego
 // Uno de cada escalón de monedas (ver COIN_TIERS), para probar. `boost`: el potenciador que da, si no es el que le toca
-// por sus monedas (solo el Quiéreme)
+// por sus monedas. `apart`: va aparte en ¿Cómo jugar? y en el panel aunque dé lo de sus monedas (el Quiéreme, que ayuda
+// a crecer la cuenta; antes daba solo un arma, el potenciador 4, y desde que 1 moneda da +30 y un arma daba menos)
 const GIFTS = [
   // (con los nombres de TikTok: "Rose" es la de 1 moneda y "Rosa", la de 10)
   { id: 'rose', file: '7906db96d5.webp', icon: '🌹', name: 'Rose', coins: 1 },
-  { id: 'quiereme', file: 'f856132638.webp', icon: '🫶', name: 'Quiéreme', coins: 1, boost: 4 },
+  { id: 'quiereme', file: 'f856132638.webp', icon: '🫶', name: 'Quiéreme', coins: 1, apart: true },
   { id: 'rosa', file: 'fc9f17a510.webp', icon: '🌹', name: 'Rosa', coins: 10 },
   { id: 'dona', file: '993fc4dd9e.webp', icon: '🍩', name: 'Dona', coins: 30 },
   { id: 'handheart', file: '11ab716bcf.webp', icon: '💗', name: 'Hand Heart', coins: 100 },
@@ -395,10 +399,10 @@ const boostOffer = (b) =>
 const COIN_ICON =
   '<svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11.5" fill="#f2a900"/><circle cx="12" cy="12" r="9.3" fill="#ffd335"/><path transform="translate(6.6 6.3) scale(0.46)" fill="#e08a00" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>';
 // Potenciador según lo que vale el regalo en monedas de TikTok, sea el que sea (antes cada regalo de la lista daba lo
-// suyo): desde 1 → +30, desde 10 → +300 y un arma, desde 30 → +1000 y aura, desde 100 → +2000 y mascota, desde 299 →
+// suyo): desde 1 → +30 y un arma, desde 10 → +300 y un arma, desde 30 → +1000 y aura, desde 100 → +2000 y mascota, desde 299 →
 // +3000 y minigun. Es lo que dice ¿Cómo jugar?, con `short` (lo que más se nota, aparte de la vida)
 const COIN_TIERS = [
-  { coins: 1, tier: 1, short: '' },
+  { coins: 1, tier: 7, short: '🗡️ arma' },
   { coins: 10, tier: 5, short: '🗡️ arma' },
   { coins: 30, tier: 2, short: '🔥 aura' },
   { coins: 100, tier: 6, short: '🐾 mascota' },
@@ -416,7 +420,8 @@ const giftHp = (g) =>
     ? Math.round((g.coins * BOOST_HP[3]) / BIG_GIFT_COINS)
     : undefined;
 // Potenciadores que solo dan los regalos (ver engine/ultimates.BoostTier), no los botones de la lista: el 4, solo un
-// arma (Quiéreme); el 5, +300 y un arma (desde 10 monedas), y el 6, entre el 2 y el 3 (desde 100)
+// arma (ya no lo da ninguno: era el del Quiéreme); el 5, +300 y un arma (desde 10 monedas); el 6, entre el 2 y el 3 (desde 100), y el 7, +30 y un
+// arma (de 1 a 9 monedas: el 1, solo los +30, lo dan los 100 tap tap)
 const WEAPON_TIER = 4;
 const GIFT_BOOSTS = {
   [WEAPON_TIER]: {
@@ -434,6 +439,14 @@ const GIFT_BOOSTS = {
     offer: '🗡️ un arma para toda la pelea',
     powers: 0,
     text: 'cura o suma 300 PV y trae un arma sencilla que equipa al momento y le dura toda la pelea',
+  },
+  7: {
+    tier: 7,
+    label: '+30',
+    perks: '🗡️',
+    offer: '🗡️ un arma para toda la pelea',
+    powers: 0,
+    text: 'cura o suma 30 PV y trae un arma sencilla que equipa al momento y le dura toda la pelea',
   },
   6: {
     tier: 6,
@@ -652,40 +665,54 @@ const RANDOM_USERS = [
 const randomUser = () =>
   `${RANDOM_USERS[Math.floor(Math.random() * RANDOM_USERS.length)]}${Math.floor(Math.random() * 90 + 10)}`;
 let giftCount = 1;
-let renderCatalog = () => {};
+// (el catálogo sirve para reconocer los regalos del directo: ver findGift)
 fetch(`${import.meta.env.BASE_URL}images/gifts/gifts.json`)
   .then((r) => (r.ok ? r.json() : []))
   .then((list) => {
     catalog = Array.isArray(list) ? list : [];
-    renderCatalog();
   })
   .catch(() => {});
 function setupGiftPanel() {
-  $('giftGrid').innerHTML = GIFTS.map((g) => {
+  // Regalos por monedas, como los cuenta el juego (ver COIN_TIERS): uno por escalón, que da lo mismo que cualquier
+  // regalo de ese precio, y el Quiéreme, que va aparte. Antes había una tarjeta por regalo y la lista de todos los del
+  // catálogo con un buscador
+  const coinCard = ({ coins, tier }) => {
+    const b = boostOf(tier);
+    const what = `${coins} ${coins === 1 ? 'moneda' : 'monedas'}`;
+    return `<button class="gift t${b.tier}" data-coins="${coins}" title="Un regalo de ${what}: ${b.label} (${b.text})"><i>${COIN_ICON}</i><span>${what}</span>${boostOffer(b)}</button>`;
+  };
+  const giftCard = (g) => {
     const b = boostOf(tierOf(g));
     return `<button class="gift t${b.tier}" data-gift="${g.id}" title="${escHtml(g.name)}: ${b.label} (${b.text})"><i>${giftIcon(g)}</i><span>${escHtml(g.name)}</span><small>🪙${g.coins}</small>${boostOffer(b)}</button>`;
-  }).join('');
+  };
+  $('giftGrid').innerHTML = [...COIN_TIERS.map(coinCard), ...GIFTS.filter((g) => g.apart).map(giftCard)].join('');
   // ¿Cómo jugar? (modo TikTok, bajo la arena): a la izquierda cómo se entra a pelear con tu nombre y a la derecha qué
   // da un regalo según sus monedas. Antes ahí había un cuadro tipo chat que lo explicaba regalo a regalo, con un
   // mensaje largo cada 3,5 s
-  const heartMe = GIFTS.find((g) => g.boost === WEAPON_TIER);
+  const heartMe = GIFTS.find((g) => g.apart);
   const row = (icon, what, gives) => `<li><i>${icon}</i><span>${what}</span><b>${gives}</b></li>`;
   const life = (tier) => `${HEAL_ICON}${boostOf(tier).label}`;
+  // (la vida y lo que más se nota de un escalón de monedas; el Quiéreme, lo mismo que 1 moneda pero sin la palabra, que
+  // no cabe)
+  const gives = (tier) => [life(tier), COIN_TIERS.find((t) => t.tier === tier)?.short].filter(Boolean).join(' ');
   $('ttHowTo').innerHTML = `<div class="tt-cols"><div><div class="tt-title">¿Cómo jugar?</div><ul>
     ${row('👆', `${LIKES_TO_JOIN} tap tap`, '¡a pelear!')}
     ${row('💬', 'Comenta', '¡a pelear!')}
     ${row('👆', `${LIKES_PER_HEAL} tap tap`, life(1))}
-    ${heartMe ? row(giftIcon(heartMe), escHtml(heartMe.name), `${boostOf(WEAPON_TIER).perks} arma`) : ''}
+    ${heartMe ? row(giftIcon(heartMe), escHtml(heartMe.name), `${life(tierOf(heartMe))} ${boostOf(tierOf(heartMe)).perks}`) : ''}
   </ul></div><ul>
-    ${COIN_TIERS.map((t) => row(COIN_ICON, t.coins, [life(t.tier), t.short].filter(Boolean).join(' '))).join('')}
+    ${COIN_TIERS.map((t) => row(COIN_ICON, t.coins, gives(t.tier))).join('')}
   </ul></div>`;
   const user = () => {
     if (!$('giftUser').value.trim()) $('giftUser').value = randomUser();
     return $('giftUser').value.trim();
   };
+  // (uno de monedas no casa con ningún regalo del catálogo, así que cuenta solo por lo que vale)
   $('giftGrid').onclick = (e) => {
-    const button = e.target.closest?.('[data-gift]');
-    if (button) sendGift({ user: user(), gift: button.dataset.gift, count: giftCount });
+    const button = e.target.closest?.('[data-gift], [data-coins]');
+    if (!button) return;
+    const { gift = 'Monedas', coins } = button.dataset;
+    sendGift({ user: user(), gift, count: giftCount, ...(coins ? { coins: +coins } : {}) });
   };
   $('giftCount').onclick = (e) => {
     const button = e.target.closest?.('[data-count]');
@@ -698,23 +725,6 @@ function setupGiftPanel() {
   $('giftJoin').onclick = () => sendGift({ user: user() });
   // Toques: LIKES_TO_JOIN por cantidad elegida (x1: lo que cuesta entrar)
   $('giftTap').onclick = () => sendGift({ user: user(), likes: true, count: LIKES_TO_JOIN * giftCount });
-  // Todos los regalos del catálogo: buscador y lista; cada uno da el potenciador que le toca por sus monedas
-  const renderAll = () => {
-    const q = $('giftSearch').value.trim().toLowerCase();
-    const list = catalog.filter((x) => !q || x.name.toLowerCase().includes(q)).slice(0, 150);
-    $('giftAll').innerHTML = list.length
-      ? list
-          .map((x) => {
-            const b = boostOf(tierOf(x));
-            const hp = giftHp(x);
-            return `<button class="t${b.tier}" data-gift="f:${x.file}" title="${escHtml(x.name)} · 🪙${x.coins} · ${hp ? `+${hp} (lo del +3000 con ${hp} PV)` : `${b.label} (${b.text})`}"><i>${giftIcon(x)}</i><span>${escHtml(x.name)}</span><small>🪙${x.coins}${b.perks ? ` · ${b.perks}` : ''}</small></button>`;
-          })
-          .join('')
-      : '<p>Sin resultados</p>';
-  };
-  $('giftSearch').oninput = renderAll;
-  $('giftAll').onclick = $('giftGrid').onclick;
-  renderCatalog = renderAll;
   $('giftRandom').onclick = () => {
     $('giftUser').value = randomUser();
   };
@@ -1063,7 +1073,11 @@ async function playFight(id, fight) {
   const a = new Application();
   // El escenario lógico es 500x300 (como el juego), pero se muestra más grande:
   // se dibuja a la resolución real de pantalla para que no se vea borroso.
-  const displayWidth = Math.min(tiktok.on ? 1080 : 800, $('canvas').clientWidth || 800);
+  // (con la arena alta, el lienzo es más ancho que la arena: se le recortan los lados)
+  const shown = tiktok.on
+    ? Math.max($('canvas').clientWidth, ($('canvas').clientHeight * 5) / 3)
+    : $('canvas').clientWidth;
+  const displayWidth = Math.min(tiktok.on ? 1800 : 800, shown || 800);
   // Modo TikTok: se dibuja con más resolución (al menos x2 de pantalla y un 50 % más), porque el zoom dinámico agranda la
   // arena y la captura del directo la vuelve a comprimir
   const pixelRatio = tiktok.on ? Math.max(2, window.devicePixelRatio || 1) * 1.5 : window.devicePixelRatio || 1;
@@ -1094,6 +1108,13 @@ async function playFight(id, fight) {
   };
   if (id !== run) return;
   setupSounds();
+  // Modo TikTok: el fondo de la ronda también fuera de la arena, siguiendo a la cámara (ver followScene)
+  if (tiktok.on) {
+    scene.round = String(fight.background ?? '').split('.')[0];
+    setSceneBackground(arenaBackground.name === 'auto' ? scene.round : arenaBackground.name);
+    measureScene();
+    a.ticker.add(() => followScene(a.stage), null, UPDATE_PRIORITY.LOW);
+  }
   // La fuente del juego debe estar cargada antes de crear los textos de Pixi
   try {
     await document.fonts.load('20px GameFont');
@@ -1239,6 +1260,98 @@ $('tiktokGo').onclick = () => {
   enterArena('royale');
   beginRoyale();
 };
+// Arena alta (modo TikTok): el lienzo llena el alto de la arena y se le recortan los lados (ver index.html). La cámara
+// tiene que saber qué parte se ve y cuánto tapa ¿Cómo jugar? por arriba, si está encima (ver setRoyaleView)
+function syncArenaView() {
+  const arena = $('canvas').getBoundingClientRect();
+  if (!tiktok.on || !arena.height) return setRoyaleView(1, 0);
+  const sign = $('ttHowTo').getBoundingClientRect();
+  const over =
+    sign.height > 0 && sign.left < arena.right && sign.right > arena.left && sign.top < arena.top + arena.height / 2;
+  setRoyaleView(arena.width / ((arena.height * 5) / 3), over ? (sign.bottom - arena.top) / arena.height : 0);
+  measureScene();
+}
+const arenaWatch = new ResizeObserver(syncArenaView);
+arenaWatch.observe($('canvas'));
+arenaWatch.observe($('ttHowTo'));
+onLayoutChange(syncArenaView);
+// Escenario a pantalla completa (modo TikTok): el fondo de la arena sigue por encima y por debajo de ella hasta llenar
+// la pantalla (ver #ttScene en index.html). Es el mismo fondo, alineado con la cámara (se mueve y se acerca con ella),
+// y más allá de sus bordes, reflejado y cada vez más oscuro. Así toda la pantalla es escenario, aunque los brutes solo
+// pelean en la arena. Sale de la hoja de imágenes del juego, como el de la arena (los fondos sueltos son más pequeños)
+const scene = { frames: {}, size: null, name: '', round: '', left: 0, top: 0, k: 0, dark: 0 };
+fetch(`${import.meta.env.BASE_URL}images/game/misc.json`)
+  .then((r) => (r.ok ? r.json() : null))
+  .then((d) => {
+    scene.frames = d?.frames ?? {};
+    scene.size = d?.meta?.size ?? null;
+    setSceneBackground(scene.name);
+  })
+  .catch(() => {});
+// Versiones altas de los fondos, hechas con IA a partir de una plantilla (ver fondos-ia/LEEME.txt): si la del fondo
+// de la ronda existe, se ve esa en lugar del reflejo. Se pregunta una vez por fondo (true, false o pendiente)
+const tallBackgrounds = new Map();
+function showTallBackground(name) {
+  const known = tallBackgrounds.get(name);
+  $('ttScene').classList.toggle('has-tall', known === true);
+  if (known === true) $('ttScene').style.setProperty('--scene-tall', `url(${tallUrl(name)})`);
+  if (known !== undefined) return;
+  tallBackgrounds.set(name, null);
+  const img = new Image();
+  img.onload = () => {
+    tallBackgrounds.set(name, true);
+    if (scene.name === name) showTallBackground(name);
+  };
+  img.onerror = () => tallBackgrounds.set(name, false);
+  img.src = tallUrl(name);
+}
+const tallUrl = (name) => `${import.meta.env.BASE_URL}images/fondos-altos/${name}.webp`;
+function setSceneBackground(name) {
+  scene.name = name;
+  if (name) showTallBackground(name);
+  const entry = scene.frames[`background/${name}.jpg`];
+  if (!entry || !scene.size) return;
+  // (estirado como en la arena: 500 de ancho y sobresaliendo BACKGROUND_BLEED por arriba y por abajo de sus 300 de alto)
+  const h = 300 + 2 * BACKGROUND_BLEED;
+  const style = $('ttScene').style;
+  // El 10 va girado en la hoja (la arena lo endereza, el CSS no): el suelto, que es el mismo, más pequeño
+  if (entry.rotated) {
+    style.setProperty(
+      '--scene-img',
+      `url(${import.meta.env.BASE_URL}images/game/resources/misc/background/${name}.jpg)`,
+    );
+    style.setProperty('--scene-size', `500px ${h}px`);
+    style.setProperty('--scene-pos', `0 ${-BACKGROUND_BLEED}px`);
+    return;
+  }
+  // (el fotograma de la hoja)
+  const f = entry.frame;
+  style.setProperty('--scene-img', `url(${import.meta.env.BASE_URL}images/game/misc.webp)`);
+  style.setProperty('--scene-size', `${(scene.size.w / f.w) * 500}px ${(scene.size.h / f.h) * h}px`);
+  style.setProperty('--scene-pos', `${(-f.x / f.w) * 500}px ${(-f.y / f.h) * h - BACKGROUND_BLEED}px`);
+}
+// Dónde se ve el lienzo de la arena (cambia con su tamaño y al mover los paneles: ver syncArenaView)
+function measureScene() {
+  const live = $('canvas').querySelector('canvas.live');
+  if (!live) return;
+  const r = live.getBoundingClientRect();
+  const o = $('ttScene').getBoundingClientRect();
+  scene.left = r.left - o.left;
+  scene.top = r.top - o.top;
+  scene.k = r.width / 500;
+}
+// Cada fotograma, la misma posición y escala que el escenario de la arena (ver royaleCamera)
+function followScene(stage) {
+  if (!scene.k || stage.destroyed) return;
+  const k = stage.scale.x * scene.k;
+  const x = scene.left + (stage.position.x - stage.pivot.x * stage.scale.x) * scene.k;
+  const y = scene.top + (stage.position.y - stage.pivot.y * stage.scale.y) * scene.k;
+  $('ttSceneWorld').style.transform = `matrix(${k}, 0, 0, ${k}, ${x}, ${y})`;
+  // (y se oscurece con la arena en el remate del duelo final: ver la sombra en fatality)
+  const shade = stage.getChildByLabel('arena-shade');
+  const dark = shade && !shade.destroyed ? shade.alpha : 0;
+  if (dark !== scene.dark) $('ttSceneShade').style.opacity = String((scene.dark = dark));
+}
 // Tecla C: muestra u oculta los botones (para manejarlo durante el directo sin que salgan en pantalla)
 // Tecla G: panel de regalos
 document.addEventListener('keydown', (e) => {
@@ -1347,6 +1460,26 @@ $('pause').onclick = () => {
     setControl('pause', '⏸️', 'Pausa');
   }
 };
+// Con la ventana oculta (minimizada, en otra pestaña o tapada del todo) el navegador deja de pedir fotogramas y la
+// pelea se quedaba parada: sin golpes ni efectos, solo la música. Mientras está oculta, la mueve un reloj en un worker
+// (los relojes de la página los frena el navegador), unas 30 veces por segundo; al volver, sigue sola como siempre
+const hiddenClock = new Worker(
+  URL.createObjectURL(
+    new Blob(
+      ['let t; onmessage = (e) => { clearInterval(t); if (e.data) t = setInterval(() => postMessage(0), e.data); };'],
+      {
+        type: 'text/javascript',
+      },
+    ),
+  ),
+);
+hiddenClock.onmessage = () => {
+  if (!document.hidden) return;
+  gsap.ticker.tick();
+  // (sin la pausa ⏸️)
+  if (app?.ticker?.started) app.ticker.update(performance.now());
+};
+document.addEventListener('visibilitychange', () => hiddenClock.postMessage(document.hidden ? 33 : 0));
 
 // Preferencias de sonido (se recuerdan en este navegador)
 try {
@@ -1476,6 +1609,7 @@ $('giftBg').value = arenaBackground.name;
 $('giftBg').onchange = (e) => {
   arenaBackground.name = e.target.value;
   arenaBackground.apply?.(arenaBackground.name);
+  setSceneBackground(arenaBackground.name === 'auto' ? scene.round : arenaBackground.name);
   try {
     localStorage.setItem(BG_KEY, arenaBackground.name);
   } catch {

@@ -9,3 +9,7 @@ Thumbs.db
 
 # Usuario de TikTok del directo (lo guarda iniciar-directo.bat)
 live/usuario.txt
+
+# Fondos para extender con IA: plantillas y resultados de trabajo (ver fondos-ia/LEEME.txt)
+fondos-ia/plantillas/
+fondos-ia/resultados/
