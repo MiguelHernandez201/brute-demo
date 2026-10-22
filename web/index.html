@@ -1657,67 +1657,6 @@
         text-align: center;
       }
 
-      /* Cuadro tipo chat bajo la arena que explica qué da cada regalo: los mensajes suben de uno en uno (ver
-         setupGiftPanel en main.js); se mueve y cambia de tamaño con la tecla E */
-      #ttBanner {
-        display: none;
-      }
-      body.tiktok:not(.tt-controls) #ttBanner {
-        position: absolute;
-        top: 86cqw;
-        left: 3.5cqw;
-        z-index: 2;
-        display: block;
-        width: 93cqw;
-        height: 24cqw;
-        padding: 0 2.5cqw;
-        background: var(--paper);
-        border-radius: 1cqw;
-        box-shadow: var(--box);
-        font-family: Handwritten, system-ui, sans-serif;
-        font-size: 3.3cqw;
-        line-height: 1.25;
-        color: #b06b4f;
-        pointer-events: none;
-      }
-      #ttBanner .tt-window {
-        height: 100%;
-        overflow: hidden;
-      }
-      #ttBanner .tt-track {
-        position: relative;
-        transition: transform 0.6s ease;
-      }
-      /* Los mensajes que ya no caben enteros arriba se desvanecen del todo; con .jump, todo al momento */
-      #ttBanner .tt-track p {
-        transition: opacity 0.5s ease;
-      }
-      #ttBanner .tt-track p.gone {
-        opacity: 0;
-      }
-      #ttBanner .tt-track.jump,
-      #ttBanner .tt-track.jump p {
-        transition: none;
-      }
-      #ttBanner p {
-        display: flex;
-        align-items: center;
-        gap: 2cqw;
-        margin: 0;
-        padding: 1.4cqw 0;
-        border-bottom: 0.3cqw dashed #dec37f;
-      }
-      #ttBanner p > i {
-        flex: none;
-        font-style: normal;
-        font-size: 6.5cqw;
-        line-height: 1;
-      }
-      #ttBanner b {
-        font-weight: normal;
-        color: #733d2c;
-      }
-      body.tt-edit #ttBanner,
       body.tt-edit #ttHowTo {
         z-index: 15;
         outline: 0.5cqw dashed #fe2c55;
@@ -1727,7 +1666,6 @@
         touch-action: none;
         user-select: none;
       }
-      body.tt-edit #ttBanner::after,
       body.tt-edit #ttHowTo::after {
         content: '';
         position: absolute;
@@ -1740,24 +1678,25 @@
         cursor: nwse-resize;
       }
 
-      /* ¿Cómo jugar? Cómo se entra a pelear (ver setupGiftPanel en main.js), con la misma caja y letras que el ranking.
-         De fábrica, abajo a la derecha, bajo el ranking; se mueve con la tecla E */
+      /* ¿Cómo jugar? Cómo se entra a pelear y qué da un regalo según sus monedas (ver setupGiftPanel en main.js), con
+         la misma caja y letras que el ranking. De fábrica, bajo la arena (donde antes iba el cuadro tipo chat que
+         explicaba los regalos); se mueve con la tecla E */
       #ttHowTo {
         display: none;
       }
       body.tiktok:not(.tt-controls) #ttHowTo {
         position: absolute;
-        right: 5.1cqw;
-        bottom: 3.5cqw;
+        top: 86cqw;
+        left: 3.5cqw;
         z-index: 2;
         display: block;
-        width: 44cqw;
-        padding: 1.2cqw 2.2cqw;
+        width: 93cqw;
+        padding: 1.2cqw 2.5cqw;
         background: var(--paper);
         border-radius: 1cqw;
         box-shadow: var(--box);
         font-family: Handwritten, system-ui, sans-serif;
-        font-size: 2.9cqw;
+        font-size: 2.8cqw;
         line-height: 1.25;
         color: #b06b4f;
         pointer-events: none;
@@ -1769,25 +1708,43 @@
         letter-spacing: 0.2cqw;
         color: #733d2c;
       }
-      #ttHowTo ul {
+      /* Dos listas lado a lado (cómo entrar, con el título encima | monedas), separadas por una raya */
+      #ttHowTo .tt-cols {
         display: flex;
-        flex-direction: column;
-        gap: 0.2cqw;
+        justify-content: space-between;
+      }
+      #ttHowTo .tt-cols > ul {
+        padding-left: 2cqw;
+        border-left: 0.3cqw dashed #dec37f;
+      }
+      /* Cada lista, en tres columnas alineadas: icono, qué (toques, comentar o monedas) y lo que da */
+      #ttHowTo ul {
+        display: grid;
+        grid-template-columns: auto auto auto;
+        align-content: start;
+        align-items: center;
+        gap: 0.3cqw 1.1cqw;
         margin: 0;
         padding: 0;
         list-style: none;
       }
       #ttHowTo li {
-        display: flex;
-        align-items: center;
-        gap: 1.4cqw;
+        display: contents;
         white-space: nowrap;
       }
       #ttHowTo li i {
-        width: 4cqw;
         font-style: normal;
         font-size: 3.4cqw;
         text-align: center;
+      }
+      #ttHowTo li b {
+        font-weight: normal;
+        color: #733d2c;
+      }
+      .coin {
+        width: 1em;
+        height: 1em;
+        vertical-align: -0.15em;
       }
     </style>
   </head>
@@ -1819,9 +1776,6 @@
       <div id="ttMascot"><img src="/images/mascota.png" alt="" draggable="false" /></div>
       <div id="ttMascot2" class="tt-img"><img src="/images/mascota2.png" alt="" draggable="false" /></div>
       <div id="ttChat"><span>Chat</span></div>
-      <div id="ttBanner">
-        <div class="tt-window"><div class="tt-track" id="ttBannerTrack"></div></div>
-      </div>
       <div id="ttHowTo"></div>
       <div id="ttWinner"></div>
       <div class="controls">
@@ -1873,7 +1827,10 @@
       </div>
       <div class="gift-actions">
         <button id="giftJoin" title="Entra a la pelea sin regalo (como quien comenta para unirse)">🙋 Unirse</button>
-        <button id="giftTap" title="Toques en la pantalla: 20 por la cantidad elegida (x5: 100, lo que da +30 de vida)">
+        <button
+          id="giftTap"
+          title="Toques en la pantalla: 30 por la cantidad elegida (x1: lo que cuesta entrar a pelear; cada 100, +30 de vida)"
+        >
           👆 Tap tap
         </button>
         <button id="giftPopup" title="Abrir el panel en otra ventana: así en el directo se captura solo el juego">
