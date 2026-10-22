@@ -450,6 +450,10 @@ export const musicTrack = { name: 'background' };
 // Demo: fondo de la arena. `name`: 'auto' (el que sale en cada ronda) o el número de fondo elegido; `apply` lo pone
 // setupFight para cambiarlo en plena pelea
 export const arenaBackground: { name: string; apply: ((name: string) => void) | null } = { name: 'auto', apply: null };
+// Demo: lo que el fondo sobresale de la arena por arriba y por abajo (en sus coordenadas, 500x300): los bordes de la
+// imagen tienen un filo oscuro, y con el escenario a pantalla completa del modo TikTok (que sigue el fondo fuera de la
+// arena, ver followScene en main.js) se notaba
+export const BACKGROUND_BLEED = 2;
 
 type SvgLoadEntry = {
   svg: Svg;

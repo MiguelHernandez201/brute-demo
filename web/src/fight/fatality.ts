@@ -391,6 +391,8 @@ export const fatality = async (
   shade.alpha = 0;
   shade.zIndex = -0.5;
   shade.eventMode = 'none';
+  // (el escenario de fuera de la arena del modo TikTok se oscurece con ella: ver followScene en main.js)
+  shade.label = 'arena-shade';
   const flash = new Graphics().rect(0, 0, W, H).fill(0xffffff);
   flash.alpha = 0;
   // (en la capa de pantalla del royale: sobre el reloj y los demás letreros, bajo los de la fatality)

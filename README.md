@@ -48,8 +48,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     ganadas 👑 y rivales eliminados ☠️), que se recuerda en el navegador. Lo de abajo queda libre, porque ahí TikTok
     pone los comentarios.
   - Bajo la arena, **¿Cómo jugar?** lo dice todo en una lista corta: a la izquierda, cómo se entra a pelear (👆 30
-    tap tap o 💬 comentar), que 100 tap tap dan +30 de vida y que el 🫶 Quiéreme da un arma; a la derecha, qué da
-    un regalo según sus monedas, con la moneda de TikTok (1 → +30, 10 → +300 y arma, 30 → +1000 y aura, 100 →
+    tap tap o 💬 comentar), que 100 tap tap dan +30 de vida y lo que da el 🫶 Quiéreme; a la derecha, qué da
+    un regalo según sus monedas, con la moneda de TikTok (1 → +30 y arma, 10 → +300 y arma, 30 → +1000 y aura, 100 →
     +2000 y mascota, 299 → +3000 y minigun). Antes ahí había un cuadro tipo chat que lo explicaba regalo a regalo,
     con un mensaje largo cada 3,5 s, y ¿Cómo jugar? iba aparte, abajo a la derecha.
   - Los paneles se mueven y cambian de tamaño con la tecla **E** (R, en edición, los restablece). La distribución de
@@ -64,35 +64,40 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     potenciadores de cada uno, y 🗑️ para borrar el ranking).
 - **🎁 Panel de regalos** (botón 🎁 o tecla **G**; en el modo TikTok): simula los regalos del directo de TikTok (los
   de verdad llegan solos con el puente: ver **Directo de TikTok**, abajo), y arriba dice cómo va la conexión con el
-  directo. Se escribe el nombre del espectador (vacío o 🎲: uno al azar), se elige la cantidad (x1, x5, x10) y se
-  pulsa un regalo:
+  directo. Justo debajo, **🚪 Los que se unen al live entran a la arena** (en verde si está activado; ver **Directo
+  de TikTok**). Se escribe el nombre del espectador (vacío o 🎲: uno al azar), se elige la cantidad (x1, x5, x10) y se
+  pulsa uno de los regalos, que van **por monedas** (1, 10, 30, 100 y 299, con la moneda de TikTok), más el 🫶
+  Quiéreme, que va aparte. Antes había una tarjeta por regalo (Rose, Rosa, Dona…) y la lista de todos los del
+  catálogo con un buscador:
   - Si no está en pie, entra a la pelea con su nombre; si ya está, recibe el potenciador. Cada regalo da el suyo
     **solo según lo que vale en monedas de TikTok**, sea el que sea (antes los de la lista daban lo suyo y los demás
     iban en tres escalones):
 
     | Monedas   | Da                                                        | En la lista         |
     | --------- | --------------------------------------------------------- | ------------------- |
-    | 1 a 9     | **+30** de vida y nada más                                | 🌹 Rose (1)         |
+    | 1 a 9     | **+30** y un arma sencilla para toda la pelea             | 🌹 Rose (1)         |
     | 10 a 29   | **+300** y un arma sencilla para toda la pelea            | 🌹 Rosa (10)        |
     | 30 a 99   | **+1000**, arma poderosa, aura de ki (daño x3) y un poder | 🍩 Dona (30)        |
     | 100 a 298 | **+2000**, lo de la Dona y una mascota durante 1 minuto   | 💗 Hand Heart (100) |
     | 299 o más | **+3000**, lo de antes, una minigun 20 s y 2 poderes      | 🐶 Corgi (299)      |
 
     Valen según lo que cuestan, para que muchos regalos pequeños no rindan más que uno grande: 30 Rose dan +900 de
-    vida y nada más, y una dona +1000, arma, aura y un poder; el corgi lanza 2 poderes (con 3 vaciaba la arena en
+    vida y un arma sencilla, y una dona +1000, arma, aura y un poder; el corgi lanza 2 poderes (con 3 vaciaba la arena en
     segundos). Los de un combo van saliendo uno tras otro (🎁N en su fila: los que faltan; como mucho 10).
   - Los regalos se llaman como en TikTok: **Rose** es la rosa de 1 moneda y **Rosa**, la de 10.
   - **Regalos más grandes** que no están en la lista (desde 299 monedas, como el León): lo del +3000, pero con la
     vida en proporción a lo que valen, la del Corgi (3000 por 299 monedas, unas 10 por moneda). Un León (29.999)
     da +300.993. Antes daba lo mismo que un Corgi.
-  - 🫶 **Quiéreme** ("Heart Me" en TikTok, 1 moneda) no va por sus monedas: da un **arma** sencilla (espada ancha,
-    cuchillo, bastón, lanza o hachuela) que equipa al momento y le dura toda la pelea, sin vida ni poder. Si ya lleva
-    el arma poderosa de una dona o un corgi, no se la cambia: se guarda la nueva. Sacar un arma por su cuenta cuesta
-    (ver abajo), así que es la manera segura de ir armado.
+  - 🫶 **Quiéreme** ("Heart Me" en TikTok, 1 moneda) da lo mismo que cualquier regalo de 1 moneda: **+30** y un
+    **arma** sencilla (espada ancha, cuchillo, bastón, lanza o hachuela) que equipa al momento y le dura toda la
+    pelea. Pero va aparte en ¿Cómo jugar? y en el panel, porque ayuda a crecer la cuenta. (Antes daba solo el arma, y
+    cuando 1 moneda pasó a dar +30 y arma se quedó por debajo.) Si ya lleva el arma poderosa de una dona o un corgi, no
+    se la cambia: se guarda la nueva. Sacar un arma por su cuenta cuesta (ver abajo), así que un regalo es la manera
+    segura de ir armado.
   - **🙋 Unirse**: entra sin regalo, como quien comenta para unirse.
   - **👆 Tap tap**: los toques en la pantalla (los "me gusta" del directo), 30 por la cantidad elegida (x1: lo que
     cuesta entrar). Son gratis, así que dan poco: **30 toques** meten al espectador en la pelea (antes bastaba el
-    primero) y cada 100 toques suyos le dan **+30** de vida (lo de una Rose); los de entrar también cuentan para eso.
+    primero) y cada 100 toques suyos le dan **+30** de vida (lo de una Rose, sin su arma); los de entrar también cuentan para eso.
     Los toques se cuentan por espectador mientras la página sigue abierta. Volver tras caer cuesta: quien ya cayó en
     la ronda necesita **100 toques** para entrar otra vez, y esos toques no curan. En la ronda siguiente vuelve a
     entrar con 30, y si llega a 30 entre rondas, entra al empezar la siguiente.
@@ -348,12 +353,12 @@ Los regalos, toques y comentarios de tu directo de verdad entran solos a la pele
   solo. En su ventana va escribiendo cada regalo, toque y comentario que pasa.
 - Lo que llega: un **comentario** mete a pelear a quien lo escribe (como 🙋 Unirse); los **toques** (tap tap)
   cuentan como los del panel, y los **regalos** dan lo suyo. Quien **entra a ver el directo** también entra a pelear
-  aunque no comente, mientras esté marcada la casilla **🚪 Quien entra al directo, a pelear** del panel de regalos
+  aunque no comente, mientras esté marcada la opción **🚪 Los que se unen al live entran a la arena** del panel de regalos
   (marcada de fábrica: con poca gente llena la arena de espectadores de verdad; con mucha, mejor desmarcarla). Con
   ella marcada, además, al empezar cada ronda vuelven a pelear los que pasaron por el directo (entraron, comentaron,
   tocaron o regalaron) en los últimos 10 minutos, como mucho 30, los más recientes: si no, cada uno peleaba solo la
   ronda en la que llegó. TikTok no avisa de quién se va, por eso el plazo. Los de racha (como la Rose) entran uno a uno según
-  llegan, sin esperar a que acabe la racha. El nombre del brute es el usuario de TikTok del espectador (sin la @).
+  llegan, sin esperar a que acabe la racha. El nombre del brute es el usuario de TikTok del espectador (sin la @), y su sexo, el de su nombre de pila si lo lleva y es conocido (`sofi_gamer` sale mujer y `migue73`, hombre; ver `web/src/genderNames.ts`). TikTok no dice el sexo de nadie: con los que no llevan nombre, o uno que vale para los dos (Alex, Dani, Andrea…), sale al azar, como antes con todos.
 - Los regalos se reconocen por su nombre y su precio en monedas: si los dos casan con uno del catálogo, cuenta como
   ese (Heart Me es el Quiéreme); si no (otro idioma, un regalo nuevo), da lo que le toca por sus monedas. Así un
   nombre que no casa nunca da más de lo que se pagó.
