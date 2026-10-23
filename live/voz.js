@@ -283,18 +283,77 @@ let preguntando = false;
 let ultimaPregunta = 0;
 const porUsuario = new Map();
 
+// ===== Modo conversacional =====
+// Lo enciende la casilla 💬 del panel de regalos del juego (llega por el puente como { type: 'config', conversacional }).
+// Apagado de fábrica. Encendido, Brutus también comenta mensajes que no son preguntas, con memoria corta del chat, un
+// tope por hora (CONVERSACION_MAX_HORA en voz.env) y un filtro de temas y groserías, tanto al leer como al responder
+let conversacional = false;
+const CONV_COOLDOWN_MS = 12_000;
+const CONV_USUARIO_MS = 45_000;
+const CONV_MAX_HORA = Number(env.CONVERSACION_MAX_HORA) || 60;
+const charla = []; // los últimos comentarios del chat ('usuario: texto')
+const dijo = []; // lo último que dijo Brutus, para que no se repita
+const convHora = [];
+let ultimaConv = 0;
+const porUsuarioConv = new Map();
+const recordar = (lista, texto, max) => {
+  lista.push(texto);
+  if (lista.length > max) lista.shift();
+};
+const INSULTOS = /\b(hij[oa]s? ?de ?(la )?put\w*|hijueput\w*|put[ao]s?|mierda|gonorrea|malparid\w*|pirobo|verga|co[ñn]o|pendej\w*|marica|culo|sexo|porn\w*|nazi|hitler|suicid\w*)\b/i;
+const TEMAS = /\b(drog\w*|coca[ií]na|mariguana|uribe|petro|abelardo|duque|santos|gobierno|elecciones?|votar|presidente|izquierda|derecha|guerrilla|religi\w*|dios|jes[uú]s)\b/i;
+// estricto (modo conversacional): también se evitan los temas delicados; si no, solo las groserías
+const malo = (texto, estricto) => INSULTOS.test(texto) || (estricto && TEMAS.test(texto));
+const EXTRA_CONVERSACION =
+  '\nMODO CONVERSACIÓN: ahora también comentas mensajes del chat que no son preguntas. Reacciona con gracia y brevedad (1 frase, 15 palabras como máximo), como un amigo que sigue la pelea. No repitas lo que ya dijiste. Si el mensaje no se entiende, no tiene que ver con el juego ni con pasarla bien, o es ofensivo, responde únicamente la palabra SKIP.';
+function convElegible(user, t) {
+  const ahora = Date.now();
+  while (convHora.length && ahora - convHora[0] > 3_600_000) convHora.shift();
+  return Boolean(
+    conversacional &&
+      user &&
+      t.length >= 10 &&
+      t.length <= 200 &&
+      t.split(/\s+/).length >= 3 &&
+      !SOSPECHOSO.test(t) &&
+      !malo(t, true) &&
+      !preguntando &&
+      cola.length < 3 &&
+      convHora.length < CONV_MAX_HORA &&
+      ahora - ultimaConv >= CONV_COOLDOWN_MS &&
+      ahora - (porUsuarioConv.get(user) ?? 0) >= CONV_USUARIO_MS,
+  );
+}
+function configurar(msg) {
+  if (typeof msg.conversacional !== 'boolean' || msg.conversacional === conversacional) return;
+  conversacional = msg.conversacional;
+  console.log(
+    conversacional
+      ? `💬 Modo conversacional ACTIVADO (como mucho ${CONV_MAX_HORA} respuestas por hora).`
+      : '💬 Modo conversacional apagado.',
+  );
+}
+
 async function comentario({ user, text }) {
   const t = String(text ?? '').trim();
+  if (user && t && !SOSPECHOSO.test(t) && !malo(t, true)) recordar(charla, `${nombreHablado(user)}: ${t.slice(0, 120)}`, 6);
   if (saludoChat({ user, text: t })) return;
-  if (!user || !esPregunta(t) || SOSPECHOSO.test(t)) return;
+  const pregunta = Boolean(user) && esPregunta(t) && !SOSPECHOSO.test(t);
   const ahora = Date.now();
-  if (preguntando || cola.length >= 3 || ahora - ultimaPregunta < COOLDOWN_GLOBAL_MS) return;
-  if (ahora - (porUsuario.get(user) ?? 0) < COOLDOWN_USUARIO_MS) return;
+  if (pregunta) {
+    if (preguntando || cola.length >= 3 || ahora - ultimaPregunta < COOLDOWN_GLOBAL_MS) return;
+    if (ahora - (porUsuario.get(user) ?? 0) < COOLDOWN_USUARIO_MS) return;
+    ultimaPregunta = ahora;
+    porUsuario.set(user, ahora);
+  } else if (convElegible(user, t)) {
+    ultimaConv = ahora;
+    porUsuarioConv.set(user, ahora);
+    convHora.push(ahora);
+  } else return;
   preguntando = true;
-  ultimaPregunta = ahora;
-  porUsuario.set(user, ahora);
   try {
-    const respuesta = await preguntar(t);
+    const respuesta = await preguntar(t, user, !pregunta);
+    if (respuesta) recordar(dijo, respuesta, 4);
     if (respuesta) decir(`${nombreHablado(user)}, ${respuesta}`, PREGUNTA);
   } catch (err) {
     console.error(`🟠 El modelo no respondió (¿Ollama abierto?): ${err?.message ?? err}`);
@@ -302,7 +361,14 @@ async function comentario({ user, text }) {
     preguntando = false;
   }
 }
-async function preguntar(pregunta) {
+async function preguntar(pregunta, user, conv = false) {
+  const contexto = conv
+    ? [
+        charla.length > 1 ? `Chat reciente:\n${charla.slice(0, -1).join('\n')}\n\n` : '',
+        dijo.length ? `Lo último que dijiste (no lo repitas): ${dijo.join(' / ')}\n\n` : '',
+        `Comenta este mensaje de ${nombreHablado(user)}: ${pregunta}`,
+      ].join('')
+    : `Pregunta: ${pregunta}`;
   const res = await fetch(`${cfg.ollama}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -311,15 +377,17 @@ async function preguntar(pregunta) {
       stream: false,
       keep_alive: '30m',
       messages: [
-        { role: 'system', content: SISTEMA },
-        { role: 'user', content: `Pregunta: ${pregunta}` },
+        { role: 'system', content: conv ? SISTEMA + EXTRA_CONVERSACION : SISTEMA },
+        { role: 'user', content: contexto },
       ],
-      options: { temperature: 0.6, num_predict: 80, num_ctx: 2048 },
+      options: { temperature: conv ? 0.8 : 0.6, num_predict: 80, num_ctx: conv ? 3072 : 2048 },
     }),
     signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) throw new Error(`Ollama respondió ${res.status}: ${(await res.text().catch(() => '')).slice(0, 150)}`);
-  return limpiar((await res.json()).message?.content);
+  const respuesta = limpiar((await res.json()).message?.content);
+  // (SKIP: el modelo decidió no comentar; y lo que salga con groserías no se dice nunca)
+  return /^skip\b/i.test(respuesta) || malo(respuesta, conv) ? '' : respuesta;
 }
 // Al arrancar: ver que Ollama está y tiene el modelo, y dejarlo cargado en memoria para que la primera respuesta no tarde
 async function calentarModelo() {
@@ -354,6 +422,8 @@ function evento(msg) {
       return social(msg, msg.type);
     case 'comment':
       return void comentario(msg);
+    case 'config':
+      return configurar(msg);
     default: // like y status no se dicen en voz
   }
 }

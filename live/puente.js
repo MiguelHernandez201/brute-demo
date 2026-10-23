@@ -58,9 +58,26 @@ const setStatus = (state, text) => {
   if (changed) send(status);
   return changed;
 };
+// Ajustes que el juego le manda a la voz del streamer virtual (casilla 💬 del panel de regalos): el puente se los pasa a
+// los demás clientes y se los recuerda a los que se conecten después
+let config = null;
 server.on('connection', (ws) => {
   ws.send(JSON.stringify(status));
-  console.log('🎮 El juego se conectó al puente');
+  if (config) ws.send(JSON.stringify(config));
+  console.log('🎮 Un cliente se conectó al puente (el juego o la voz)');
+  ws.on('message', (raw) => {
+    let msg;
+    try {
+      msg = JSON.parse(raw.toString());
+    } catch {
+      return;
+    }
+    if (msg?.type !== 'config' || typeof msg.conversacional !== 'boolean') return;
+    config = { type: 'config', conversacional: msg.conversacional };
+    console.log(`💬 Modo conversacional ${msg.conversacional ? 'activado' : 'apagado'}`);
+    const text = JSON.stringify(config);
+    for (const client of server.clients) if (client !== ws && client.readyState === client.OPEN) client.send(text);
+  });
 });
 
 // ===== Desde TikTok =====

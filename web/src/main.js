@@ -618,6 +618,32 @@ $('giftMembers').onchange = (e) => {
     /* sin storage */
   }
 };
+// Brutus conversa con el chat (casilla 💬 del panel de regalos, apagada de fábrica): se le avisa a la voz del streamer
+// virtual (live/voz.js) por el puente. Se recuerda en el navegador; la otra ventana del panel lo cambia por 'storage'
+const TALK_KEY = 'brute-demo-live-talk';
+const talkOn = () => {
+  try {
+    return localStorage.getItem(TALK_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+let liveLink = null;
+const pushTalk = (on = talkOn()) => liveLink?.send({ type: 'config', conversacional: on });
+$('giftTalk').checked = talkOn();
+$('giftTalk').onchange = (e) => {
+  try {
+    localStorage.setItem(TALK_KEY, String(e.target.checked));
+  } catch {
+    /* sin storage */
+  }
+  pushTalk(e.target.checked);
+};
+window.addEventListener('storage', (e) => {
+  if (e.key !== TALK_KEY) return;
+  $('giftTalk').checked = talkOn();
+  pushTalk();
+});
 // Espectadores del directo que siguen por aquí: los que entraron, comentaron, tocaron o regalaron hace menos de
 // VIEWER_KEEP_MS. Con la casilla 🚪 marcada vuelven a pelear al empezar cada ronda (si no, solo peleaban en la que
 // entraron); como mucho VIEWER_ROUND_MAX, los más recientes. TikTok no avisa de quién se va: por eso el plazo
@@ -654,7 +680,8 @@ if (panelOnly) {
       else if (!data?.liveStatus) applyEvent(data);
     };
   if (liveEnabled)
-    connectLive({
+    liveLink = connectLive({
+      onOpen: () => pushTalk(),
       onEvent: applyLiveEvent,
       onStatus: (s) => {
         showLiveStatus(s);

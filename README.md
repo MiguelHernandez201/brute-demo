@@ -389,6 +389,11 @@ Una voz que agradece los regalos, saluda a los que entran y responde preguntas d
   modelo local con [Ollama](https://ollama.com), con la personalidad y los datos del juego de `live/prompt-streamer.txt`
   (edítalo para cambiarle el nombre, el tono o lo que sabe). Una respuesta cada 5 s como mucho y una por espectador cada
   30 s; los intentos de cambiarle las reglas ("ignora tus instrucciones…") no llegan al modelo.
+- **💬 Modo conversacional** (casilla **💬 Brutus conversa con el chat** del panel de regalos, 🎁/G; apagada de fábrica):
+  encendida, Brutus también comenta mensajes del chat que no son preguntas (de 3 palabras o más), con memoria de los
+  últimos mensajes y de lo que ya dijo. Como mucho una respuesta cada 12 s, una por espectador cada 45 s y 60 por hora
+  (`CONVERSACION_MAX_HORA` en `voz.env`); el modelo puede callarse si el mensaje no merece respuesta. Ni lee ni dice
+  groserías ni temas delicados (política, religión, drogas…). La casilla le llega a la voz por el puente.
 - **Voz**: [ElevenLabs](https://elevenlabs.io), con el modelo `eleven_flash_v2_5`. Una cola con prioridad (regalos,
   preguntas, saludos) descarta lo que caduca, para que la voz no vaya por detrás del directo.
 - **Puesta en marcha (Windows)**: instala Ollama, abre PowerShell y ejecuta `ollama pull qwen2.5:3b`; copia
