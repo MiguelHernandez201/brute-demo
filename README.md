@@ -350,7 +350,7 @@ Los botones de la arena son solo iconos, en una fila (al pasar el ratón por enc
 promocional; con las rondas continuas lleva la cuenta atrás en la esquina), 🔁 rondas continuas y 🔍 zoom dinámico
 (dorados si están activados), ⬇️ descargar el vídeo grabado y 🏠 volver al menú.
 
-## Gustavo Petro vs Abelardo (en desarrollo)
+## Gustavo Petro vs Abelardo
 
 El modo TikTok en dos bandos: Gustavo Petro y Abelardo entran como jefes y los demás pelean como refuerzos de uno de
 los dos. La ronda la gana el bando que derriba al jefe rival. Se entra con el botón **⚔️ Gustavo Petro vs Abelardo** de
@@ -398,6 +398,9 @@ repartidos entre los dos; como en el modo TikTok, de 3 a 20).
   jefe: celebra todo su bando y sale "¡Gana el bando de …!", el mejor de los suyos (el que más rivales eliminó, sin
   contar al jefe) y el marcador. Si el reloj de la ronda llega a cero, gana el jefe al que le quede más vida (en
   proporción a la suya). Los jefes no cuentan en el ranking de los espectadores.
+- **Brutus** (la voz del directo, ver **Streamer virtual (voz)**, abajo) anuncia el inicio de cada ronda, avisa cuando un
+  jefe está en peligro, canta el bando ganador, dice quién se une a cada bando y saluda y agradece con las reglas del
+  modo, sin opinar nunca de política.
 - **El motor**: `createRoyale(n, { sides })` (`web/src/sim.ts`) arma la ronda con los dos jefes y `n` brutes repartidos
   entre los bandos. Los jefes salen con las mismas estadísticas, armas y habilidades (solo cambian el nombre y el
   aspecto), así ningún bando tiene ventaja, y con **300** de vida (`CHIEF_HP`). Cada bando empieza en su lado de la
@@ -482,6 +485,24 @@ Una voz que agradece los regalos, saluda a los que entran y responde preguntas d
   que **queda solo esperando rival** (a los 6 s, y otra vez cada 30 s; invita a comentar o dar 30 toques para entrar).
   Límites para no hablar sin parar: 8 s entre comentarios de la pelea, un mínimo por tipo (críticos 20 s, reñida 90 s,
   solo 40 s) y 60 por hora (`NARRADOR_MAX_HORA` en `voz.env`). Lo que tarda en tocarle y ya no tiene sentido se descarta.
+- **⚔️ En el modo Petro vs Abelardo** (el juego se lo dice a la voz por el puente): los saludos invitan a comentar
+  "petro o abelardo" para elegir bando, los gracias por regalos dicen que van al jefe ("eso es vida para tu jefe") y el
+  modelo recibe las reglas del modo para responder preguntas (cómo se elige bando, qué da cada regalo). El narrador suma
+  cuatro avisos, con frases fijas y sin IA:
+  - **Empieza la ronda**: "¡Arranca la ronda! Comenten Petro o Abelardo para elegir su bando…", como mucho una vez cada
+    5 minutos.
+  - **Un jefe en peligro**: por debajo del 30 % de su vida, "¡Gustavo Petro está en las últimas! ¡Bando de Petro, a
+    defenderlo!". Una vez, y otra si sus regalos lo suben por encima del 60 %; como mucho una cada 20 s.
+  - **Gana un bando**: "¡Cayó Abelardo! ¡Gana la ronda el bando de Petro!". Se dice aunque haya hablado hace poco y va
+    la primera de la cola.
+  - **Alguien elige bando comentando**: "¡maria se une al bando de Petro!". Solo si es un bando nuevo para él, como mucho
+    uno cada 15 s y solo con la casilla 👋 encendida (lleva su nombre, como los saludos).
+
+  Las frases que solo llevan los nombres de los jefes o de los bandos se guardan en caché, así que no vuelven a gastar
+  créditos. Brutus nunca dice a qué bando apoyar ni opina de Gustavo Petro o Abelardo como personas reales: son solo
+  personajes del juego. El modo conversacional sigue sin comentar mensajes de política (los que nombran a Petro o a
+  Abelardo, como los que eligen bando, tampoco los comenta). Para oírlo sin directo: `node voz.js --prueba-bandos` en
+  `live/`.
 - **Voz**: [ElevenLabs](https://elevenlabs.io), con el modelo `eleven_flash_v2_5`. Una cola con prioridad (regalos,
   preguntas, saludos) descarta lo que caduca, para que la voz no vaya por detrás del directo.
 - **Puesta en marcha (Windows)**: instala Ollama, abre PowerShell y ejecuta `ollama pull qwen2.5:3b`; copia
