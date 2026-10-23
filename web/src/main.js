@@ -11,7 +11,7 @@ import { StepType } from '@labrute/core';
 import { createRenderer } from './renderer.ts';
 import { setupFight } from './fight/setupFight.ts';
 import { FATALITY_VERBS } from './fight/fatality.ts';
-import { royaleColorCss } from './fight/royaleTags.ts';
+import { royaleColorCss, setSideColors } from './fight/royaleTags.ts';
 import { crowdQuality } from './fight/crowdQuality.ts';
 import { setFightDisposing } from './fight/utils/lifecycle.ts';
 import { arenaBackground, BACKGROUND_BLEED, musicTrack, renderQuality } from './fight/FighterHolder.ts';
@@ -23,7 +23,7 @@ import { sfx, sounds } from './sfx.ts';
 import { playPromotionalTrailer } from './trailer.ts';
 import { BOOST_HP } from './engine/ultimates.ts';
 import { connectLive } from './live.js';
-import { ABELARDO_LOOK, CHUCK_LOOK, PETRO_LOOK, installChuck } from './chuck.ts';
+import { ABELARDO_LOOK, CHIEF_FACES, CHUCK_LOOK, PETRO_LOOK, installChuck, teamLook } from './chuck.ts';
 // Personajes especiales con piezas dibujadas para el muñeco además de las del juego (ver chuck.ts): se meten antes de
 // la primera pelea
 installChuck();
@@ -220,6 +220,95 @@ function showWinner(name) {
 }
 const hideWinner = () => $('ttWinner').classList.remove('show');
 
+// ===== Modo Gustavo Petro vs Abelardo =====
+// El royale del modo TikTok, en dos bandos (ver sim.createRoyale): Gustavo Petro y Abelardo entran como jefes y los
+// demás pelean por uno de los dos, con la ropa de su bando (ver chuck.teamLook). Gana la ronda el bando que derriba al
+// jefe rival. Cada bando, con su color en las etiquetas y la lista (naranja y celeste: ninguno de los de sus partidos)
+const SIDES = [
+  {
+    id: 'petro',
+    name: 'Petro',
+    chief: 'Gustavo Petro',
+    chiefLook: PETRO_LOOK,
+    color: 0xff9f43,
+    dress: (gender) => teamLook('petro', gender),
+  },
+  {
+    id: 'abelardo',
+    name: 'Abelardo',
+    chief: 'Abelardo',
+    chiefLook: ABELARDO_LOOK,
+    color: 0x4fb3ff,
+    dress: (gender) => teamLook('abelardo', gender),
+  },
+];
+const sideById = (id) => SIDES.find((s) => s.id === id);
+const sideCss = (side) => `#${side.color.toString(16).padStart(6, '0')}`;
+// `on`: en este modo; `score`: rondas ganadas por cada bando, que se recuerdan en este navegador
+const bandos = { on: false, score: {} };
+const BANDOS_SCORE_KEY = 'brute-demo-bandos-marcador';
+try {
+  bandos.score = JSON.parse(localStorage.getItem(BANDOS_SCORE_KEY) || '{}') || {};
+} catch {
+  /* sin storage */
+}
+const saveBandosScore = () => {
+  try {
+    localStorage.setItem(BANDOS_SCORE_KEY, JSON.stringify(bandos.score));
+  } catch {
+    /* sin storage */
+  }
+};
+// Barra de arriba (en lugar de la cabecera): cada jefe con su cara, su vida y cuántos de su bando siguen en pie, y en
+// medio el marcador de rondas. Se arma una vez y luego solo se cambian la vida, los números y el marcador (se repinta
+// cada 150 ms: rehacerla entera volvía a decodificar las caras). `live`: por bando, { hp, maxHp, alive } (sin ronda,
+// vacío)
+function renderVersus(live = {}) {
+  const box = $('ttVersus');
+  if (!box.firstChild) {
+    const half = (
+      side,
+      i,
+    ) => `<div class="vs-side ${i ? 'right' : 'left'}" data-side="${side.id}" style="--c:${sideCss(side)}">
+      <img class="vs-face" src="${CHIEF_FACES[side.id]}" alt="" draggable="false" />
+      <div class="vs-info">
+        <b class="vs-name">${escHtml(side.name)}</b>
+        <div class="vs-bar"><i></i></div>
+        <small></small>
+      </div>
+    </div>`;
+    const [a, b] = SIDES;
+    box.innerHTML = `${half(a, 0)}<div class="vs-mid"><b data-score="${a.id}"></b><span>VS</span><b data-score="${b.id}"></b></div>${half(b, 1)}`;
+  }
+  for (const side of SIDES) {
+    const s = live[side.id];
+    const el = box.querySelector(`[data-side="${side.id}"]`);
+    const pct = s ? Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100)) : 100;
+    const width = `${pct}%`;
+    const bar = el.querySelector('.vs-bar i');
+    if (bar.style.width !== width) bar.style.width = width;
+    const text = `${s ? `${Math.max(0, Math.round(s.hp))}/${s.maxHp}` : ''} · 👥 ${s?.alive ?? 0}`;
+    const small = el.querySelector('small');
+    if (small.textContent !== text) small.textContent = text;
+    const score = String(bandos.score[side.id] ?? 0);
+    const b = box.querySelector(`[data-score="${side.id}"]`);
+    if (b.textContent !== score) b.textContent = score;
+  }
+}
+// Pantalla del ganador: el bando, el mejor de la ronda (el que más rivales eliminó de los suyos, sin contar al jefe) y
+// el marcador
+function showBandosWinner(sideId, mvp) {
+  const side = sideById(sideId);
+  if (!side) return;
+  const [a, b] = SIDES;
+  $('ttWinner').innerHTML = `<div class="tt-crown">🏆</div>
+    <div class="tt-name bandos" style="color:${sideCss(side)}">¡Gana el bando de ${escHtml(side.name)}!</div>
+    <div class="tt-sub">${mvp ? `⭐ ${escHtml(mvp.name)} · ${mvp.wins} ☠️` : `ronda ${tiktok.round}`}</div>
+    <div class="tt-sub">${escHtml(a.name)} ${bandos.score[a.id] ?? 0} – ${bandos.score[b.id] ?? 0} ${escHtml(b.name)}</div>
+    <div class="tt-next" id="ttNext"></div>`;
+  $('ttWinner').classList.add('show');
+}
+
 // Battle royale: N brutes al azar, todos contra todos
 async function startRoyale(count) {
   const id = ++run;
@@ -230,8 +319,10 @@ async function startRoyale(count) {
     $('ttRound').textContent = `Ronda ${tiktok.round}`;
     hideWinner();
   }
-  const { fight } = createRoyale(count);
+  const { fight } = bandos.on ? createRoyale(count, { sides: SIDES }) : createRoyale(count);
   if (id !== run) return;
+  // (con bandos, el color de cada uno es el de su bando)
+  setSideColors(bandos.on ? (index) => sideById(fight.sideOf(index))?.color : null);
   renderRoster(fight);
   // (los espectadores del directo que siguen por aquí vuelven a pelear: entran en cuanto empieza)
   queueRecentViewers();
@@ -740,6 +831,8 @@ const RANDOM_USERS = [
 const randomUser = () =>
   `${RANDOM_USERS[Math.floor(Math.random() * RANDOM_USERS.length)]}${Math.floor(Math.random() * 90 + 10)}`;
 let giftCount = 1;
+// ¿Cómo jugar? (lo arma setupGiftPanel; cambia con el modo de bandos)
+let renderHowTo = () => {};
 // (el catálogo sirve para reconocer los regalos del directo: ver findGift)
 fetch(`${import.meta.env.BASE_URL}images/gifts/gifts.json`)
   .then((r) => (r.ok ? r.json() : []))
@@ -770,7 +863,10 @@ function setupGiftPanel() {
   // (la vida y lo que más se nota de un escalón de monedas; el Quiéreme, lo mismo que 1 moneda pero sin la palabra, que
   // no cabe)
   const gives = (tier) => [life(tier), COIN_TIERS.find((t) => t.tier === tier)?.short].filter(Boolean).join(' ');
-  $('ttHowTo').innerHTML = `<div class="tt-cols"><div><div class="tt-title">¿Cómo jugar?</div><ul>
+  // (con bandos, además, cómo se gana: derribando al jefe del otro bando)
+  renderHowTo = () => {
+    $('ttHowTo').innerHTML = `<div class="tt-cols"><div><div class="tt-title">¿Cómo jugar?</div><ul>
+    ${bandos.on ? row('👑', 'Jefe rival', '¡derríbalo!') : ''}
     ${row('👆', `${LIKES_TO_JOIN} tap tap`, '¡a pelear!')}
     ${row('💬', 'Comenta', '¡a pelear!')}
     ${row('👆', `${LIKES_PER_HEAL} tap tap`, life(1))}
@@ -778,6 +874,8 @@ function setupGiftPanel() {
   </ul></div><ul>
     ${COIN_TIERS.map((t) => row(COIN_ICON, t.coins, gives(t.tier))).join('')}
   </ul></div>`;
+  };
+  renderHowTo();
   const user = () => {
     if (!$('giftUser').value.trim()) $('giftUser').value = randomUser();
     return $('giftUser').value.trim();
@@ -818,6 +916,9 @@ function setupGiftPanel() {
 function renderRoster(fight) {
   rosterFight = fight;
   const fighters = JSON.parse(fight.fighters).filter((f) => f.type === 'brute' && !f.master);
+  // Con bandos: índice del jefe de cada bando (los jefes no cuentan para el ranking de los espectadores)
+  const chiefOf = bandos.on ? (fight.chiefs?.() ?? {}) : {};
+  const isChief = (index) => Object.values(chiefOf).includes(index);
   // ult: potenciadores listos ('ready'), en cola o lanzado y aún sin verse su poder ('pending'); tier: el que está en
   // cola o se lanzó
   const state = new Map(
@@ -893,6 +994,15 @@ function renderRoster(fight) {
     const extra = (boostOf(s.tier)?.powers ?? 1) - 1;
     if (extra > 0) s.more = [...Array.from({ length: extra }, () => ({ tier: 0 })), ...(s.more ?? [])];
   };
+  // Barra de arriba (con bandos): vida de cada jefe y cuántos de su bando siguen en pie
+  const versusLive = () =>
+    Object.fromEntries(
+      SIDES.map((side) => {
+        const chief = state.get(chiefOf[side.id]);
+        const alive = [...state.entries()].filter(([index, s]) => !s.out && fight.sideOf?.(index) === side.id).length;
+        return [side.id, { hp: chief?.hp ?? 0, maxHp: chief?.maxHp || 1, alive }];
+      }),
+    );
   const draw = () => {
     if (rosterPressed) {
       rosterRedraw = () => rosterFight === fight && draw();
@@ -935,7 +1045,8 @@ function renderRoster(fight) {
     const finishTitle = fight.finishing
       ? 'Cancelar el final'
       : 'Pone un reloj de 3 minutos en la arena: al acabar gana quien más victorias tenga de los que siguen en pie';
-    $('roster').innerHTML = `<div class="shop-name">Battle Royale</div>
+    if (bandos.on) renderVersus(versusLive());
+    $('roster').innerHTML = `<div class="shop-name">${bandos.on ? 'Petro vs Abelardo' : 'Battle Royale'}</div>
       <div class="shop-label roster-stats"><span>${alive} de ${total} en pie${note}</span><span id="rosterFps" class="${fpsClass}" title="${QUALITY_TITLE}">${fpsText}</span></div>
       <div class="roster-add"><button data-add="1" title="Agregar un brute a la pelea" ${disabled}>➕ Agregar</button><button data-add="5" title="Agregar 5 brutes" ${disabled}>+5</button><button data-finish class="${fight.finishing ? 'on' : ''}" title="${finishTitle}" ${winner || fight.timeUp ? 'disabled' : ''}>${finishLabel()}</button></div>
       <div class="roster-add gift-add"><span>➕ con regalo</span>${giftButtons(disabled)}</div>
@@ -968,7 +1079,8 @@ function renderRoster(fight) {
     const index = [...state].find(([, s]) => !s.out && s.name === user)?.[0];
     if (index === undefined) {
       if (!canAdd()) return false;
-      const brute = fight.addBrute?.(user, looks.get(user));
+      // (con bandos, con la ropa de su bando: los aspectos de Petro y Abelardo son de los jefes)
+      const brute = fight.addBrute?.(user, bandos.on ? undefined : looks.get(user));
       if (!brute) return false;
       const first = queue.shift();
       state.set(brute.index, {
@@ -1032,7 +1144,7 @@ function renderRoster(fight) {
     if (by) {
       by.wins += 1;
       popped = kill.killer;
-      if (tiktok.on) {
+      if (tiktok.on && !isChief(kill.killer)) {
         scoreOf(by.name).kills += 1;
         saveRanking();
         renderRanking();
@@ -1140,6 +1252,7 @@ function renderRoster(fight) {
       bar.style.background = hpColor(pct);
       li.querySelector('.hp-text').textContent = hpText(f.hp, s.maxHp);
     }
+    if (bandos.on) renderVersus(versusLive());
   }, 150);
   fight.onStep = (step) => {
     // Golpe crítico que le quita al menos CRIT_BIG_PCT de su vida máxima: la voz lo comenta (como mucho uno cada 1,5 s)
@@ -1172,12 +1285,24 @@ function renderRoster(fight) {
         w.out = 0;
         fallen -= 1;
       }
-      // Modo TikTok: el ganador sale en grande y suma una ronda en el ranking (una vez por ronda)
+      // Modo TikTok: el ganador sale en grande y suma una ronda en el ranking (una vez por ronda). Con bandos, la ronda
+      // es para su bando, y sale el mejor de los suyos
       if (tiktok.on && w && winner === undefined) {
-        scoreOf(w.name).wins += 1;
-        saveRanking();
-        renderRanking();
-        showWinner(w.name);
+        const side = bandos.on ? fight.sideOf?.(step.w) : undefined;
+        if (side) {
+          bandos.score[side] = (bandos.score[side] ?? 0) + 1;
+          saveBandosScore();
+          const mvp = [...state.entries()]
+            .filter(([index, s]) => !isChief(index) && s.wins && fight.sideOf?.(index) === side)
+            .map(([, s]) => s)
+            .sort((a, b) => b.wins - a.wins)[0];
+          showBandosWinner(side, mvp);
+        } else if (!bandos.on) {
+          scoreOf(w.name).wins += 1;
+          saveRanking();
+          renderRanking();
+          showWinner(w.name);
+        }
       }
       winner = step.w;
       draw();
@@ -1360,8 +1485,13 @@ $('trailerGo').onclick = () => {
   enterArena('trailer');
   beginTrailer();
 };
-// Modo TikTok: el battle royale en vertical, para el directo (el único royale: el normal, en horizontal, se quitó)
-$('tiktokGo').onclick = () => {
+// Modo TikTok: el battle royale en vertical, para el directo (el único royale: el normal, en horizontal, se quitó). Con
+// `withBandos`, el modo Gustavo Petro vs Abelardo (los brutes de la barra son los refuerzos, repartidos entre los dos)
+const enterTiktok = (withBandos = false) => {
+  bandos.on = withBandos;
+  document.body.classList.toggle('bandos', withBandos);
+  if (withBandos) renderVersus();
+  renderHowTo();
   royaleCount = Math.max(3, Math.min(20, +$('royaleCount').value || 6));
   try {
     localStorage.setItem('brute-demo-royale-count', String(royaleCount));
@@ -1383,6 +1513,8 @@ $('tiktokGo').onclick = () => {
   enterArena('royale');
   beginRoyale();
 };
+$('tiktokGo').onclick = () => enterTiktok();
+$('bandosGo').onclick = () => enterTiktok(true);
 // Arena alta (modo TikTok): el lienzo llena el alto de la arena y se le recortan los lados (ver index.html). La cámara
 // tiene que saber qué parte se ve y cuánto tapa ¿Cómo jugar? por arriba, si está encima (ver setRoyaleView)
 function syncArenaView() {
@@ -1553,7 +1685,9 @@ $('back').onclick = async () => {
   cancelAutoChallenge();
   if (tiktok.on) {
     tiktok.on = false;
-    document.body.classList.remove('tiktok', 'tt-controls', 'tt-edit');
+    bandos.on = false;
+    setSideColors(null);
+    document.body.classList.remove('tiktok', 'tt-controls', 'tt-edit', 'bandos');
     hideWinner();
     autoChallenge = false;
     $('auto').checked = false;
@@ -1662,11 +1796,14 @@ const qualityParam = new URLSearchParams(location.search).get('calidad');
 if (qualityParam !== null && ['0', '1', '2'].includes(qualityParam)) crowdQuality.forced = +qualityParam;
 globalThis.__crowdQuality = crowdQuality; // depuración
 
-// ?tiktok (o ?tiktok=8 para elegir cuántos brutes): entra directo al modo TikTok
+// ?tiktok (o ?tiktok=8 para elegir cuántos brutes): entra directo al modo TikTok. ?bandos (o ?bandos=4), al de
+// Gustavo Petro vs Abelardo
 const tiktokParam = new URLSearchParams(location.search).get('tiktok');
-if (tiktokParam !== null) {
-  if (+tiktokParam) $('royaleCount').value = tiktokParam;
-  $('tiktokGo').click();
+const bandosParam = new URLSearchParams(location.search).get('bandos');
+const startParam = bandosParam ?? tiktokParam;
+if (startParam !== null) {
+  if (+startParam) $('royaleCount').value = startParam;
+  $(bandosParam !== null ? 'bandosGo' : 'tiktokGo').click();
 }
 
 // Panel de administración (modo TikTok): duración del reloj de la ronda y botón para activarlo cuando se quiera.
