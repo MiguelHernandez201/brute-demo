@@ -219,6 +219,7 @@ function agradecer(user) {
 // menos 10 s: en un directo con gente entrando sin parar, saludar a cada uno taparía todo lo demás
 const saludados = new Map();
 let porSaludar = [];
+const porSaludarUsuarios = new Set(); // (los de verdad: dos usuarios distintos pueden sonar igual, luna1 y luna2)
 let saludoTimer = null;
 let ultimoSaludo = 0;
 function entra(user) {
@@ -228,16 +229,23 @@ function entra(user) {
   if (saludados.has(user)) return;
   saludados.set(user, ahora);
   porSaludar.push(nombreHablado(user));
+  porSaludarUsuarios.add(user);
   saludoTimer ??= setTimeout(saludar, 5000);
 }
+// Lo enciende y apaga la casilla 👋 del panel de regalos del juego. Apagado, no se saluda por su nombre (el que más
+// gasta: cada nombre es una frase distinta); el saludo general de los grupos (4 o más) sigue, con el audio en caché
+let saludoNombres = true;
 function saludar() {
   saludoTimer = null;
   const nombres = [...new Set(porSaludar)];
+  const llegaron = porSaludarUsuarios.size;
   porSaludar = [];
+  porSaludarUsuarios.clear();
   if (!nombres.length || Date.now() - ultimoSaludo < 10_000 || cola.length >= 3) return;
+  if (!saludoNombres && llegaron <= 3) return;
   ultimoSaludo = Date.now();
-  if (nombres.length === 1) decir(`Bienvenido ${nombres[0]}! Comenta algo en el chat y entras a la arena!`, SALUDO);
-  else if (nombres.length <= 3) decir(`Bienvenidos ${lista(nombres)}! Comenten para entrar a pelear!`, SALUDO);
+  if (llegaron === 1) decir(`Bienvenido ${nombres[0]}! Comenta algo en el chat y entras a la arena!`, SALUDO);
+  else if (llegaron <= 3) decir(`Bienvenidos ${lista(nombres)}! Comenten para entrar a pelear!`, SALUDO);
   else decir('Bienvenidos todos los que van llegando! Comenten o den treinta toques y entran a la arena!', SALUDO, true);
 }
 
@@ -332,6 +340,14 @@ function configurar(msg) {
       conversacional
         ? `💬 Modo conversacional ACTIVADO (como mucho ${CONV_MAX_HORA} respuestas por hora).`
         : '💬 Modo conversacional apagado.',
+    );
+  }
+  if (typeof msg.saludos === 'boolean' && msg.saludos !== saludoNombres) {
+    saludoNombres = msg.saludos;
+    console.log(
+      saludoNombres
+        ? '👋 Saludos con nombre ACTIVADOS.'
+        : '👋 Saludos con nombre apagados (solo el saludo general para grupos).',
     );
   }
   if (typeof msg.narrador === 'boolean' && msg.narrador !== narrador) {

@@ -621,10 +621,11 @@ $('giftMembers').onchange = (e) => {
   }
 };
 // Brutus, el streamer virtual (live/voz.js), recibe por el puente los ajustes de dos casillas del panel de regalos:
-// 💬 conversa con el chat (apagada de fábrica) y 🥊 comenta la pelea (encendida de fábrica), y lo que pasa en la
+// 💬 conversa con el chat (apagada de fábrica), 🥊 comenta la pelea y 👋 saluda por su nombre (encendidas de fábrica), y lo que pasa en la
 // pelea (ver narrate). Se recuerdan en el navegador; la otra ventana del panel los cambia por 'storage'
 const TALK_KEY = 'brute-demo-live-talk';
 const NARR_KEY = 'brute-demo-live-narrator';
+const HELLO_KEY = 'brute-demo-live-hello';
 const readFlag = (key, fallback) => {
   try {
     const v = localStorage.getItem(key);
@@ -642,13 +643,15 @@ const saveFlag = (key, on) => {
 };
 let talk = readFlag(TALK_KEY, false);
 let narr = readFlag(NARR_KEY, true);
+let hello = readFlag(HELLO_KEY, true);
 let liveLink = null;
-const pushConfig = () => liveLink?.send({ type: 'config', conversacional: talk, narrador: narr });
+const pushConfig = () => liveLink?.send({ type: 'config', conversacional: talk, narrador: narr, saludos: hello });
 // Lo que pasa en la pelea, para que la voz lo comente: 'critico' (nombres: quien pega y quien recibe; pct: lo que le
 // quitó, en proporción a su vida máxima), 'renida' (los dos que quedan) y 'solo' (el que espera rival)
 const narrate = (evento, nombres, pct = 0) => narr && liveLink?.send({ type: 'pelea', evento, nombres, pct });
 $('giftTalk').checked = talk;
 $('giftNarr').checked = narr;
+$('giftHello').checked = hello;
 $('giftTalk').onchange = (e) => {
   talk = e.target.checked;
   saveFlag(TALK_KEY, talk);
@@ -659,6 +662,11 @@ $('giftNarr').onchange = (e) => {
   saveFlag(NARR_KEY, narr);
   pushConfig();
 };
+$('giftHello').onchange = (e) => {
+  hello = e.target.checked;
+  saveFlag(HELLO_KEY, hello);
+  pushConfig();
+};
 window.addEventListener('storage', (e) => {
   if (e.key === TALK_KEY) {
     talk = readFlag(TALK_KEY, false);
@@ -666,6 +674,9 @@ window.addEventListener('storage', (e) => {
   } else if (e.key === NARR_KEY) {
     narr = readFlag(NARR_KEY, true);
     $('giftNarr').checked = narr;
+  } else if (e.key === HELLO_KEY) {
+    hello = readFlag(HELLO_KEY, true);
+    $('giftHello').checked = hello;
   } else return;
   pushConfig();
 });

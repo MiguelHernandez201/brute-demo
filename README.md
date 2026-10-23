@@ -389,6 +389,9 @@ Una voz que agradece los regalos, saluda a los que entran y responde preguntas d
   modelo local con [Ollama](https://ollama.com), con la personalidad y los datos del juego de `live/prompt-streamer.txt`
   (edítalo para cambiarle el nombre, el tono o lo que sabe). Una respuesta cada 5 s como mucho y una por espectador cada
   30 s; los intentos de cambiarle las reglas ("ignora tus instrucciones…") no llegan al modelo.
+- **👋 Saludos con nombre** (casilla **👋 Brutus saluda por su nombre** del panel de regalos; encendida de fábrica):
+  apagada, Brutus no saluda por su nombre a quien entra al live (una frase distinta por persona, lo que más voz gasta).
+  El saludo general de los grupos (4 o más que llegan casi a la vez) sigue sonando, con el audio en caché, sin gasto.
 - **💬 Modo conversacional** (casilla **💬 Brutus conversa con el chat** del panel de regalos, 🎁/G; apagada de fábrica):
   encendida, Brutus también comenta mensajes del chat que no son preguntas (de 3 palabras o más), con memoria de los
   últimos mensajes y de lo que ya dijo. Como mucho una respuesta cada 12 s, una por espectador cada 45 s y 60 por hora
