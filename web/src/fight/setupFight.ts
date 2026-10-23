@@ -932,11 +932,14 @@ export const setupFight: (
     const royaleSides = (step: FightStep) => {
       const s = step as unknown as { f?: number; b?: number; t?: number; w?: number };
       if (step.a === StepType.End) {
-        // Solo el ganador (y sus mascotas) celebran: el resto pasa al otro lado
+        // Solo el ganador (y sus mascotas) celebran: el resto pasa al otro lado. Con bandos, todo su bando
         const w = findFighter(fighters, s.w);
         if (!w) return;
+        const winners = bandos ? demoFight.sideOf?.(w.index) : undefined;
         fighters.forEach((f) => {
-          if (f !== w && f.master !== w.id) setRoyaleSide(f, w.team === 'L' ? 'R' : 'L');
+          if (f === w || f.master === w.id) return;
+          if (winners !== undefined && demoFight.sideOf?.(f.index) === winners) setRoyaleSide(f, w.team);
+          else setRoyaleSide(f, w.team === 'L' ? 'R' : 'L');
         });
         return;
       }
@@ -968,7 +971,14 @@ export const setupFight: (
       endMinigun?: (index: number) => boolean;
       endPet?: (index: number) => boolean;
       wake?: () => void;
+      // Royale de bandos (modo Petro vs Abelardo): el bando de cada uno y el índice del jefe de cada bando
+      sideOf?: (index: number) => string | undefined;
+      chiefs?: () => Record<string, number>;
     };
+    const chiefIndices = new Set(Object.values(demoFight.chiefs?.() ?? {}));
+    const bandos = chiefIndices.size > 0;
+    // Con bandos, el jefe cuya caída ya se vio: la ronda se cierra y gana el otro (ver el bucle del royale)
+    let chiefDown: number | undefined;
     const steps = demoFight.liveSteps ?? (JSON.parse(fight.steps) as FightStep[]);
     // Procesa (anima) un paso. Extraído del bucle original para poder animar turnos en paralelo.
     // `involved`: luchadores reservados para el turno que se anima (royale con turnos en paralelo)
@@ -1055,9 +1065,12 @@ export const setupFight: (
           break;
         }
         case StepType.Death: {
+          // Con bandos, si cae un jefe se acaba la ronda: lo que queda por verse de los demás ya no cuenta, y en cuanto
+          // acaba su caída gana el otro bando (ver el bucle del royale)
+          if (chiefIndices.has(step.f)) chiefDown ??= step.f;
           // Demo royale: cada brute eliminado cae con una fatality de quien lo remató, pero solo la animación
           // sobre los personajes (sin letreros, voz ni cámara): el resto de duelos sigue a la vez. En el duelo final
-          // (no queda nadie más en pie) salen también los letreros y la voz
+          // (no queda nadie más en pie; con bandos, un jefe) salen también los letreros y la voz
           if (isRoyale && isFatalityDeath(fighters, step)) {
             const victim = findFighter(fighters, step.f);
             const killer = victim && !ultimateVictims.has(victim.index) && royaleKiller(victim, involved);
@@ -1070,7 +1083,10 @@ export const setupFight: (
               if (gun) camera?.framed.add(victim);
               await fatality(app, spritesheets, fighters, step, speed, {
                 killer,
-                final: fighters.every((f) => f === victim || f === killer || f.type !== 'brute' || f.master || f.dead),
+                // (con bandos, la caída de un jefe: se acaba la ronda)
+                final: bandos
+                  ? chiefIndices.has(victim.index)
+                  : fighters.every((f) => f === victim || f === killer || f.type !== 'brute' || f.master || f.dead),
                 // En el golpe final, los que miran cerca reaccionan
                 onImpact: () => crowd?.react(victim.animation.container.x, victim.animation.container.y, 150, true),
                 kind,
@@ -1793,7 +1809,7 @@ export const setupFight: (
         // Fin por tiempo (el reloj de "Finalizar" llegó a cero): lo que el motor jugó y aún no se vio no cuenta. Se
         // termina lo que está en pantalla y gana quien más victorias lleva de los que siguen en pie (a igualdad, el
         // que tiene más vida); si solo queda uno, él
-        if ((demoFight.timeUp || nobodyLeft) && !timeOver && !fight.winner) {
+        if ((demoFight.timeUp || nobodyLeft || chiefDown !== undefined) && !timeOver && !fight.winner) {
           timeOver = true;
           queue.length = 0;
           cursor = steps.length;
@@ -1803,9 +1819,13 @@ export const setupFight: (
           clearUltimates();
           const score = (f: AnimationFighter) => (tags?.winsOf(f.index) ?? 0) + f.hp / f.maxHp / 2;
           const alive = standing();
-          // Si no queda nadie en pie, gana el que más victorias lleve
-          const best = (alive.length ? alive : fighters.filter((f) => f.type === 'brute' && !f.master))
-            .sort((a, b) => score(b) - score(a))[0];
+          // Si no queda nadie en pie, gana el que más victorias lleve. Con bandos gana un jefe: el que no cayó o, por
+          // tiempo, al que le quede más vida (en proporción a la suya)
+          const chiefs = fighters.filter((f) => chiefIndices.has(f.index));
+          const best = bandos
+            ? chiefs.filter((f) => f.index !== chiefDown).sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp)[0]
+            : (alive.length ? alive : fighters.filter((f) => f.type === 'brute' && !f.master))
+              .sort((a, b) => score(b) - score(a))[0];
           if (best) demoFight.endNow?.(best.index);
         }
         // Rellenar la cola con los siguientes turnos del motor (los pasos que ya están, como los de una ultimate recién

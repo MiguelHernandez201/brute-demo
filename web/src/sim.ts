@@ -115,9 +115,15 @@ function makeRoyaleBrute(name: string, id: string, gender?: 'male' | 'female', l
   return brute;
 }
 
-// Royale de bandos (modo Gustavo Petro vs Abelardo): dos bandos, cada uno con su jefe. Cada bando: su id y el nombre
-// y el aspecto de su jefe (ver chuck.ts)
-export type RoyaleSide = { id: string; chief: string; chiefLook: BruteLook };
+// Royale de bandos (modo Gustavo Petro vs Abelardo): dos bandos, cada uno con su jefe. Cada bando: su id, el nombre y
+// el aspecto de su jefe y, si lo tiene, el de sus refuerzos según su sexo (`dress`: la ropa del bando, ver chuck.teamLook)
+export type RoyaleSide = {
+  id: string;
+  chief: string;
+  chiefLook: BruteLook;
+  dress?: (gender: 'male' | 'female') => BruteLook;
+};
+const randomGender = () => (Math.random() > 0.5 ? 'male' : 'female');
 // Vida con la que empieza cada jefe (un brute de nivel 5 tiene unos 60-110). Al jefe le pegan de uno en uno (cada golpe
 // se anima por separado), así que lo que tarda en caer depende sobre todo de esto: con 300 y 6 brutes más, sin
 // regalos, el primer jefe cae a los 2 minutos de media y solo 1 ronda de cada 20 llega a los 3 del reloj (con 400, 1
@@ -154,7 +160,10 @@ export function createRoyale(
     ...Array.from({ length: count }, (_, i) => {
       const name = royaleName(used);
       used.add(name);
-      return makeRoyaleBrute(name, `royale-${i + 1}-${++seq}`);
+      // (con bandos, con la ropa del suyo: van alternando, ver `sides` abajo)
+      const gender = randomGender();
+      const dress = sides?.[i % sides.length]?.dress?.(gender);
+      return makeRoyaleBrute(name, `royale-${i + 1}-${++seq}`, gender, dress);
     }),
   ];
   // (los jefes, con más vida; el resto, alternando de bando)
@@ -293,9 +302,11 @@ export function createRoyale(
       if (!fight.canAddBrute()) return null;
       const name = wanted?.trim().slice(0, 24) || royaleName(used);
       // (el de un espectador, del sexo de su nombre si lleva uno conocido: ver genderNames; con `look`, ese aspecto)
-      const gender = wanted ? genderOfName(name) : undefined;
-      const brute = makeRoyaleBrute(name, `royale-${brutes.length + 1}-${++seq}`, gender, look);
-      const added = session.addRoyaleBrute(getCalculatedBrute(brute, modifiers) as any, side);
+      const gender = look?.gender ?? (wanted ? genderOfName(name) : undefined) ?? randomGender();
+      // Con bandos, el suyo (o el que tenga menos en pie) y, si no trae aspecto, la ropa de ese bando
+      const own = sides?.find((s) => s.id === side) ?? sides?.find((s) => s.id === session.weakerSide());
+      const brute = makeRoyaleBrute(name, `royale-${brutes.length + 1}-${++seq}`, gender, look ?? own?.dress?.(gender));
+      const added = session.addRoyaleBrute(getCalculatedBrute(brute, modifiers) as any, own?.id);
       if (!added) return null;
       used.add(name);
       brutes.push(brute);
