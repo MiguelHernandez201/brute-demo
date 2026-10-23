@@ -17,15 +17,18 @@ import { FightSession } from './engine/session';
 import { BoostTier, ULTIMATES, Ultimate, boostCasts } from './engine/ultimates';
 import { genderOfName } from './genderNames';
 
-// `wanted`: el sexo, si se sabe (si no, al azar)
-function randomBruteData(name: string, level: number, wanted?: 'male' | 'female') {
-  const gender = wanted ?? (Math.random() > 0.5 ? 'male' : 'female');
+// Aspecto fijo de un personaje especial (ver chuck.ts): sexo, cuerpo y colores
+export type BruteLook = { gender: 'male' | 'female'; body: string; colors: string };
+
+// `wanted`: el sexo, si se sabe (si no, al azar). `look`: todo el aspecto (si no, al azar)
+function randomBruteData(name: string, level: number, wanted?: 'male' | 'female', look?: BruteLook) {
+  const gender = look?.gender ?? wanted ?? (Math.random() > 0.5 ? 'male' : 'female');
   let data: any = getBruteToSave({
     id: undefined,
     name,
     gender,
-    body: getRandomBody(gender as any),
-    colors: getRandomColors(gender as any),
+    body: look?.body ?? getRandomBody(gender as any),
+    colors: look?.colors ?? getRandomColors(gender as any),
     victories: 0,
     losses: 0,
     pupilsCount: 0,
@@ -54,8 +57,8 @@ function stripPets(data: any) {
   data.hpValue = getBruteHP(data);
 }
 
-export function makeBrute(name: string, id: string, gender?: 'male' | 'female') {
-  const data: any = randomBruteData(name, 5, gender);
+export function makeBrute(name: string, id: string, gender?: 'male' | 'female', look?: BruteLook) {
+  const data: any = randomBruteData(name, 5, gender, look);
   stripPets(data);
   // Garantiza al menos un arma
   if (!data.weapons.length)
@@ -102,10 +105,10 @@ function royaleName(used: Set<string>) {
 // Aquí no hay mascotas, así que nunca podían usarse. Si un brute sale con
 // alguna se genera otro entero: así recibe otra mejora que sí le sirva y sus estadísticas quedan coherentes
 const ROYALE_DISABLED_SKILLS = ['tamer', 'treat'];
-function makeRoyaleBrute(name: string, id: string, gender?: 'male' | 'female') {
-  let brute = makeBrute(name, id, gender);
+function makeRoyaleBrute(name: string, id: string, gender?: 'male' | 'female', look?: BruteLook) {
+  let brute = makeBrute(name, id, gender, look);
   for (let i = 0; i < 50 && brute.skills.some((s: string) => ROYALE_DISABLED_SKILLS.includes(s)); i++) {
-    brute = makeBrute(name, id, gender);
+    brute = makeBrute(name, id, gender, look);
   }
   // Por si acaso (muy improbable tras tantos intentos): sin ellas, que no dan estadísticas
   brute.skills = brute.skills.filter((s: string) => !ROYALE_DISABLED_SKILLS.includes(s));
@@ -238,12 +241,12 @@ export function createRoyale(count: number) {
     // Botón "Agregar brute": entra uno nuevo en plena pelea. Devuelve sus datos para la lista (null si ya acabó). Con
     // `wanted`, con ese nombre (un espectador que se une, ver el panel de regalos en main.js); si no, uno al azar
     canAddBrute: () => !fight.timeUp && session.canAddRoyaleBrute(),
-    addBrute: (wanted?: string) => {
+    addBrute: (wanted?: string, look?: BruteLook) => {
       if (!fight.canAddBrute()) return null;
       const name = wanted?.trim().slice(0, 24) || royaleName(used);
-      // (el de un espectador, del sexo de su nombre si lleva uno conocido: ver genderNames)
+      // (el de un espectador, del sexo de su nombre si lleva uno conocido: ver genderNames; con `look`, ese aspecto)
       const gender = wanted ? genderOfName(name) : undefined;
-      const brute = makeRoyaleBrute(name, `royale-${brutes.length + 1}-${++seq}`, gender);
+      const brute = makeRoyaleBrute(name, `royale-${brutes.length + 1}-${++seq}`, gender, look);
       const added = session.addRoyaleBrute(getCalculatedBrute(brute, modifiers) as any);
       if (!added) return null;
       used.add(name);
