@@ -11,8 +11,9 @@
 //      node voz.js --prueba   (no usa el puente: lanza unos eventos de ejemplo para oír la voz)
 // Configuración en live/voz.env (copia voz.env.ejemplo). Sin clave de ElevenLabs no habla: solo escribe lo que diría.
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -81,8 +82,9 @@ function limpiar(texto) {
 // ===== Cola de voz =====
 const cola = [];
 let hablando = false;
-function decir(texto, prio) {
-  cola.push({ texto, prio, at: Date.now() });
+// fija: la frase no lleva nombres, así que su audio se guarda en live/cache-voz y las demás veces no gasta créditos
+function decir(texto, prio, fija = false) {
+  cola.push({ texto, prio, at: Date.now(), fija });
   cola.sort((a, b) => a.prio - b.prio || a.at - b.at);
   while (cola.length > MAX_COLA) cola.pop(); // lo menos importante y más reciente
   if (!hablando) void hablar();
@@ -91,10 +93,10 @@ async function hablar() {
   hablando = true;
   try {
     while (cola.length) {
-      const { texto, prio, at } = cola.shift();
+      const { texto, prio, at, fija } = cola.shift();
       if (Date.now() - at > CADUCA[prio]) continue;
       console.log(`🗣️ ${texto}`);
-      await sintetizar(texto);
+      await sintetizar(texto, fija);
     }
   } finally {
     hablando = false;
@@ -105,13 +107,26 @@ async function hablar() {
 let carpeta = null;
 let n = 0;
 let avisoVoz = false;
-async function sintetizar(texto) {
+async function sintetizar(texto, fija = false) {
   if (!cfg.key || !cfg.voz) {
     if (!avisoVoz) {
       avisoVoz = true;
       console.log('🔇 Sin ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID en voz.env: solo escribo lo que diría, sin voz.');
     }
     return;
+  }
+  let guardado = null;
+  if (fija) {
+    // (la clave incluye la voz y el modelo: si los cambias en voz.env, se genera de nuevo)
+    const hash = createHash('sha1').update(`${cfg.voz}|${cfg.modeloVoz}|${texto}`).digest('hex').slice(0, 16);
+    guardado = join(here, 'cache-voz', `${hash}.mp3`);
+    if (existsSync(guardado)) {
+      try {
+        return await reproducir(await readFile(guardado));
+      } catch {
+        /* si el archivo está roto, se genera de nuevo */
+      }
+    }
   }
   try {
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${cfg.voz}?output_format=mp3_44100_64`, {
@@ -127,7 +142,12 @@ async function sintetizar(texto) {
       );
       return;
     }
-    await reproducir(Buffer.from(await res.arrayBuffer()));
+    const mp3 = Buffer.from(await res.arrayBuffer());
+    if (guardado) {
+      await mkdir(dirname(guardado), { recursive: true });
+      await writeFile(guardado, mp3);
+    }
+    await reproducir(mp3);
   } catch (err) {
     console.error(`🟠 No se pudo generar la voz: ${err?.message ?? err}`);
   }
@@ -217,7 +237,7 @@ function saludar() {
   ultimoSaludo = Date.now();
   if (nombres.length === 1) decir(`Bienvenido ${nombres[0]}! Comenta algo en el chat y entras a la arena!`, SALUDO);
   else if (nombres.length <= 3) decir(`Bienvenidos ${lista(nombres)}! Comenten para entrar a pelear!`, SALUDO);
-  else decir('Bienvenidos todos los que van llegando! Comenten o den treinta toques y entran a la arena!', SALUDO);
+  else decir('Bienvenidos todos los que van llegando! Comenten o den treinta toques y entran a la arena!', SALUDO, true);
 }
 
 // ===== Seguidores y compartidos → gracias =====

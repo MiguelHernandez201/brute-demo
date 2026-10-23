@@ -16,3 +16,6 @@ live/voz.env
 # Fondos para extender con IA: plantillas y resultados de trabajo (ver fondos-ia/LEEME.txt)
 fondos-ia/plantillas/
 fondos-ia/resultados/
+
+# Audios guardados de las frases fijas del streamer (se regeneran solos)
+live/cache-voz/
