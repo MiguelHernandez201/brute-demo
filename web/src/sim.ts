@@ -119,10 +119,10 @@ function makeRoyaleBrute(name: string, id: string, gender?: 'male' | 'female', l
 // y el aspecto de su jefe (ver chuck.ts)
 export type RoyaleSide = { id: string; chief: string; chiefLook: BruteLook };
 // Vida con la que empieza cada jefe (un brute de nivel 5 tiene unos 60-110). Al jefe le pegan de uno en uno (cada golpe
-// se anima por separado), así que lo que tarda en caer depende sobre todo de esto: con 400 y 6 brutes más, sin
-// regalos, el primer jefe cae a los 2 minutos de media y solo 1 ronda de cada 14 llega a los 3 del reloj (con 500, 1
-// de cada 5). Ver scripts/simular.mjs
-export const CHIEF_HP = 400;
+// se anima por separado), así que lo que tarda en caer depende sobre todo de esto: con 300 y 6 brutes más, sin
+// regalos, el primer jefe cae a los 2 minutos de media y solo 1 ronda de cada 20 llega a los 3 del reloj (con 400, 1
+// de cada 6). Ver scripts/simular.mjs
+export const CHIEF_HP = 300;
 
 // Los dos jefes, con las mismas estadísticas, armas y habilidades: solo cambian el nombre y el aspecto, así ningún
 // bando sale con ventaja

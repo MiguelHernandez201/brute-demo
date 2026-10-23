@@ -6,12 +6,13 @@
 //   node scripts/simular.mjs bandos [rondas] [refuerzos] [regalos: 0 o 1] [vida de los jefes]
 //
 // La duración sale de un modelo de la animación: cada turno ocupa a todos los que salen en él una "unidad" y el motor
-// no juega el turno de quien sigue ocupado (como session.playTurn con `hold`). Medido en el navegador, un royale de 10
-// tarda unos 67 s de juego y aquí unas 30 unidades: una unidad son unos 2 s
+// no juega el turno de quien sigue ocupado (como session.playTurn con `hold`). Medido en el navegador (con un reloj
+// simulado), 3 royales de 10 tardaron 67, 71 y 105 s de juego, 81 de media, y aquí son unas 30 unidades: una unidad son
+// unos 2,7 s
 import { createServer } from 'vite';
 import { fileURLToPath } from 'node:url';
 
-const SECONDS_PER_UNIT = 2;
+const SECONDS_PER_UNIT = 2.7;
 // El reloj de "Finalizar": 3 minutos
 const LIMIT = 180 / SECONDS_PER_UNIT;
 
