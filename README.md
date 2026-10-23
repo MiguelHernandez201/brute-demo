@@ -394,6 +394,13 @@ Una voz que agradece los regalos, saluda a los que entran y responde preguntas d
   últimos mensajes y de lo que ya dijo. Como mucho una respuesta cada 12 s, una por espectador cada 45 s y 60 por hora
   (`CONVERSACION_MAX_HORA` en `voz.env`); el modelo puede callarse si el mensaje no merece respuesta. Ni lee ni dice
   groserías ni temas delicados (política, religión, drogas…). La casilla le llega a la voz por el puente.
+- **🥊 Narrador de la pelea** (casilla **🥊 Brutus comenta la pelea** del panel de regalos; encendida de fábrica): el
+  juego le avisa a la voz de lo que pasa y Brutus lo comenta con frases fijas (sin IA): un **golpe crítico muy duro** (que
+  le quita a quien lo recibe el 25 % o más de su vida máxima; con el 45 % o más, una frase más fuerte), una **pelea
+  reñida** (quedan dos, los dos con el 60 % de vida o menos y menos de 15 puntos de diferencia; una vez por ronda) y el
+  que **queda solo esperando rival** (a los 6 s, y otra vez cada 30 s; invita a comentar o dar 30 toques para entrar).
+  Límites para no hablar sin parar: 8 s entre comentarios de la pelea, un mínimo por tipo (críticos 20 s, reñida 90 s,
+  solo 40 s) y 60 por hora (`NARRADOR_MAX_HORA` en `voz.env`). Lo que tarda en tocarle y ya no tiene sentido se descarta.
 - **Voz**: [ElevenLabs](https://elevenlabs.io), con el modelo `eleven_flash_v2_5`. Una cola con prioridad (regalos,
   preguntas, saludos) descarta lo que caduca, para que la voz no vaya por detrás del directo.
 - **Puesta en marcha (Windows)**: instala Ollama, abre PowerShell y ejecuta `ollama pull qwen2.5:3b`; copia

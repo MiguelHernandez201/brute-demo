@@ -83,8 +83,9 @@ function limpiar(texto) {
 const cola = [];
 let hablando = false;
 // fija: la frase no lleva nombres, así que su audio se guarda en live/cache-voz y las demás veces no gasta créditos
-function decir(texto, prio, fija = false) {
-  cola.push({ texto, prio, at: Date.now(), fija });
+// caduca: ms que vale todavía (si no, lo de su prioridad); un comentario de la pelea tarde ya no tiene sentido
+function decir(texto, prio, fija = false, caduca) {
+  cola.push({ texto, prio, at: Date.now(), fija, caduca });
   cola.sort((a, b) => a.prio - b.prio || a.at - b.at);
   while (cola.length > MAX_COLA) cola.pop(); // lo menos importante y más reciente
   if (!hablando) void hablar();
@@ -93,8 +94,8 @@ async function hablar() {
   hablando = true;
   try {
     while (cola.length) {
-      const { texto, prio, at, fija } = cola.shift();
-      if (Date.now() - at > CADUCA[prio]) continue;
+      const { texto, prio, at, fija, caduca } = cola.shift();
+      if (Date.now() - at > (caduca ?? CADUCA[prio])) continue;
       console.log(`🗣️ ${texto}`);
       await sintetizar(texto, fija);
     }
@@ -325,13 +326,72 @@ function convElegible(user, t) {
   );
 }
 function configurar(msg) {
-  if (typeof msg.conversacional !== 'boolean' || msg.conversacional === conversacional) return;
-  conversacional = msg.conversacional;
-  console.log(
-    conversacional
-      ? `💬 Modo conversacional ACTIVADO (como mucho ${CONV_MAX_HORA} respuestas por hora).`
-      : '💬 Modo conversacional apagado.',
-  );
+  if (typeof msg.conversacional === 'boolean' && msg.conversacional !== conversacional) {
+    conversacional = msg.conversacional;
+    console.log(
+      conversacional
+        ? `💬 Modo conversacional ACTIVADO (como mucho ${CONV_MAX_HORA} respuestas por hora).`
+        : '💬 Modo conversacional apagado.',
+    );
+  }
+  if (typeof msg.narrador === 'boolean' && msg.narrador !== narrador) {
+    narrador = msg.narrador;
+    console.log(narrador ? '🥊 Narrador de la pelea ACTIVADO.' : '🥊 Narrador de la pelea apagado.');
+  }
+}
+
+// ===== La pelea en vivo → comentarios =====
+// El juego avisa de lo que pasa ({ type: 'pelea', evento, nombres, pct }, ver renderRoster en web/src/main.js) y Brutus
+// lo comenta con plantillas (sin IA: instantáneo, y no puede salirse del tema). Lo enciende la casilla 🥊 del panel de
+// regalos (encendida de fábrica). Para no hablar sin parar: 8 s entre comentarios de la pelea, un mínimo por tipo de
+// aviso, tope por hora (NARRADOR_MAX_HORA en voz.env), y si la cola ya va cargada se omite. Si tarda en tocarle, no se
+// dice: una narración tarde ya no tiene sentido
+let narrador = true;
+const NARR_MAX_HORA = Number(env.NARRADOR_MAX_HORA) || 60;
+const NARR_ENTRE_MS = 8000;
+const NARR_TIPO = {
+  critico: { cada: 20_000, caduca: 8000 },
+  renida: { cada: 90_000, caduca: 12_000 },
+  solo: { cada: 40_000, caduca: 20_000 },
+};
+const narrHora = [];
+const narrUltimo = {};
+let narrAntes = 0;
+const frasesPelea = {
+  critico: [
+    'Uyyy! {a} le metió un golpe crítico durísimo a {b}, eso dolió hasta acá!',
+    'Mirá ese golpazo de {a} sobre {b}, qué crítico tan verraco!',
+    'Qué crítico, parce! {a} casi manda a {b} a otro barrio!',
+  ],
+  critico_enorme: [
+    'Madre mía! {a} le sacó media vida a {b} de un solo golpe!',
+    'Eso fue un golpe brutal de {a}! {b} no sabe ni qué le pasó!',
+  ],
+  renida: [
+    'Esto está reñidísimo, {a} y {b} están parejos, nadie sabe quién gana!',
+    'Qué pelea tan pareja entre {a} y {b}, no se me puede ni parpadear!',
+  ],
+  solo: [
+    '{a} se quedó solito en la arena! Comenten o den treinta toques para entrar y retarlo!',
+    'Ahí está {a} esperando rival, parce. Alguien que se le mida, comenten para entrar!',
+  ],
+};
+function pelea({ evento, nombres, pct = 0 }) {
+  const tipo = NARR_TIPO[evento];
+  if (!narrador || !tipo || !Array.isArray(nombres) || !nombres[0]) return;
+  if (evento !== 'solo' && !nombres[1]) return;
+  const ahora = Date.now();
+  while (narrHora.length && ahora - narrHora[0] > 3_600_000) narrHora.shift();
+  if (narrHora.length >= NARR_MAX_HORA || cola.length >= 2) return;
+  if (ahora - narrAntes < NARR_ENTRE_MS || ahora - (narrUltimo[evento] ?? 0) < tipo.cada) return;
+  narrAntes = ahora;
+  narrUltimo[evento] = ahora;
+  narrHora.push(ahora);
+  const clave = evento === 'critico' && pct >= 0.45 ? 'critico_enorme' : evento;
+  const frase = elegir(frasesPelea[clave])
+    .replace('{a}', nombreHablado(String(nombres[0])))
+    .replace('{b}', nombreHablado(String(nombres[1] ?? '')));
+  decir(frase, PREGUNTA, false, tipo.caduca);
 }
 
 async function comentario({ user, text }) {
@@ -424,6 +484,8 @@ function evento(msg) {
       return void comentario(msg);
     case 'config':
       return configurar(msg);
+    case 'pelea':
+      return pelea(msg);
     default: // like y status no se dicen en voz
   }
 }

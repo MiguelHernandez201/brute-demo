@@ -29,7 +29,7 @@ export function connectLive({ onEvent, onStatus, onOpen }) {
         return;
       }
       if (data?.type === 'status') onStatus(data);
-      else if (data?.type && data.type !== 'config') onEvent(data);
+      else if (data?.type && data.type !== 'config' && data.type !== 'pelea') onEvent(data);
     };
     ws.onclose = () => {
       if (current === ws) current = null;

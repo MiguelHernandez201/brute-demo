@@ -58,9 +58,12 @@ const setStatus = (state, text) => {
   if (changed) send(status);
   return changed;
 };
-// Ajustes que el juego le manda a la voz del streamer virtual (casilla 💬 del panel de regalos): el puente se los pasa a
-// los demás clientes y se los recuerda a los que se conecten después
+// Lo que el juego le manda a la voz del streamer virtual (live/voz.js): los ajustes de las casillas 💬 y 🥊 del panel de
+// regalos ({ type: 'config', conversacional, narrador }; el puente se los recuerda a los que se conecten después) y lo
+// que pasa en la pelea ({ type: 'pelea', evento, nombres, pct }: un golpe crítico duro, pelea reñida, uno solo
+// esperando rival). Se reenvía a los demás clientes, con los campos revisados
 let config = null;
+const PELEA_EVENTOS = new Set(['critico', 'renida', 'solo']);
 server.on('connection', (ws) => {
   ws.send(JSON.stringify(status));
   if (config) ws.send(JSON.stringify(config));
@@ -72,10 +75,20 @@ server.on('connection', (ws) => {
     } catch {
       return;
     }
-    if (msg?.type !== 'config' || typeof msg.conversacional !== 'boolean') return;
-    config = { type: 'config', conversacional: msg.conversacional };
-    console.log(`💬 Modo conversacional ${msg.conversacional ? 'activado' : 'apagado'}`);
-    const text = JSON.stringify(config);
+    let out;
+    if (msg?.type === 'config' && typeof msg.conversacional === 'boolean') {
+      config = { type: 'config', conversacional: msg.conversacional, narrador: msg.narrador !== false };
+      console.log(
+        `💬 Modo conversacional ${config.conversacional ? 'activado' : 'apagado'}, narrador ${config.narrador ? 'activado' : 'apagado'}`,
+      );
+      out = config;
+    } else if (msg?.type === 'pelea' && PELEA_EVENTOS.has(msg.evento) && Array.isArray(msg.nombres)) {
+      const nombres = msg.nombres.slice(0, 2).map((n) => String(n).slice(0, 40));
+      out = { type: 'pelea', evento: msg.evento, nombres, pct: Math.min(1, Math.max(0, Number(msg.pct) || 0)) };
+      console.log(`🥊 ${out.evento}: ${nombres.join(' / ')}${out.pct ? ` (${Math.round(out.pct * 100)}% de su vida)` : ''}`);
+    }
+    if (!out) return;
+    const text = JSON.stringify(out);
     for (const client of server.clients) if (client !== ws && client.readyState === client.OPEN) client.send(text);
   });
 });

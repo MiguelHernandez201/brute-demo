@@ -269,6 +269,8 @@ let fpsClass = '';
   requestAnimationFrame(loop);
 })();
 
+// Un golpe crítico cuenta como "muy duro" desde esta parte de la vida máxima de quien lo recibe
+const CRIT_BIG_PCT = 0.25;
 // Lista de participantes del royale: cada uno con el color de su etiqueta en la arena (pasar el ratón por una fila lo
 // resalta; tocarla en el móvil no hace nada), vida en vivo, eliminaciones, quién eliminó a quién y botones para agregar
 // brutes en plena pelea. Se actualiza con cada caída según avanza la animación.
@@ -618,31 +620,54 @@ $('giftMembers').onchange = (e) => {
     /* sin storage */
   }
 };
-// Brutus conversa con el chat (casilla 💬 del panel de regalos, apagada de fábrica): se le avisa a la voz del streamer
-// virtual (live/voz.js) por el puente. Se recuerda en el navegador; la otra ventana del panel lo cambia por 'storage'
+// Brutus, el streamer virtual (live/voz.js), recibe por el puente los ajustes de dos casillas del panel de regalos:
+// 💬 conversa con el chat (apagada de fábrica) y 🥊 comenta la pelea (encendida de fábrica), y lo que pasa en la
+// pelea (ver narrate). Se recuerdan en el navegador; la otra ventana del panel los cambia por 'storage'
 const TALK_KEY = 'brute-demo-live-talk';
-const talkOn = () => {
+const NARR_KEY = 'brute-demo-live-narrator';
+const readFlag = (key, fallback) => {
   try {
-    return localStorage.getItem(TALK_KEY) === 'true';
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === 'true';
   } catch {
-    return false;
+    return fallback;
   }
 };
-let liveLink = null;
-const pushTalk = (on = talkOn()) => liveLink?.send({ type: 'config', conversacional: on });
-$('giftTalk').checked = talkOn();
-$('giftTalk').onchange = (e) => {
+const saveFlag = (key, on) => {
   try {
-    localStorage.setItem(TALK_KEY, String(e.target.checked));
+    localStorage.setItem(key, String(on));
   } catch {
     /* sin storage */
   }
-  pushTalk(e.target.checked);
+};
+let talk = readFlag(TALK_KEY, false);
+let narr = readFlag(NARR_KEY, true);
+let liveLink = null;
+const pushConfig = () => liveLink?.send({ type: 'config', conversacional: talk, narrador: narr });
+// Lo que pasa en la pelea, para que la voz lo comente: 'critico' (nombres: quien pega y quien recibe; pct: lo que le
+// quitó, en proporción a su vida máxima), 'renida' (los dos que quedan) y 'solo' (el que espera rival)
+const narrate = (evento, nombres, pct = 0) => narr && liveLink?.send({ type: 'pelea', evento, nombres, pct });
+$('giftTalk').checked = talk;
+$('giftNarr').checked = narr;
+$('giftTalk').onchange = (e) => {
+  talk = e.target.checked;
+  saveFlag(TALK_KEY, talk);
+  pushConfig();
+};
+$('giftNarr').onchange = (e) => {
+  narr = e.target.checked;
+  saveFlag(NARR_KEY, narr);
+  pushConfig();
 };
 window.addEventListener('storage', (e) => {
-  if (e.key !== TALK_KEY) return;
-  $('giftTalk').checked = talkOn();
-  pushTalk();
+  if (e.key === TALK_KEY) {
+    talk = readFlag(TALK_KEY, false);
+    $('giftTalk').checked = talk;
+  } else if (e.key === NARR_KEY) {
+    narr = readFlag(NARR_KEY, true);
+    $('giftNarr').checked = narr;
+  } else return;
+  pushConfig();
 });
 // Espectadores del directo que siguen por aquí: los que entraron, comentaron, tocaron o regalaron hace menos de
 // VIEWER_KEEP_MS. Con la casilla 🚪 marcada vuelven a pelear al empezar cada ronda (si no, solo peleaban en la que
@@ -681,7 +706,7 @@ if (panelOnly) {
     };
   if (liveEnabled)
     liveLink = connectLive({
-      onOpen: () => pushTalk(),
+      onOpen: pushConfig,
       onEvent: applyLiveEvent,
       onStatus: (s) => {
         showLiveStatus(s);
@@ -1007,6 +1032,14 @@ function renderRoster(fight) {
   };
   // Vida en vivo: se lee de los luchadores de la animación (así va al ritmo de los golpes que se ven)
   let lastTick = performance.now();
+  // Para la voz del streamer virtual (ver narrate): pelea reñida (una vez por ronda), el que queda solo (a los ALONE_MS,
+  // y otra vez cada ALONE_REPEAT_MS mientras siga esperando) y el último golpe crítico duro enviado
+  const ALONE_MS = 6000;
+  const ALONE_REPEAT_MS = 30_000;
+  let closeSent = false;
+  let aloneSince = null;
+  let aloneSent = -Infinity;
+  let lastCritSent = 0;
   const tick = setInterval(() => {
     if (rosterFight !== fight) return clearInterval(tick);
     // Potenciadores en cola (con la pelea en marcha)
@@ -1052,6 +1085,26 @@ function renderRoster(fight) {
     }
     // Ya no se puede agregar (la pelea se cerró: solo queda el final por ver): botones apagados
     if (!canAdd()) document.querySelectorAll('#roster [data-add]').forEach((b) => (b.disabled = true));
+    if (!winner && !fight.timeUp) {
+      const left = [...state.values()].filter((s) => !s.out);
+      if (left.length === 2 && !closeSent) {
+        const [p, q] = left.map((s) => s.hp / s.maxHp);
+        if (p <= 0.6 && q <= 0.6 && Math.abs(p - q) <= 0.15) {
+          closeSent = true;
+          narrate(
+            'renida',
+            left.map((s) => s.name),
+          );
+        }
+      }
+      if (left.length === 1) {
+        aloneSince ??= now;
+        if (now - aloneSince >= ALONE_MS && now - aloneSent >= ALONE_REPEAT_MS) {
+          aloneSent = now;
+          narrate('solo', [left[0].name]);
+        }
+      } else aloneSince = null;
+    }
     const live = fight.liveFighters?.();
     if (!live) return;
     for (const f of live) {
@@ -1071,6 +1124,16 @@ function renderRoster(fight) {
     }
   }, 150);
   fight.onStep = (step) => {
+    // Golpe crítico que le quita al menos CRIT_BIG_PCT de su vida máxima: la voz lo comenta (como mucho uno cada 1,5 s)
+    if (step.c && typeof step.d === 'number' && step.f !== step.t) {
+      const hitter = state.get(step.f);
+      const victim = state.get(step.t);
+      const now = performance.now();
+      if (hitter && victim && victim.maxHp > 0 && step.d / victim.maxHp >= CRIT_BIG_PCT && now - lastCritSent > 1500) {
+        lastCritSent = now;
+        narrate('critico', [hitter.name, victim.name], step.d / victim.maxHp);
+      }
+    }
     // Su potenciador se ve ya (su poder, o su vida si no lanza ninguno): sin recarga, listos para otro
     if ((step.a === 'demoUltimate' || (step.a === 'demoBoost' && step.o)) && state.has(step.f)) {
       state.get(step.f).ult = 'ready';
