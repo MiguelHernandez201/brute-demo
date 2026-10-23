@@ -6,7 +6,10 @@
 export const LIVE_URL = 'ws://127.0.0.1:21214';
 const RETRY_MS = 5000;
 
-export function connectLive({ onEvent, onStatus }) {
+// Devuelve { send(msg) } para mandarle ajustes al puente (casilla 💬 del panel de regalos); onOpen avisa cada vez que se
+// conecta, para volver a mandarlos
+export function connectLive({ onEvent, onStatus, onOpen }) {
+  let current = null;
   const open = () => {
     let ws;
     try {
@@ -14,6 +17,10 @@ export function connectLive({ onEvent, onStatus }) {
     } catch {
       return void setTimeout(open, RETRY_MS);
     }
+    ws.onopen = () => {
+      current = ws;
+      onOpen?.();
+    };
     ws.onmessage = (e) => {
       let data;
       try {
@@ -22,13 +29,15 @@ export function connectLive({ onEvent, onStatus }) {
         return;
       }
       if (data?.type === 'status') onStatus(data);
-      else if (data?.type) onEvent(data);
+      else if (data?.type && data.type !== 'config' && data.type !== 'pelea') onEvent(data);
     };
     ws.onclose = () => {
+      if (current === ws) current = null;
       onStatus({ state: 'off' });
       setTimeout(open, RETRY_MS);
     };
   };
   onStatus({ state: 'off' });
   open();
+  return { send: (msg) => current?.readyState === WebSocket.OPEN && current.send(JSON.stringify(msg)) };
 }

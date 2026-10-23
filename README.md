@@ -378,6 +378,42 @@ Los regalos, toques y comentarios de tu directo de verdad entran solos a la pele
 - El uso gratuito del servicio con el que se conecta la librería ([Euler Stream](https://www.eulerstream.com))
   tiene un límite; si se queda corto, el puente avisa y se le puede poner una clave en la variable `EULER_API_KEY`.
 
+## Streamer virtual (voz)
+
+Una voz que agradece los regalos, saluda a los que entran y responde preguntas del chat sobre el juego. Es opcional:
+`live/voz.js` se conecta al mismo puente que el juego y no toca nada de él.
+
+- **Gracias y saludos**: plantillas fijas (sin IA, instantáneas). Las Rose seguidas de una misma persona se agradecen de
+  una sola vez, y a los que entran casi juntos se les saluda en grupo (como mucho uno cada 10 s).
+- **Preguntas**: solo los comentarios que lo parecen (llevan `?` o empiezan por cómo, qué, cuándo…) los responde un
+  modelo local con [Ollama](https://ollama.com), con la personalidad y los datos del juego de `live/prompt-streamer.txt`
+  (edítalo para cambiarle el nombre, el tono o lo que sabe). Una respuesta cada 5 s como mucho y una por espectador cada
+  30 s; los intentos de cambiarle las reglas ("ignora tus instrucciones…") no llegan al modelo.
+- **👋 Saludos con nombre** (casilla **👋 Brutus saluda por su nombre** del panel de regalos; encendida de fábrica):
+  apagada, Brutus no saluda por su nombre a quien entra al live (una frase distinta por persona, lo que más voz gasta).
+  El saludo general de los grupos (4 o más que llegan casi a la vez) sigue sonando, con el audio en caché, sin gasto.
+- **💬 Modo conversacional** (casilla **💬 Brutus conversa con el chat** del panel de regalos, 🎁/G; apagada de fábrica):
+  encendida, Brutus también comenta mensajes del chat que no son preguntas (de 3 palabras o más), con memoria de los
+  últimos mensajes y de lo que ya dijo. Como mucho una respuesta cada 12 s, una por espectador cada 45 s y 60 por hora
+  (`CONVERSACION_MAX_HORA` en `voz.env`); el modelo puede callarse si el mensaje no merece respuesta. Ni lee ni dice
+  groserías ni temas delicados (política, religión, drogas…). La casilla le llega a la voz por el puente.
+- **🥊 Narrador de la pelea** (casilla **🥊 Brutus comenta la pelea** del panel de regalos; encendida de fábrica): el
+  juego le avisa a la voz de lo que pasa y Brutus lo comenta con frases fijas (sin IA): un **golpe crítico muy duro** (que
+  le quita a quien lo recibe el 25 % o más de su vida máxima; con el 45 % o más, una frase más fuerte), una **pelea
+  reñida** (quedan dos, los dos con el 60 % de vida o menos y menos de 15 puntos de diferencia; una vez por ronda) y el
+  que **queda solo esperando rival** (a los 6 s, y otra vez cada 30 s; invita a comentar o dar 30 toques para entrar).
+  Límites para no hablar sin parar: 8 s entre comentarios de la pelea, un mínimo por tipo (críticos 20 s, reñida 90 s,
+  solo 40 s) y 60 por hora (`NARRADOR_MAX_HORA` en `voz.env`). Lo que tarda en tocarle y ya no tiene sentido se descarta.
+- **Voz**: [ElevenLabs](https://elevenlabs.io), con el modelo `eleven_flash_v2_5`. Una cola con prioridad (regalos,
+  preguntas, saludos) descarta lo que caduca, para que la voz no vaya por detrás del directo.
+- **Puesta en marcha (Windows)**: instala Ollama, abre PowerShell y ejecuta `ollama pull qwen2.5:3b`; copia
+  `live/voz.env.ejemplo` como `live/voz.env` y pon tu clave y el ID de la voz de ElevenLabs. Con `voz.env`,
+  `iniciar-directo.bat` abre también la ventana de la voz. Para probarla sin directo: `node voz.js --prueba` en `live/`.
+  Sin las claves no habla: solo escribe en su ventana lo que diría.
+- **Que se oiga en el directo**: suena por la salida de audio predeterminada de Windows. En OBS o TikTok LIVE Studio,
+  captura el audio del escritorio (o manda la salida a un cable de audio virtual y captúralo).
+- El puente ahora manda también el texto de cada comentario (`{ type: 'comment', user, text }`); el juego lo ignora.
+
 ## Estructura (`web/src`)
 
 - `engine/` — motor de peleas del servidor original, sin Prisma; `session.ts` lo juega turno a turno.

@@ -58,9 +58,45 @@ const setStatus = (state, text) => {
   if (changed) send(status);
   return changed;
 };
+// Lo que el juego le manda a la voz del streamer virtual (live/voz.js): los ajustes de las casillas 💬 y 🥊 del panel de
+// regalos ({ type: 'config', conversacional, narrador, saludos }; el puente se los recuerda a los que se conecten después) y lo
+// que pasa en la pelea ({ type: 'pelea', evento, nombres, pct }: un golpe crítico duro, pelea reñida, uno solo
+// esperando rival). Se reenvía a los demás clientes, con los campos revisados
+let config = null;
+const PELEA_EVENTOS = new Set(['critico', 'renida', 'solo', 'solo_fin']);
 server.on('connection', (ws) => {
   ws.send(JSON.stringify(status));
-  console.log('🎮 El juego se conectó al puente');
+  if (config) ws.send(JSON.stringify(config));
+  console.log('🎮 Un cliente se conectó al puente (el juego o la voz)');
+  ws.on('message', (raw) => {
+    let msg;
+    try {
+      msg = JSON.parse(raw.toString());
+    } catch {
+      return;
+    }
+    let out;
+    if (msg?.type === 'config' && typeof msg.conversacional === 'boolean') {
+      config = {
+        type: 'config',
+        conversacional: msg.conversacional,
+        narrador: msg.narrador !== false,
+        saludos: msg.saludos !== false,
+      };
+      const on = (v) => (v ? 'activado' : 'apagado');
+      console.log(
+        `⚙️ Conversacional ${on(config.conversacional)}, narrador ${on(config.narrador)}, saludos con nombre ${on(config.saludos)}`,
+      );
+      out = config;
+    } else if (msg?.type === 'pelea' && PELEA_EVENTOS.has(msg.evento) && Array.isArray(msg.nombres)) {
+      const nombres = msg.nombres.slice(0, 2).map((n) => String(n).slice(0, 40));
+      out = { type: 'pelea', evento: msg.evento, nombres, pct: Math.min(1, Math.max(0, Number(msg.pct) || 0)) };
+      console.log(`🥊 ${out.evento}: ${nombres.join(' / ')}${out.pct ? ` (${Math.round(out.pct * 100)}% de su vida)` : ''}`);
+    }
+    if (!out) return;
+    const text = JSON.stringify(out);
+    for (const client of server.clients) if (client !== ws && client.readyState === client.OPEN) client.send(text);
+  });
 });
 
 // ===== Desde TikTok =====
@@ -170,12 +206,27 @@ connection.on(WebcastEvent.MEMBER, (data) => {
   console.log(`🚪 ${user} entró al directo`);
   send({ type: 'join', user });
 });
+// Quien te sigue o comparte el directo: solo lo usa la voz del streamer virtual (live/voz.js) para agradecerlo; el juego lo ignora
+connection.on(WebcastEvent.FOLLOW, (data) => {
+  const user = who(data.user);
+  if (!user) return;
+  console.log(`➕ ${user} te siguió`);
+  send({ type: 'follow', user });
+});
+connection.on(WebcastEvent.SHARE, (data) => {
+  const user = who(data.user);
+  if (!user) return;
+  console.log(`🔁 ${user} compartió el directo`);
+  send({ type: 'share', user });
+});
 // Comentarios: comentar mete a pelear (ver ¿Cómo jugar? en el juego)
 connection.on(WebcastEvent.CHAT, (data) => {
   const user = who(data.user);
   if (!user) return;
-  console.log(`💬 ${user}: ${data.comment ?? data.content ?? ''}`);
-  send({ type: 'comment', user });
+  const text = data.comment ?? data.content ?? '';
+  console.log(`💬 ${user}: ${text}`);
+  // (el texto lo usa la voz del streamer virtual, live/voz.js; el juego solo mira quién comentó)
+  send({ type: 'comment', user, text });
 });
 
 process.on('SIGINT', async () => {

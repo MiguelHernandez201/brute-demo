@@ -11,6 +11,8 @@ if "%USUARIO%"=="" exit /b 1
 if not exist live\node_modules (pushd live & call npm install & popd)
 if not exist web\node_modules (pushd web & call npm install & popd)
 start "Puente del directo de TikTok" /d "%~dp0live" cmd /k node puente.js %USUARIO%
+rem Voz del streamer virtual (ElevenLabs + Ollama): solo si existe live\voz.env (copia de live\voz.env.ejemplo)
+if exist live\voz.env start "Voz del streamer virtual" /d "%~dp0live" cmd /k node voz.js
 start "" "http://localhost:3100/?tiktok"
 cd web
 npx vite --port 3100
