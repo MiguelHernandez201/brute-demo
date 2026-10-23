@@ -95,6 +95,14 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     se la cambia: se guarda la nueva. Sacar un arma por su cuenta cuesta (ver abajo), así que un regalo es la manera
     segura de ir armado.
   - **🙋 Unirse**: entra sin regalo, como quien comenta para unirse.
+  - **👓 Gustavo Petro** y **🎩 Abelardo**: botones especiales que meten a pelear a **Gustavo Petro** (peinado con
+    entradas y copete lateral, gafas rectangulares, guayabera blanca con alforzas, banda presidencial tricolor y
+    pantalón oscuro) o a **Abelardo** (con la caricatura de referencia como cabeza, en grande, recortada del fondo y
+    metida en el juego con el pelo y la barba en negro, `web/src/abelardoCara.ts`; y traje de cachaco: paño oscuro con
+    rayas finas, chaleco gris, camisa blanca, corbata vinotinto, pañuelo blanco y zapatos negros),
+    con el nombre escrito en el panel o el suyo propio si está vacío (`web/src/chuck.ts`). También desde la consola con
+    `labrute.petro('usuario')`, `labrute.abelardo('usuario')` y `labrute.chuck('usuario')`. Quien entra con una de estas
+    skins la conserva en las rondas siguientes mientras la página siga abierta.
   - **👆 Tap tap**: los toques en la pantalla (los "me gusta" del directo), 30 por la cantidad elegida (x1: lo que
     cuesta entrar). Son gratis, así que dan poco: **30 toques** meten al espectador en la pelea (antes bastaba el
     primero) y cada 100 toques suyos le dan **+30** de vida (lo de una Rose, sin su arma); los de entrar también cuentan para eso.
@@ -107,7 +115,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
   - **↗️ Otra ventana** abre el panel solo (`?panel`), que manda los regalos a la ventana del juego: así en el directo
     se captura solo la del juego.
   - Para mandar regalos desde fuera (la consola, TikFinity u otro programa): `labrute.gift('usuario', 'rose', 5)`,
-    `labrute.join('usuario')` y `labrute.like('usuario', 15)` (los toques de cada aviso de "me gusta") en la ventana
+    `labrute.join('usuario')`, `labrute.petro('usuario')`, `labrute.abelardo('usuario')`, `labrute.chuck('usuario')` y
+    `labrute.like('usuario', 15)` (los toques de cada aviso de "me gusta") en la ventana
     del juego (los regalos: `rose`, `quiereme`, `rosa`, `dona`, `handheart`, `corgi`, o el nombre de cualquiera del
     catálogo, como `'Heart Me'` o `'Rose'`). Con lo que vale uno como cuarto dato
     (`labrute.gift('usuario', 'Rose', 5, 1)`) solo cuenta como ese regalo si el nombre y el precio casan; si no, da

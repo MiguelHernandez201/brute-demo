@@ -23,6 +23,10 @@ import { sfx, sounds } from './sfx.ts';
 import { playPromotionalTrailer } from './trailer.ts';
 import { BOOST_HP } from './engine/ultimates.ts';
 import { connectLive } from './live.js';
+import { ABELARDO_LOOK, CHUCK_LOOK, PETRO_LOOK, installChuck } from './chuck.ts';
+// Personajes especiales con piezas dibujadas para el muñeco además de las del juego (ver chuck.ts): se meten antes de
+// la primera pelea
+installChuck();
 
 const $ = (id) => document.getElementById(id);
 const renderer = createRenderer();
@@ -470,9 +474,14 @@ const cleanUser = (user) =>
   String(user ?? '')
     .trim()
     .slice(0, 24);
-function applyGift({ user, gift, count = 1, coins }) {
+// Aspecto fijo de los espectadores que entran como un personaje especial (`look` al unirse: 'petro', 'abelardo' o
+// 'chuck'). Se recuerda mientras sigue abierta la página, así sigue siéndolo en las rondas siguientes
+const LOOKS = { chuck: CHUCK_LOOK, petro: PETRO_LOOK, abelardo: ABELARDO_LOOK };
+const looks = new Map();
+function applyGift({ user, gift, count = 1, coins, look }) {
   const name = cleanUser(user);
   if (!name) return;
+  if (LOOKS[look]) looks.set(name, LOOKS[look]);
   const g = findGift(gift, Math.round(+coins) || 0);
   const tier = g ? tierOf(g) : 0;
   const hp = g ? giftHp(g) : undefined;
@@ -559,6 +568,9 @@ const sendGift = (data) => (panelOnly ? giftChannel?.postMessage(data) : applyEv
 globalThis.labrute = {
   gift: (user, gift, count = 1, coins) => applyGift({ user, gift, count, coins }),
   join: (user) => applyGift({ user }),
+  petro: (user = 'Gustavo Petro') => applyGift({ user, look: 'petro' }),
+  abelardo: (user = 'Abelardo') => applyGift({ user, look: 'abelardo' }),
+  chuck: (user = 'Chuck') => applyGift({ user, look: 'chuck' }),
   like: (user, count = 1) => applyLikes({ user, count }),
   gifts: GIFTS.map((g) => g.id),
 };
@@ -723,6 +735,9 @@ function setupGiftPanel() {
       .forEach((b) => b.classList.toggle('on', b === button));
   };
   $('giftJoin').onclick = () => sendGift({ user: user() });
+  // Personajes especiales: con el nombre escrito o, si no hay, el suyo
+  $('giftPetro').onclick = () => sendGift({ user: $('giftUser').value.trim() || 'Gustavo Petro', look: 'petro' });
+  $('giftAbelardo').onclick = () => sendGift({ user: $('giftUser').value.trim() || 'Abelardo', look: 'abelardo' });
   // Toques: LIKES_TO_JOIN por cantidad elegida (x1: lo que cuesta entrar)
   $('giftTap').onclick = () => sendGift({ user: user(), likes: true, count: LIKES_TO_JOIN * giftCount });
   $('giftRandom').onclick = () => {
@@ -890,7 +905,7 @@ function renderRoster(fight) {
     const index = [...state].find(([, s]) => !s.out && s.name === user)?.[0];
     if (index === undefined) {
       if (!canAdd()) return false;
-      const brute = fight.addBrute?.(user);
+      const brute = fight.addBrute?.(user, looks.get(user));
       if (!brute) return false;
       const first = queue.shift();
       state.set(brute.index, {
