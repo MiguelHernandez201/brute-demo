@@ -237,7 +237,7 @@ function social({ user }, tipo) {
 
 // ===== Saludos en el chat → respuesta con plantilla =====
 // "hola", "buenas", "qué más"… no son preguntas, pero Brutus tiene que devolver el saludo (sin IA, instantáneo)
-const SALUDO_RE = /^\W*(hola+|holi+|ola|buenas+|buenos d[ií]as|buenas (tardes|noches)|hey+|ey+|saludos|qu[eé] m[aá]s|quiubo|quihubo|epa|hello|hi)/i;
+const SALUDO_RE = /^\W*(hola+|holi+|ola|buenas+|buenos d[ií]as|buenas (tardes|noches)|hey+|ey+|saludos|qu[eé] m[aá]s|quiubo|quihubo|epa|hello|hi)\b/i;
 const saludadosChat = new Map();
 let ultimoSaludoChat = 0;
 function saludoChat({ user, text }) {
