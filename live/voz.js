@@ -9,6 +9,7 @@
 //
 // Uso: node voz.js   (o iniciar-directo.bat, que lo abre solo si existe live/voz.env)
 //      node voz.js --prueba   (no usa el puente: lanza unos eventos de ejemplo para oír la voz)
+//      node voz.js --prueba-bandos   (lo mismo, en el modo Petro vs Abelardo)
 // Configuración en live/voz.env (copia voz.env.ejemplo). Sin clave de ElevenLabs no habla: solo escribe lo que diría.
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -186,6 +187,20 @@ async function reproducir(mp3) {
   await rm(archivo, { force: true });
 }
 
+// ===== Modo Petro vs Abelardo =====
+// El juego avisa en la config si se juega ese modo ({ type: 'config', modo: 'bandos' }). Entonces los saludos invitan a
+// comentar el bando, los gracias por regalos dicen que van al jefe, el narrador cuenta lo de los bandos (ver
+// frasesPelea) y el modelo recibe las reglas del modo (EXTRA_BANDOS). Gustavo Petro y Abelardo son solo personajes del
+// juego: las frases hablan de la pelea y nunca de política, ni de a quién apoyar
+let modoBandos = false;
+// (lo que da cada regalo: el mismo reparto que BANDOS_GIFTS en web/src/sim.ts)
+const EXTRA_BANDOS = `
+MODO PETRO VS ABELARDO (el que se juega ahora; cambia estas reglas de EL JUEGO):
+- Hay dos bandos, cada uno con su jefe: Gustavo Petro y Abelardo, personajes del juego. Gana la ronda el bando que derriba al jefe rival.
+- Para elegir bando se comenta petro o abelardo (o 1 o 2). Quien no elige va al bando con menos gente.
+- Los regalos van sobre todo al jefe del bando de quien regala: 1 a 9 monedas, +10 de vida al jefe; 10 a 29, +100; 30 a 99, +300, aura y un poder; 100 a 298, +600, aura, poder y mascota; 299 o más, +900, dos poderes y minigun. El luchador de quien regala recibe menos vida y un arma.
+- Nunca digas a qué bando apoyar ni opines de Gustavo Petro o Abelardo como personas reales: solo hablas de la pelea.`;
+
 // ===== Regalos → gracias =====
 // Los de racha (las Rose seguidas) llegan de uno en uno: se juntan por espectador y se agradecen todos de una vez
 // cuando dejan de llegar (3 s), o a los 10 s si la racha sigue
@@ -208,6 +223,16 @@ function agradecer(user) {
   const que =
     r.nombres.size > 1 ? 'todos esos regalos' : `${r.count > 1 ? `${r.count} ` : ''}${[...r.nombres][0]}`;
   const por = (frases) => elegir(frases).replace('{n}', nombre).replace('{r}', que);
+  // (con bandos, casi todo el regalo va a su jefe)
+  if (modoBandos) {
+    if (r.monedas >= 299)
+      decir(por(['Uyyy {n}! Gracias por {r}! Tu jefe sacó la minigun, la arena está temblando!', 'No lo puedo creer, {n}! {r}! Tu jefe ahora sí es imparable, muchísimas gracias!']), REGALO);
+    else if (r.monedas >= 30)
+      decir(por(['Qué nivel, {n}! Gracias por {r}, tu jefe se prendió con el aura!', '{n}, gracias por {r}! Tu jefe ya tiene poder para repartir!']), REGALO);
+    else
+      decir(por(['Gracias {n} por {r}! Eso es vida para tu jefe!', 'Mil gracias {n} por {r}, tu jefe aguanta más!']), REGALO);
+    return;
+  }
   if (r.monedas >= 299)
     decir(por(['Uyyy {n}! Gracias por {r}! Eso sí es un regalazo, la arena está temblando!', 'No lo puedo creer, {n}! {r}! Eres una leyenda, muchísimas gracias!']), REGALO);
   else if (r.monedas >= 30)
@@ -246,6 +271,12 @@ function saludar() {
   if (!nombres.length || Date.now() - ultimoSaludo < 10_000 || cola.length >= 3) return;
   if (!saludoNombres && llegaron <= 3) return;
   ultimoSaludo = Date.now();
+  if (modoBandos) {
+    if (llegaron === 1) decir(`Bienvenido ${nombres[0]}! Comenta petro o abelardo y entras a pelear por tu bando!`, SALUDO);
+    else if (llegaron <= 3) decir(`Bienvenidos ${lista(nombres)}! Comenten petro o abelardo para elegir bando!`, SALUDO);
+    else decir('Bienvenidos todos los que van llegando! Comenten petro o abelardo y entran a pelear por su bando!', SALUDO, true);
+    return;
+  }
   if (llegaron === 1) decir(`Bienvenido ${nombres[0]}! Comenta algo en el chat y entras a la arena!`, SALUDO);
   else if (llegaron <= 3) decir(`Bienvenidos ${lista(nombres)}! Comenten para entrar a pelear!`, SALUDO);
   else decir('Bienvenidos todos los que van llegando! Comenten o den treinta toques y entran a la arena!', SALUDO, true);
@@ -279,7 +310,8 @@ function saludoChat({ user, text }) {
   saludadosChat.set(user, ahora);
   ultimoSaludoChat = ahora;
   const n = nombreHablado(user);
-  decir(elegir([`Hola ${n}, qué más pues! Comenta o dale treinta toques y entrás a la arena!`, `Quiubo ${n}! Bienvenido, escribí lo que quieras y entrás a pelear!`, `Ey ${n}, buenas! Qué nota que estés acá, hágale a la arena!`]), SALUDO);
+  if (modoBandos) decir(elegir([`Hola ${n}, qué más pues! Escribí petro o abelardo y entrás a pelear por tu bando!`, `Quiubo ${n}! Bienvenido, elegí bando comentando petro o abelardo!`]), SALUDO);
+  else decir(elegir([`Hola ${n}, qué más pues! Comenta o dale treinta toques y entrás a la arena!`, `Quiubo ${n}! Bienvenido, escribí lo que quieras y entrás a pelear!`, `Ey ${n}, buenas! Qué nota que estés acá, hágale a la arena!`]), SALUDO);
   return true;
 }
 
@@ -352,6 +384,10 @@ function configurar(msg) {
         : '👋 Saludos con nombre apagados (solo el saludo general para grupos).',
     );
   }
+  if (typeof msg.modo === 'string' && (msg.modo === 'bandos') !== modoBandos) {
+    modoBandos = msg.modo === 'bandos';
+    console.log(modoBandos ? '⚔️ Modo Petro vs Abelardo.' : '👑 Modo battle royale.');
+  }
   if (typeof msg.narrador === 'boolean' && msg.narrador !== narrador) {
     narrador = msg.narrador;
     console.log(narrador ? '🥊 Narrador de la pelea ACTIVADO.' : '🥊 Narrador de la pelea apagado.');
@@ -367,10 +403,18 @@ function configurar(msg) {
 let narrador = true;
 const NARR_MAX_HORA = Number(env.NARRADOR_MAX_HORA) || 60;
 const NARR_ENTRE_MS = 8000;
+// Por tipo de aviso: cada cuánto como mucho, cuánto vale en la cola y cuántos nombres trae. Los del modo Petro vs Abelardo:
+// `fija` si la frase solo lleva los nombres de los jefes o de los bandos (su audio se guarda y no vuelve a gastar),
+// `conNombre` si lleva el de un espectador (como los saludos, solo con la casilla 👋 encendida) y `urgente` el del
+// ganador, que se dice aunque haya hablado hace poco y va el primero de la cola
 const NARR_TIPO = {
-  critico: { cada: 20_000, caduca: 8000 },
-  renida: { cada: 90_000, caduca: 12_000 },
-  solo: { cada: 40_000, caduca: 12_000 },
+  critico: { cada: 20_000, caduca: 8000, nombres: 2 },
+  renida: { cada: 90_000, caduca: 12_000, nombres: 2 },
+  solo: { cada: 40_000, caduca: 12_000, nombres: 1 },
+  bandos_inicio: { cada: 300_000, caduca: 15_000, nombres: 2, fija: true },
+  bandos_peligro: { cada: 20_000, caduca: 10_000, nombres: 2, fija: true },
+  bandos_gana: { cada: 0, caduca: 15_000, nombres: 2, fija: true, urgente: true },
+  bandos_bando: { cada: 15_000, caduca: 10_000, nombres: 2, conNombre: true },
 };
 const narrHora = [];
 const narrUltimo = {};
@@ -393,6 +437,24 @@ const frasesPelea = {
     '{a} se quedó solito en la arena! Comenten o den treinta toques para entrar y retarlo!',
     'Ahí está {a} esperando rival, parce. Alguien que se le mida, comenten para entrar!',
   ],
+  // Modo Petro vs Abelardo. Inicio: {a} y {b}, los bandos. Peligro: {a} el jefe y {b} su bando. Gana: {a} el bando que
+  // gana y {b} el jefe que cayó. Bando: {a} el espectador y {b} su bando
+  bandos_inicio: [
+    'Arranca la ronda! Comenten {a} o {b} para elegir su bando y entrar a pelear!',
+    'Nueva ronda, parce! Escriban {a} o {b} en el chat y a defender a su jefe!',
+  ],
+  bandos_peligro: [
+    '{a} está en las últimas! Bando de {b}, a defenderlo!',
+    'Uy, a {a} le queda poquita vida! Ánimo, bando de {b}!',
+  ],
+  bandos_gana: [
+    'Cayó {b}! Gana la ronda el bando de {a}!',
+    'Se acabó, parce! {b} al suelo y el bando de {a} se lleva la ronda!',
+  ],
+  bandos_bando: [
+    '{a} se une al bando de {b}!',
+    'Bienvenido al bando de {b}, {a}!',
+  ],
 };
 // El juego avisa 'solo' mientras alguien espera rival y 'solo_fin' cuando deja de estar solo (entró alguien, o acabó la
 // ronda): si la frase aún está en la cola, ya no se dice
@@ -404,12 +466,13 @@ function pelea({ evento, nombres, pct = 0 }) {
   }
   if (evento === 'solo') alguienSolo = true;
   const tipo = NARR_TIPO[evento];
-  if (!narrador || !tipo || !Array.isArray(nombres) || !nombres[0]) return;
-  if (evento !== 'solo' && !nombres[1]) return;
+  if (!narrador || !tipo || !Array.isArray(nombres)) return;
+  if (nombres.length < tipo.nombres || nombres.slice(0, tipo.nombres).some((x) => !x)) return;
+  if (tipo.conNombre && !saludoNombres) return;
   const ahora = Date.now();
   while (narrHora.length && ahora - narrHora[0] > 3_600_000) narrHora.shift();
-  if (narrHora.length >= NARR_MAX_HORA || cola.length >= 2) return;
-  if (ahora - narrAntes < NARR_ENTRE_MS || ahora - (narrUltimo[evento] ?? 0) < tipo.cada) return;
+  if (narrHora.length >= NARR_MAX_HORA || (!tipo.urgente && cola.length >= 2)) return;
+  if ((!tipo.urgente && ahora - narrAntes < NARR_ENTRE_MS) || ahora - (narrUltimo[evento] ?? 0) < tipo.cada) return;
   narrAntes = ahora;
   narrUltimo[evento] = ahora;
   narrHora.push(ahora);
@@ -417,7 +480,7 @@ function pelea({ evento, nombres, pct = 0 }) {
   const frase = elegir(frasesPelea[clave])
     .replace('{a}', nombreHablado(String(nombres[0])))
     .replace('{b}', nombreHablado(String(nombres[1] ?? '')));
-  decir(frase, PREGUNTA, false, tipo.caduca, evento === 'solo' ? 'solo' : undefined);
+  decir(frase, tipo.urgente ? REGALO : PREGUNTA, !!tipo.fija, tipo.caduca, evento === 'solo' ? 'solo' : undefined);
 }
 
 async function comentario({ user, text }) {
@@ -463,7 +526,10 @@ async function preguntar(pregunta, user, conv = false) {
       stream: false,
       keep_alive: '30m',
       messages: [
-        { role: 'system', content: conv ? SISTEMA + EXTRA_CONVERSACION : SISTEMA },
+        {
+          role: 'system',
+          content: SISTEMA + (modoBandos ? EXTRA_BANDOS : '') + (conv ? EXTRA_CONVERSACION : ''),
+        },
         { role: 'user', content: contexto },
       ],
       options: { temperature: conv ? 0.8 : 0.6, num_predict: 80, num_ctx: conv ? 3072 : 2048 },
@@ -551,6 +617,26 @@ async function prueba() {
   await limpiarTodo();
   process.exit(0);
 }
+// Lo mismo en el modo Petro vs Abelardo: entra al modo, una ronda con quien elige bando, un regalo, un jefe en peligro
+// y el ganador
+async function pruebaBandos() {
+  console.log('Modo prueba (Petro vs Abelardo): eventos de ejemplo, sin puente.');
+  const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+  evento({ type: 'config', modo: 'bandos' });
+  evento({ type: 'pelea', evento: 'bandos_inicio', nombres: ['Petro', 'Abelardo'] });
+  await espera(9000);
+  evento({ type: 'pelea', evento: 'bandos_bando', nombres: ['maria_p', 'Petro'] });
+  evento({ type: 'join', user: 'sofi.vega' });
+  await espera(9000);
+  evento({ type: 'gift', user: 'carlos_k', gift: 'Rosa', coins: 10, count: 1 });
+  await espera(4000);
+  evento({ type: 'pelea', evento: 'bandos_peligro', nombres: ['Abelardo', 'Abelardo'] });
+  await espera(9000);
+  evento({ type: 'pelea', evento: 'bandos_gana', nombres: ['Petro', 'Abelardo'] });
+  while (hablando || cola.length) await espera(500);
+  await limpiarTodo();
+  process.exit(0);
+}
 async function limpiarTodo() {
   if (carpeta) await rm(carpeta, { recursive: true, force: true }).catch(() => {});
 }
@@ -561,5 +647,6 @@ process.on('SIGINT', async () => {
 
 console.log(`Voz del streamer virtual: ${cfg.key && cfg.voz ? 'ElevenLabs' : 'sin voz (solo texto)'} + ${cfg.modelo} en Ollama. Ctrl+C para cerrarla.`);
 await calentarModelo();
-if (process.argv.includes('--prueba')) await prueba();
+if (process.argv.includes('--prueba-bandos')) await pruebaBandos();
+else if (process.argv.includes('--prueba')) await prueba();
 else conectar();

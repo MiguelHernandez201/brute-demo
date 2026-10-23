@@ -776,9 +776,20 @@ let talk = readFlag(TALK_KEY, false);
 let narr = readFlag(NARR_KEY, true);
 let hello = readFlag(HELLO_KEY, true);
 let liveLink = null;
-const pushConfig = () => liveLink?.send({ type: 'config', conversacional: talk, narrador: narr, saludos: hello });
+// (`modo`: 'bandos' en el de Petro vs Abelardo, para que Brutus salude, agradezca y responda con sus reglas)
+const pushConfig = () =>
+  liveLink?.send({
+    type: 'config',
+    conversacional: talk,
+    narrador: narr,
+    saludos: hello,
+    modo: bandos.on ? 'bandos' : 'royale',
+  });
 // Lo que pasa en la pelea, para que la voz lo comente: 'critico' (nombres: quien pega y quien recibe; pct: lo que le
-// quitó, en proporción a su vida máxima), 'renida' (los dos que quedan) y 'solo' (el que espera rival)
+// quitó, en proporción a su vida máxima), 'renida' (los dos que quedan) y 'solo' (el que espera rival). Con bandos,
+// además: 'bandos_inicio' (empieza la ronda; nombres: los bandos), 'bandos_peligro' (un jefe con poca vida: él y su
+// bando), 'bandos_gana' (el bando que gana y el jefe que cayó) y 'bandos_bando' (un espectador elige bando comentando:
+// él y el bando)
 const narrate = (evento, nombres, pct = 0) => narr && liveLink?.send({ type: 'pelea', evento, nombres, pct });
 $('giftTalk').checked = talk;
 $('giftNarr').checked = narr;
@@ -831,9 +842,13 @@ const applyLiveEvent = (e) => {
   if (viewer) recentViewers.set(viewer, Date.now());
   if (e.type === 'gift') applyGift({ user: e.user, gift: e.gift, count: e.count, coins: e.coins });
   else if (e.type === 'like') applyLikes({ user: e.user, count: e.count });
-  // (con bandos, el comentario elige bando si nombra a uno de los jefes)
-  else if (e.type === 'comment') applyGift({ user: e.user, side: bandos.on ? sideFromText(e.text) : undefined });
-  else if (e.type === 'join' && joinOnEnter()) applyGift({ user: e.user });
+  // (con bandos, el comentario elige bando si nombra a uno de los jefes; si es uno nuevo para él, la voz lo dice)
+  else if (e.type === 'comment') {
+    const side = bandos.on ? sideFromText(e.text) : undefined;
+    const fresh = side && viewer && chosenSides.get(viewer) !== side;
+    applyGift({ user: e.user, side });
+    if (fresh) narrate('bandos_bando', [viewer, sideById(side)?.name]);
+  } else if (e.type === 'join' && joinOnEnter()) applyGift({ user: e.user });
 };
 if (panelOnly) {
   if (giftChannel) {
@@ -1243,6 +1258,14 @@ function renderRoster(fight) {
   let aloneSent = -Infinity;
   let aloneAnnounced = false;
   let lastCritSent = 0;
+  // Con bandos: jefes de los que ya avisó que están en peligro (por debajo de CHIEF_DANGER de su vida; se vuelve a
+  // avisar si suben de CHIEF_SAFE, por los regalos de su bando)
+  const CHIEF_DANGER = 0.3;
+  const CHIEF_SAFE = 0.6;
+  const chiefWarned = new Set();
+  // Con bandos, si ya avisó a la voz de que empieza la ronda: en cuanto empieza a verse la pelea (no al crearla: en la
+  // primera ronda el juego aún no está conectado al puente y el aviso se perdía)
+  let startAnnounced = false;
   const tick = setInterval(() => {
     if (rosterFight !== fight) return clearInterval(tick);
     // Potenciadores en cola (con la pelea en marcha)
@@ -1288,6 +1311,25 @@ function renderRoster(fight) {
     }
     // Ya no se puede agregar (la pelea se cerró: solo queda el final por ver): botones apagados
     if (!canAdd()) document.querySelectorAll('#roster [data-add]').forEach((b) => (b.disabled = true));
+    if (bandos.on && !startAnnounced && elapsed) {
+      startAnnounced = true;
+      narrate(
+        'bandos_inicio',
+        SIDES.map((side) => side.name),
+      );
+    }
+    // Con bandos: un jefe con poca vida (la voz pide a su bando que lo defienda). Una vez hasta que se recupere
+    if (bandos.on && !winner && !fight.timeUp) {
+      for (const side of SIDES) {
+        const s = state.get(chiefOf[side.id]);
+        if (!s || s.out) continue;
+        const pct = s.hp / s.maxHp;
+        if (pct < CHIEF_DANGER && !chiefWarned.has(side.id)) {
+          chiefWarned.add(side.id);
+          narrate('bandos_peligro', [side.chief, side.name]);
+        } else if (pct > CHIEF_SAFE) chiefWarned.delete(side.id);
+      }
+    }
     const left = !winner && !fight.timeUp ? [...state.values()].filter((s) => !s.out) : [];
     if (left.length === 2 && !closeSent) {
       const [p, q] = left.map((s) => s.hp / s.maxHp);
@@ -1376,6 +1418,8 @@ function renderRoster(fight) {
             .map(([, s]) => s)
             .sort((a, b) => b.wins - a.wins)[0];
           showBandosWinner(side, mvp);
+          const fallen = SIDES.find((x) => x.id !== side);
+          narrate('bandos_gana', [sideById(side)?.name, fallen?.chief]);
         } else if (!bandos.on) {
           scoreOf(w.name).wins += 1;
           saveRanking();
@@ -1569,6 +1613,7 @@ $('trailerGo').onclick = () => {
 const enterTiktok = (withBandos = false) => {
   bandos.on = withBandos;
   document.body.classList.toggle('bandos', withBandos);
+  pushConfig();
   if (withBandos) renderVersus();
   renderHowTo();
   royaleCount = Math.max(3, Math.min(20, +$('royaleCount').value || 6));
@@ -1765,6 +1810,7 @@ $('back').onclick = async () => {
   if (tiktok.on) {
     tiktok.on = false;
     bandos.on = false;
+    pushConfig();
     setSideColors(null);
     document.body.classList.remove('tiktok', 'tt-controls', 'tt-edit', 'bandos');
     hideWinner();
