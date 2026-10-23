@@ -136,6 +136,9 @@ export type DetailedFight = {
   // Demo battle royale: grupo de duelo de cada equipo y paso habitual de cada luchador (ver royaleGroup y
   // royalePace en fightMethods)
   royaleDuels?: { group: Record<string, number>; next: number; step: Record<number, number> };
+  // Demo bandos (royale de dos bandos, cada uno con su jefe): bando de cada equipo y jefe de cada bando (id de su
+  // luchador). Los de un mismo bando no se atacan (ver sameSide en fightMethods) y la pelea acaba cuando cae un jefe
+  royaleSides?: { side: Record<string, string>; chiefs: Record<string, string> };
 }
 
 export type GenerateFightResult = {

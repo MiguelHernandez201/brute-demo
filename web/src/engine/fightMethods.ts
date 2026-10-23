@@ -39,6 +39,18 @@ export const KI_DAMAGE = 3;
 // Demo battle royale: quien ha usado un potenciador (ver ultimates.boost) no pierde nunca el arma que lleva: ni se la
 // quitan (desarmes, Martillo, robo), ni la lanza (sola o con el Diluvio), ni la cambia por otra
 const keepsWeapon = (f: DetailedFighter) => !!(f as { demoKeepWeapon?: boolean }).demoKeepWeapon && !!f.activeWeapon;
+// Demo bandos: si los equipos `a` y `b` son del mismo bando y no se atacan (sin bandos, solo si son el mismo equipo)
+export const sameSide = (fightData: DetailedFight, a: string, b: string) => {
+  if (a === b) return true;
+  const side = fightData.royaleSides?.side;
+  return !!side && side[a] !== undefined && side[a] === side[b];
+};
+// Demo bandos: si el luchador es el jefe de su bando
+export const isChief = (fightData: DetailedFight, f: DetailedFighter) => !!fightData.royaleSides
+  && Object.values(fightData.royaleSides.chiefs).includes(f.id);
+// Demo bandos: a los jefes las ultimates y la minigun de los potenciadores les quitan esta parte de lo normal. Con
+// todo un bando regalando, si no, un solo Corgi derribaba al jefe rival y la ronda se decidía en segundos
+const CHIEF_ULTIMATE_FACTOR = 0.25;
 
 export type Stats = Record<string, {
   userId: string | null;
@@ -168,10 +180,14 @@ const royaleGroup = (fightData: DetailedFight, team: string) => {
   const members = (group: number | undefined) => (group === undefined
     ? []
     : alive.filter((t) => duels.group[t] === group));
+  // Con bandos, los de su bando no son rivales: un grupo solo vale mientras tenga gente de los dos (sin bandos, mientras
+  // tenga a dos)
+  const rival = (t: string) => !sameSide(fightData, t, team);
+  const valid = (teams: string[]) => teams.some((t) => teams.some((o) => !sameSide(fightData, o, t)));
   // Sigue en su grupo mientras le quede algún rival en pie
   const current = duels.group[team];
-  if (members(current).length >= 2) return current;
-  const others = alive.filter((t) => t !== team);
+  if (members(current).some(rival)) return current;
+  const others = alive.filter(rival);
   // Cada duelo lleva su propio ritmo, el de su animación (ver session.playTurn), así que la iniciativa de un grupo
   // puede ir por delante o por detrás de la de otro. Los que pasan a pelear con quien busca grupo se ponen a su hora,
   // como el que acaba de entrar en la pelea: si no, el que fuera por detrás encadenaría varios turnos seguidos
@@ -187,10 +203,13 @@ const royaleGroup = (fightData: DetailedFight, team: string) => {
     sync([other]);
     return group;
   };
-  const free = pickOne(others.filter((t) => members(duels.group[t]).length < 2));
+  // Libre: sin rival en su grupo. De un trío (o de un grupo mayor, con bandos) se saca a quien deje el resto peleando
+  const free = pickOne(others.filter((t) => !valid(members(duels.group[t]))));
   if (free) return pairWith(free);
-  const trio = pickOne([...new Set(others.map((t) => duels.group[t]))].filter((g) => members(g).length >= 3));
-  if (trio !== undefined) return pairWith(pickOne(members(trio)) as string);
+  const spare = (g: number | undefined) => members(g).filter((t) => rival(t) && valid(members(g).filter((o) => o !== t)));
+  const trio = pickOne([...new Set(others.map((t) => duels.group[t]))].filter((g) => spare(g).length));
+  if (trio !== undefined) return pairWith(pickOne(spare(trio)) as string);
+  // Con bandos el grupo al que se suma puede crecer más allá de un trío (cuando un bando tiene muchos más en pie)
   const pair = pickOne(others);
   if (!pair) return undefined;
   duels.group[team] = duels.group[pair] as number;
@@ -231,9 +250,10 @@ const getOpponents = ({
   let opponents = [];
 
   // Remove backups not arrived yet and dead fighters
+  // (demo bandos: ni los de su bando)
   opponents = fightData.fighters.filter((f) => !f.arrivesAtInitiative
     && f.hp > 0
-    && f.team !== fighter.team);
+    && !sameSide(fightData, f.team, fighter.team));
 
   // Demo battle royale: solo los equipos de su grupo de duelo
   const duels = fightData.royaleDuels;
@@ -622,6 +642,9 @@ export const registerHit = ({
     if ((fighter as { demoGiant?: boolean }).demoGiant) giantDamage *= 2;
     if ((fighter as { demoKi?: boolean }).demoKi) giantDamage *= KI_DAMAGE;
     if ((opponent as { demoGiant?: boolean }).demoGiant) giantDamage = Math.max(1, Math.floor(giantDamage / 2));
+    if (source === 'ultimate' && isChief(fightData, opponent)) {
+      giantDamage = Math.max(1, Math.floor(giantDamage * CHIEF_ULTIMATE_FACTOR));
+    }
     actualDamage[opponent.index] = giantDamage;
   });
 
