@@ -1688,7 +1688,21 @@
         display: flex;
         justify-content: space-between;
       }
-      #ttHowTo .tt-cols > ul {
+      /* (modo Petro vs Abelardo: cómo se elige bando, a todo lo ancho bajo las dos listas) */
+      #ttHowTo .tt-foot {
+        margin: 0.8cqw 0 0;
+        padding-top: 0.6cqw;
+        border-top: 0.3cqw dashed #dec37f;
+        text-align: center;
+        white-space: nowrap;
+      }
+      #ttHowTo .tt-foot b {
+        font-family: LaBrute, GameFont, system-ui, sans-serif;
+        font-weight: normal;
+        text-shadow: 0 0 0.3cqw #5b3516;
+      }
+      #ttHowTo .tt-cols > ul,
+      #ttHowTo .tt-cols > .tt-right {
         padding-left: 2cqw;
         border-left: 0.3cqw dashed #dec37f;
       }
@@ -2064,13 +2078,13 @@
       <div class="gift-actions">
         <button
           id="giftPetro"
-          title="Entra a pelear como Gustavo Petro (con el nombre escrito o, si no hay, 'Gustavo Petro')"
+          title="Entra a pelear como Gustavo Petro (con el nombre escrito o, si no hay, 'Gustavo Petro'). En el modo Petro vs Abelardo, entra al bando de Petro (o se cambia a él desde la ronda siguiente)"
         >
           👓 Gustavo Petro
         </button>
         <button
           id="giftAbelardo"
-          title="Entra a pelear como Abelardo De La Espriella (con el nombre escrito o, si no hay, 'Abelardo')"
+          title="Entra a pelear como Abelardo De La Espriella (con el nombre escrito o, si no hay, 'Abelardo'). En el modo Petro vs Abelardo, entra al bando de Abelardo (o se cambia a él desde la ronda siguiente)"
         >
           🎩 Abelardo
         </button>

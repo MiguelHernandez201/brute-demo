@@ -3,7 +3,10 @@
 //
 // Desde web/:
 //   node scripts/simular.mjs royale [rondas] [brutes]
-//   node scripts/simular.mjs bandos [rondas] [refuerzos] [regalos: 0 o 1] [vida de los jefes]
+//   node scripts/simular.mjs bandos [rondas] [refuerzos] [regalos: 0, 1, 2…] [vida de los jefes]
+//
+// Con regalos, cada 10 unidades (unos 27 s) llegan tantos como diga, de un espectador de un bando al azar, repartidos
+// como en el juego (ver sim.bandosGift): casi todos de 1 o 10 monedas, y de vez en cuando uno de 30, 100 o 299
 //
 // La duración sale de un modelo de la animación: cada turno ocupa a todos los que salen en él una "unidad" y el motor
 // no juega el turno de quien sigue ocupado (como session.playTurn con `hold`). Medido en el navegador (con un reloj
@@ -53,17 +56,22 @@ try {
     let lastGift = 0;
     const hold = (i) => (busy.get(i) ?? 0) > now + 1e-9;
     while (!session.finished && now <= LIMIT) {
-      // Con regalos: entra un espectador cada ~12 s y llega un regalo a uno de los jefes cada ~20 s
+      // Con regalos: entra un espectador cada ~16 s y llegan regalos (ver arriba). El que regala entra a su bando y
+      // recibe su parte, y su jefe la suya
       if (bandos && gifts) {
-        const side = () => (Math.random() < 0.5 ? 'petro' : 'abelardo');
+        const side = () => (Math.random() < +(process.env.SESGO ?? 0.5) ? 'petro' : 'abelardo');
         if (now - lastJoin >= 6 && fight.canAddBrute()) {
           lastJoin = now;
           fight.addBrute(`espectador${r}-${now}`, undefined, side());
         }
-        if (now - lastGift >= 10) {
+        if (now - lastGift >= 10 / gifts) {
           lastGift = now;
-          const tier = [7, 7, 7, 7, 5, 5, 2, 6, 3][Math.floor(Math.random() * 9)];
-          fight.castBoost(fight.chiefs()[side()], tier);
+          const coins = [1, 1, 1, 1, 10, 10, 30, 100, 299][Math.floor(Math.random() * 9)];
+          const { chief, viewer } = sim.bandosGift(coins);
+          const own = side();
+          const giver = fight.canAddBrute() ? fight.addBrute(`regalo${r}-${now}`, undefined, own) : null;
+          if (giver) fight.castBoost(giver.index, viewer.tier, viewer.hp);
+          fight.castBoost(fight.chiefs()[own], chief.tier, chief.hp);
         }
       }
       const before = fd.steps.length;

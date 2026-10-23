@@ -307,7 +307,7 @@ export class FightSession {
       if (this.bandos) fd.loser = this.#fallenChief()?.id ?? null;
       else fd.loser = alive.length > 1 ? null : (this.eliminated[this.eliminated.length - 1]?.id ?? null);
     }
-    // El 4, el 5 y el 7 solo traen el arma (el 5 y el 7, tras su vida)
+    // El 4, el 5, el 7 y el 8 solo traen el arma (todos menos el 4, tras su vida)
     if (boostOnlyWeapon(tier)) {
       boostGear(fd, caster, tier);
       return true;

@@ -130,6 +130,28 @@ const randomGender = () => (Math.random() > 0.5 ? 'male' : 'female');
 // de cada 6). Ver scripts/simular.mjs
 export const CHIEF_HP = 300;
 
+// Royale de bandos: cómo se reparte un regalo según lo que vale en monedas de TikTok. Casi todo va al jefe del bando de
+// quien lo manda: vida y, desde 30 monedas, lo del potenciador de ese escalón (aura de ki, poderes, mascota y minigun,
+// ver engine/ultimates.BoostTier); al espectador, menos vida y un arma (sencilla, o poderosa desde 30 monedas, sin aura ni
+// poder: el potenciador 8). La vida del jefe va en proporción a la suya (30 monedas se la devuelven entera) y no a la de
+// los potenciadores del royale: con ella, un Corgi le daba diez veces su vida. Los regalos de más de 299 monedas (el
+// León…) dan lo del Corgi con la vida en proporción a lo que valen
+export type GiftPart = { tier: BoostTier; hp: number };
+export const BANDOS_GIFTS: { coins: number; chief: GiftPart; viewer: GiftPart }[] = [
+  { coins: 1, chief: { tier: 1, hp: 10 }, viewer: { tier: 7, hp: 30 } },
+  { coins: 10, chief: { tier: 1, hp: 100 }, viewer: { tier: 7, hp: 50 } },
+  { coins: 30, chief: { tier: 2, hp: 300 }, viewer: { tier: 8, hp: 100 } },
+  { coins: 100, chief: { tier: 6, hp: 600 }, viewer: { tier: 8, hp: 200 } },
+  { coins: 299, chief: { tier: 3, hp: 900 }, viewer: { tier: 8, hp: 300 } },
+];
+export function bandosGift(coins: number) {
+  const row = BANDOS_GIFTS.findLast((r) => coins >= r.coins) ?? BANDOS_GIFTS[0]!;
+  // (dentro de cada escalón, todos dan lo mismo, como en el royale; solo los de más de 299 crecen con lo que valen)
+  const scale = row === BANDOS_GIFTS.at(-1) ? Math.max(1, coins / row.coins) : 1;
+  const part = ({ tier, hp }: GiftPart) => ({ tier, hp: Math.round(hp * scale) });
+  return { chief: part(row.chief), viewer: part(row.viewer) };
+}
+
 // Los dos jefes, con las mismas estadísticas, armas y habilidades: solo cambian el nombre y el aspecto, así ningún
 // bando sale con ventaja
 function makeChiefs(sides: RoyaleSide[]) {

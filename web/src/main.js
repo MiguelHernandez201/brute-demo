@@ -6,7 +6,7 @@ Filter.defaultOptions.resolution = 'inherit';
 // Mipmaps: las imágenes grandes que se muestran reducidas (retratos, hojas de sprites x3) se ven suaves y sin dientes.
 TextureSource.defaultOptions.autoGenerateMipmaps = true;
 import { gsap } from 'gsap';
-import { createRoyale } from './sim.ts';
+import { bandosGift, createRoyale } from './sim.ts';
 import { StepType } from '@labrute/core';
 import { createRenderer } from './renderer.ts';
 import { setupFight } from './fight/setupFight.ts';
@@ -545,6 +545,15 @@ const GIFT_BOOSTS = {
     powers: 0,
     text: 'cura o suma 30 PV y trae un arma sencilla que equipa al momento y le dura toda la pelea',
   },
+  // (modo Petro vs Abelardo: lo del espectador de un regalo desde 30 monedas, ver sim.bandosGift)
+  8: {
+    tier: 8,
+    label: '+100',
+    perks: '⚔️',
+    offer: '⚔️ un arma poderosa para toda la pelea',
+    powers: 0,
+    text: 'cura o suma vida y trae un arma poderosa que equipa al momento y le dura toda la pelea',
+  },
   6: {
     tier: 6,
     label: '+2000',
@@ -555,8 +564,10 @@ const GIFT_BOOSTS = {
   },
 };
 const boostOf = (tier) => GIFT_BOOSTS[tier] ?? BOOSTS[tier - 1];
-// Como mucho, potenciadores en cola por brute (un combo de muchos regalos no lo deja disparando ultimates sin fin)
+// Como mucho, potenciadores en cola por brute (un combo de muchos regalos no lo deja disparando ultimates sin fin). Los
+// jefes del modo de bandos reciben los de todo su bando: su cola es más larga
 const GIFT_QUEUE_MAX = 10;
+const CHIEF_QUEUE_MAX = 30;
 // Lo pone la lista de la ronda en curso (ver `gift` en renderRoster). Los regalos que llegan sin ronda en la que entrar
 // (entre rondas, o fuera del royale) esperan a la siguiente
 let rosterGift = null;
@@ -571,10 +582,35 @@ const cleanUser = (user) =>
 // 'chuck'). Se recuerda mientras sigue abierta la página, así sigue siéndolo en las rondas siguientes
 const LOOKS = { chuck: CHUCK_LOOK, petro: PETRO_LOOK, abelardo: ABELARDO_LOOK };
 const looks = new Map();
-function applyGift({ user, gift, count = 1, coins, look }) {
-  const name = cleanUser(user);
+// Modo de bandos: el bando de cada espectador. Lo elige comentando el nombre de su jefe (o 1 o 2, ver sideFromText), con
+// los botones 👓 y 🎩 del panel de regalos o con labrute.bando; si entra sin elegir, va al que tenga menos en pie y se
+// queda en ese. Se recuerda mientras siga abierta la página. Si cambia de bando estando en la pelea, sigue en el suyo
+// hasta la ronda siguiente
+const chosenSides = new Map();
+// (el nombre suelto: puede llevar números o signos pegados, como #petro2026, pero no otras letras, como "petróleo")
+const SIDE_WORDS = {
+  petro: /(^|[^a-z])(petro|gustavo)([^a-z]|$)/,
+  abelardo: /(^|[^a-z])(abelardo|espriella)([^a-z]|$)/,
+};
+const SIDE_NUMBERS = { petro: '1', abelardo: '2' };
+const sideFromText = (text) => {
+  const t = String(text ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+  const said = Object.keys(SIDE_WORDS).filter((id) => SIDE_WORDS[id].test(t) || t === SIDE_NUMBERS[id]);
+  // (si nombra a los dos, no elige ninguno)
+  return said.length === 1 ? said[0] : undefined;
+};
+function applyGift({ user, gift, count = 1, coins, look, side }) {
+  let name = cleanUser(user);
+  // (con bandos, los botones de Petro y Abelardo del panel eligen bando; sin nombre, o con el de un jefe, entra uno al
+  // azar: si no, se confundiría con él)
+  if (bandos.on && side && (!name || SIDES.some((s) => s.chief === name))) name = randomUser();
   if (!name) return;
-  if (LOOKS[look]) looks.set(name, LOOKS[look]);
+  if (bandos.on && sideById(side)) chosenSides.set(name, side);
+  else if (LOOKS[look]) looks.set(name, LOOKS[look]);
   const g = findGift(gift, Math.round(+coins) || 0);
   const tier = g ? tierOf(g) : 0;
   const hp = g ? giftHp(g) : undefined;
@@ -585,8 +621,10 @@ function applyGift({ user, gift, count = 1, coins, look }) {
       : `<b>${escHtml(name)}</b> se unió 🙋`,
     tier,
   );
-  if (mode === 'royale' && rosterGift?.(name, tier, n, hp)) return;
-  if (pendingGifts.length < 50) pendingGifts.push({ user: name, tier, count: n, hp });
+  // (con bandos, el regalo se reparte entre su jefe y él: ver sim.bandosGift)
+  const split = bandos.on && g ? bandosGift(g.coins) : undefined;
+  if (mode === 'royale' && rosterGift?.(name, tier, n, hp, split)) return;
+  if (pendingGifts.length < 50) pendingGifts.push({ user: name, tier, count: n, hp, split });
 }
 // Tap tap (los "me gusta" del directo: toques en la pantalla). Son gratis, así que dan poco: LIKES_TO_JOIN toques
 // meten al espectador en la pelea (antes bastaba el primero, como comentar) y cada LIKES_PER_HEAL toques suyos le dan
@@ -661,8 +699,10 @@ const sendGift = (data) => (panelOnly ? giftChannel?.postMessage(data) : applyEv
 globalThis.labrute = {
   gift: (user, gift, count = 1, coins) => applyGift({ user, gift, count, coins }),
   join: (user) => applyGift({ user }),
-  petro: (user = 'Gustavo Petro') => applyGift({ user, look: 'petro' }),
-  abelardo: (user = 'Abelardo') => applyGift({ user, look: 'abelardo' }),
+  petro: (user = 'Gustavo Petro') => applyGift({ user, look: 'petro', side: 'petro' }),
+  abelardo: (user = 'Abelardo') => applyGift({ user, look: 'abelardo', side: 'abelardo' }),
+  // Modo de bandos: entra (o se cambia, desde la ronda siguiente) al bando 'petro' o 'abelardo'
+  bando: (user, side) => applyGift({ user, side }),
   chuck: (user = 'Chuck') => applyGift({ user, look: 'chuck' }),
   like: (user, count = 1) => applyLikes({ user, count }),
   gifts: GIFTS.map((g) => g.id),
@@ -791,7 +831,9 @@ const applyLiveEvent = (e) => {
   if (viewer) recentViewers.set(viewer, Date.now());
   if (e.type === 'gift') applyGift({ user: e.user, gift: e.gift, count: e.count, coins: e.coins });
   else if (e.type === 'like') applyLikes({ user: e.user, count: e.count });
-  else if (e.type === 'comment' || (e.type === 'join' && joinOnEnter())) applyGift({ user: e.user });
+  // (con bandos, el comentario elige bando si nombra a uno de los jefes)
+  else if (e.type === 'comment') applyGift({ user: e.user, side: bandos.on ? sideFromText(e.text) : undefined });
+  else if (e.type === 'join' && joinOnEnter()) applyGift({ user: e.user });
 };
 if (panelOnly) {
   if (giftChannel) {
@@ -863,17 +905,27 @@ function setupGiftPanel() {
   // (la vida y lo que más se nota de un escalón de monedas; el Quiéreme, lo mismo que 1 moneda pero sin la palabra, que
   // no cabe)
   const gives = (tier) => [life(tier), COIN_TIERS.find((t) => t.tier === tier)?.short].filter(Boolean).join(' ');
-  // (con bandos, además, cómo se gana: derribando al jefe del otro bando)
+  // Con bandos, además: cómo se gana (derribando al jefe del otro bando), cómo se elige bando (comentando el nombre de
+  // su jefe, abajo) y que los regalos van sobre todo al jefe: la columna de las monedas ("Tu jefe 👑") dice lo que le
+  // dan a él (ver sim.bandosGift; al espectador le dan menos vida y un arma)
+  const chiefGives = (t) => {
+    const { hp } = bandosGift(t.coins).chief;
+    return [`${HEAL_ICON}+${hp}`, t.coins >= 30 ? t.short : ''].filter(Boolean).join(' ');
+  };
   renderHowTo = () => {
+    const [a, b] = SIDES;
+    const choose = bandos.on
+      ? `<p class="tt-foot">💬 Comenta <b style="color:${sideCss(a)}">${escHtml(a.name.toUpperCase())}</b> o <b style="color:${sideCss(b)}">${escHtml(b.name.toUpperCase())}</b> para elegir tu bando</p>`
+      : '';
     $('ttHowTo').innerHTML = `<div class="tt-cols"><div><div class="tt-title">¿Cómo jugar?</div><ul>
     ${bandos.on ? row('👑', 'Jefe rival', '¡derríbalo!') : ''}
     ${row('👆', `${LIKES_TO_JOIN} tap tap`, '¡a pelear!')}
     ${row('💬', 'Comenta', '¡a pelear!')}
     ${row('👆', `${LIKES_PER_HEAL} tap tap`, life(1))}
     ${heartMe ? row(giftIcon(heartMe), escHtml(heartMe.name), `${life(tierOf(heartMe))} ${boostOf(tierOf(heartMe)).perks}`) : ''}
-  </ul></div><ul>
-    ${COIN_TIERS.map((t) => row(COIN_ICON, t.coins, gives(t.tier))).join('')}
-  </ul></div>`;
+  </ul></div>${bandos.on ? '<div class="tt-right"><div class="tt-title">Tu jefe 👑</div>' : ''}<ul>
+    ${COIN_TIERS.map((t) => row(COIN_ICON, t.coins, bandos.on ? chiefGives(t) : gives(t.tier))).join('')}
+  </ul>${bandos.on ? '</div>' : ''}</div>${choose}`;
   };
   renderHowTo();
   const user = () => {
@@ -897,8 +949,11 @@ function setupGiftPanel() {
   };
   $('giftJoin').onclick = () => sendGift({ user: user() });
   // Personajes especiales: con el nombre escrito o, si no hay, el suyo
-  $('giftPetro').onclick = () => sendGift({ user: $('giftUser').value.trim() || 'Gustavo Petro', look: 'petro' });
-  $('giftAbelardo').onclick = () => sendGift({ user: $('giftUser').value.trim() || 'Abelardo', look: 'abelardo' });
+  // (con bandos, eligen bando: el aspecto de Petro y Abelardo es de los jefes, ver applyGift)
+  $('giftPetro').onclick = () =>
+    sendGift({ user: $('giftUser').value.trim() || 'Gustavo Petro', look: 'petro', side: 'petro' });
+  $('giftAbelardo').onclick = () =>
+    sendGift({ user: $('giftUser').value.trim() || 'Abelardo', look: 'abelardo', side: 'abelardo' });
   // Toques: LIKES_TO_JOIN por cantidad elegida (x1: lo que cuesta entrar)
   $('giftTap').onclick = () => sendGift({ user: user(), likes: true, count: LIKES_TO_JOIN * giftCount });
   $('giftRandom').onclick = () => {
@@ -1073,15 +1128,24 @@ function renderRoster(fight) {
   // Regalo del panel (ver applyGift): si no está en pie, entra con su nombre; cada regalo le da su potenciador, y los
   // de un combo quedan en cola (`more`: { tier, hp }) y salen uno tras otro. `hp`: su vida, si no es la de su nivel
   // (regalos grandes, ver giftHp). False si la ronda ya no admite a nadie, y 'joined' si acaba de entrar
-  const gift = (user, tier, count, hp) => {
+  // Con bandos, `split`: cómo se reparte el regalo (ver sim.bandosGift). Él recibe su parte (`split.viewer`) y la del
+  // jefe de su bando va a la cola del jefe (ver chiefGift). Entra en el bando que eligió o, si no eligió, en el que
+  // tenga menos en pie, y se le queda ese
+  const gift = (user, tier, count, hp, split) => {
     if (winner || fight.timeUp) return false;
-    const queue = tier ? Array.from({ length: count }, () => ({ tier, hp })) : [];
-    const index = [...state].find(([, s]) => !s.out && s.name === user)?.[0];
-    if (index === undefined) {
+    const own = split?.viewer ?? { tier, hp };
+    const queue = own.tier ? Array.from({ length: count }, () => ({ tier: own.tier, hp: own.hp })) : [];
+    let index = [...state].find(([i, s]) => !s.out && s.name === user && !isChief(i))?.[0];
+    const joined = index === undefined;
+    if (joined) {
       if (!canAdd()) return false;
       // (con bandos, con la ropa de su bando: los aspectos de Petro y Abelardo son de los jefes)
-      const brute = fight.addBrute?.(user, bandos.on ? undefined : looks.get(user));
+      const brute = bandos.on
+        ? fight.addBrute?.(user, undefined, chosenSides.get(user))
+        : fight.addBrute?.(user, looks.get(user));
       if (!brute) return false;
+      if (bandos.on && brute.side && !chosenSides.has(user)) chosenSides.set(user, brute.side);
+      index = brute.index;
       const first = queue.shift();
       state.set(brute.index, {
         name: brute.name,
@@ -1096,14 +1160,29 @@ function renderRoster(fight) {
       const s = state.get(index);
       s.more = [...(s.more ?? []), ...queue].slice(0, GIFT_QUEUE_MAX);
     }
+    // (al jefe del bando en el que pelea ahora, aunque ya haya elegido otro para la ronda siguiente)
+    if (split?.chief) chiefGift(fight.sideOf?.(index), split.chief, count);
     draw();
-    return index === undefined ? 'joined' : true;
+    return joined ? 'joined' : true;
+  };
+  // Lo del jefe de un regalo (con bandos): a su cola, como los de un combo. Las curas seguidas (regalos de menos de 30
+  // monedas) se suman en una sola, y la cola es más larga que la de un espectador: le regala todo su bando
+  const chiefGift = (side, part, count) => {
+    const index = chiefOf[side];
+    const s = state.get(index);
+    if (index === undefined || !s || s.out) return;
+    s.more ??= [];
+    for (let k = 0; k < count; k++) {
+      const last = s.more.at(-1);
+      if (part.tier === 1 && last?.tier === 1) last.hp += part.hp;
+      else if (s.more.length < CHIEF_QUEUE_MAX) s.more.push({ ...part });
+    }
   };
   rosterGift = gift;
   rosterWho = (user) => {
     let out;
-    for (const s of state.values()) {
-      if (s.name !== user) continue;
+    for (const [index, s] of state) {
+      if (s.name !== user || isChief(index)) continue;
       if (!s.out) return 'in';
       out = 'out';
     }
@@ -1173,7 +1252,7 @@ function renderRoster(fight) {
     let fired = false;
     // Regalos que esperaban una ronda (llegaron entre rondas): entran en cuanto empieza
     if (pendingGifts.length && elapsed && !winner && canAdd()) {
-      pendingGifts.splice(0).forEach((g) => gift(g.user, g.tier, g.count, g.hp));
+      pendingGifts.splice(0).forEach((g) => gift(g.user, g.tier, g.count, g.hp, g.split));
     }
     for (const [index, s] of state) {
       // Regalos de un combo: el siguiente, en cuanto se ve el poder del anterior
