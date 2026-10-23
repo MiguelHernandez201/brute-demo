@@ -1045,11 +1045,12 @@ function renderRoster(fight) {
   let lastTick = performance.now();
   // Para la voz del streamer virtual (ver narrate): pelea reñida (una vez por ronda), el que queda solo (a los ALONE_MS,
   // y otra vez cada ALONE_REPEAT_MS mientras siga esperando) y el último golpe crítico duro enviado
-  const ALONE_MS = 6000;
+  const ALONE_MS = 10_000;
   const ALONE_REPEAT_MS = 30_000;
   let closeSent = false;
   let aloneSince = null;
   let aloneSent = -Infinity;
+  let aloneAnnounced = false;
   let lastCritSent = 0;
   const tick = setInterval(() => {
     if (rosterFight !== fight) return clearInterval(tick);
@@ -1096,25 +1097,31 @@ function renderRoster(fight) {
     }
     // Ya no se puede agregar (la pelea se cerró: solo queda el final por ver): botones apagados
     if (!canAdd()) document.querySelectorAll('#roster [data-add]').forEach((b) => (b.disabled = true));
-    if (!winner && !fight.timeUp) {
-      const left = [...state.values()].filter((s) => !s.out);
-      if (left.length === 2 && !closeSent) {
-        const [p, q] = left.map((s) => s.hp / s.maxHp);
-        if (p <= 0.6 && q <= 0.6 && Math.abs(p - q) <= 0.15) {
-          closeSent = true;
-          narrate(
-            'renida',
-            left.map((s) => s.name),
-          );
-        }
+    const left = !winner && !fight.timeUp ? [...state.values()].filter((s) => !s.out) : [];
+    if (left.length === 2 && !closeSent) {
+      const [p, q] = left.map((s) => s.hp / s.maxHp);
+      if (p <= 0.6 && q <= 0.6 && Math.abs(p - q) <= 0.15) {
+        closeSent = true;
+        narrate(
+          'renida',
+          left.map((s) => s.name),
+        );
       }
-      if (left.length === 1) {
-        aloneSince ??= now;
-        if (now - aloneSince >= ALONE_MS && now - aloneSent >= ALONE_REPEAT_MS) {
-          aloneSent = now;
-          narrate('solo', [left[0].name]);
-        }
-      } else aloneSince = null;
+    }
+    if (left.length === 1) {
+      aloneSince ??= now;
+      if (now - aloneSince >= ALONE_MS && now - aloneSent >= ALONE_REPEAT_MS) {
+        aloneSent = now;
+        aloneAnnounced = true;
+        narrate('solo', [left[0].name]);
+      }
+    } else {
+      aloneSince = null;
+      // Ya no está solo (entró alguien, o acabó la ronda): la voz deja de decirlo si aún lo tenía pendiente
+      if (aloneAnnounced) {
+        aloneAnnounced = false;
+        narrate('solo_fin', []);
+      }
     }
     const live = fight.liveFighters?.();
     if (!live) return;

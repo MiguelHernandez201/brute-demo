@@ -63,7 +63,7 @@ const setStatus = (state, text) => {
 // que pasa en la pelea ({ type: 'pelea', evento, nombres, pct }: un golpe crítico duro, pelea reñida, uno solo
 // esperando rival). Se reenvía a los demás clientes, con los campos revisados
 let config = null;
-const PELEA_EVENTOS = new Set(['critico', 'renida', 'solo']);
+const PELEA_EVENTOS = new Set(['critico', 'renida', 'solo', 'solo_fin']);
 server.on('connection', (ws) => {
   ws.send(JSON.stringify(status));
   if (config) ws.send(JSON.stringify(config));

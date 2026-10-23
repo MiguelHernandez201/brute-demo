@@ -84,8 +84,9 @@ const cola = [];
 let hablando = false;
 // fija: la frase no lleva nombres, así que su audio se guarda en live/cache-voz y las demás veces no gasta créditos
 // caduca: ms que vale todavía (si no, lo de su prioridad); un comentario de la pelea tarde ya no tiene sentido
-function decir(texto, prio, fija = false, caduca) {
-  cola.push({ texto, prio, at: Date.now(), fija, caduca });
+// tag: para descartarla al hablar si ya no corresponde (ver alguienSolo)
+function decir(texto, prio, fija = false, caduca, tag) {
+  cola.push({ texto, prio, at: Date.now(), fija, caduca, tag });
   cola.sort((a, b) => a.prio - b.prio || a.at - b.at);
   while (cola.length > MAX_COLA) cola.pop(); // lo menos importante y más reciente
   if (!hablando) void hablar();
@@ -94,8 +95,9 @@ async function hablar() {
   hablando = true;
   try {
     while (cola.length) {
-      const { texto, prio, at, fija, caduca } = cola.shift();
+      const { texto, prio, at, fija, caduca, tag } = cola.shift();
       if (Date.now() - at > (caduca ?? CADUCA[prio])) continue;
+      if (tag === 'solo' && !alguienSolo) continue;
       console.log(`🗣️ ${texto}`);
       await sintetizar(texto, fija);
     }
@@ -368,7 +370,7 @@ const NARR_ENTRE_MS = 8000;
 const NARR_TIPO = {
   critico: { cada: 20_000, caduca: 8000 },
   renida: { cada: 90_000, caduca: 12_000 },
-  solo: { cada: 40_000, caduca: 20_000 },
+  solo: { cada: 40_000, caduca: 12_000 },
 };
 const narrHora = [];
 const narrUltimo = {};
@@ -392,7 +394,15 @@ const frasesPelea = {
     'Ahí está {a} esperando rival, parce. Alguien que se le mida, comenten para entrar!',
   ],
 };
+// El juego avisa 'solo' mientras alguien espera rival y 'solo_fin' cuando deja de estar solo (entró alguien, o acabó la
+// ronda): si la frase aún está en la cola, ya no se dice
+let alguienSolo = false;
 function pelea({ evento, nombres, pct = 0 }) {
+  if (evento === 'solo_fin') {
+    alguienSolo = false;
+    return;
+  }
+  if (evento === 'solo') alguienSolo = true;
   const tipo = NARR_TIPO[evento];
   if (!narrador || !tipo || !Array.isArray(nombres) || !nombres[0]) return;
   if (evento !== 'solo' && !nombres[1]) return;
@@ -407,7 +417,7 @@ function pelea({ evento, nombres, pct = 0 }) {
   const frase = elegir(frasesPelea[clave])
     .replace('{a}', nombreHablado(String(nombres[0])))
     .replace('{b}', nombreHablado(String(nombres[1] ?? '')));
-  decir(frase, PREGUNTA, false, tipo.caduca);
+  decir(frase, PREGUNTA, false, tipo.caduca, evento === 'solo' ? 'solo' : undefined);
 }
 
 async function comentario({ user, text }) {
