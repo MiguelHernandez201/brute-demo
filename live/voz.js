@@ -220,6 +220,38 @@ function saludar() {
   else decir('Bienvenidos todos los que van llegando! Comenten o den treinta toques y entran a la arena!', SALUDO);
 }
 
+// ===== Seguidores y compartidos → gracias =====
+// Una vez por persona en 10 minutos (TikTok a veces repite el aviso)
+const agradecidos = new Map();
+function social({ user }, tipo) {
+  if (!user) return;
+  const ahora = Date.now();
+  for (const [k, at] of agradecidos) if (ahora - at > 600_000) agradecidos.delete(k);
+  if (agradecidos.has(`${tipo}|${user}`)) return;
+  agradecidos.set(`${tipo}|${user}`, ahora);
+  const n = nombreHablado(user);
+  if (tipo === 'follow')
+    decir(elegir([`Mirá, ${n} nos siguió! Gracias parce, bienvenido a la familia!`, `Qué nota, ${n}! Gracias por el follow, hágale que acá se pelea bonito!`]), PREGUNTA);
+  else decir(elegir([`Gracias ${n} por compartir el directo, de una!`, `${n} compartió el live! Mil gracias, parce!`]), PREGUNTA);
+}
+
+// ===== Saludos en el chat → respuesta con plantilla =====
+// "hola", "buenas", "qué más"… no son preguntas, pero Brutus tiene que devolver el saludo (sin IA, instantáneo)
+const SALUDO_RE = /^\W*(hola+|holi+|ola|buenas+|buenos d[ií]as|buenas (tardes|noches)|hey+|ey+|saludos|qu[eé] m[aá]s|quiubo|quihubo|epa|hello|hi)/i;
+const saludadosChat = new Map();
+let ultimoSaludoChat = 0;
+function saludoChat({ user, text }) {
+  const t = String(text ?? '').trim();
+  if (!user || t.length > 40 || !SALUDO_RE.test(t)) return false;
+  const ahora = Date.now();
+  if (ahora - (saludadosChat.get(user) ?? 0) < 120_000 || ahora - ultimoSaludoChat < 4000 || cola.length >= 3) return true;
+  saludadosChat.set(user, ahora);
+  ultimoSaludoChat = ahora;
+  const n = nombreHablado(user);
+  decir(elegir([`Hola ${n}, qué más pues! Comenta o dale treinta toques y entrás a la arena!`, `Quiubo ${n}! Bienvenido, escribí lo que quieras y entrás a pelear!`, `Ey ${n}, buenas! Qué nota que estés acá, hágale a la arena!`]), SALUDO);
+  return true;
+}
+
 // ===== Preguntas del chat → modelo local =====
 const PREGUNTA_RE = /^(como|cómo|que|qué|cuando|cuándo|cuanto|cuánto|cuantos|cuántos|donde|dónde|cual|cuál|quien|quién|por qu[eé]|para qu[eé]|se puede|puedo|sirve|hay)\b/i;
 const esPregunta = (t) => t.length >= 8 && t.length <= 200 && (/[?¿]/.test(t) || PREGUNTA_RE.test(t));
@@ -233,6 +265,7 @@ const porUsuario = new Map();
 
 async function comentario({ user, text }) {
   const t = String(text ?? '').trim();
+  if (saludoChat({ user, text: t })) return;
   if (!user || !esPregunta(t) || SOSPECHOSO.test(t)) return;
   const ahora = Date.now();
   if (preguntando || cola.length >= 3 || ahora - ultimaPregunta < COOLDOWN_GLOBAL_MS) return;
@@ -296,6 +329,9 @@ function evento(msg) {
       return regalo(msg);
     case 'join':
       return entra(msg.user);
+    case 'follow':
+    case 'share':
+      return social(msg, msg.type);
     case 'comment':
       return void comentario(msg);
     default: // like y status no se dicen en voz

@@ -170,6 +170,19 @@ connection.on(WebcastEvent.MEMBER, (data) => {
   console.log(`🚪 ${user} entró al directo`);
   send({ type: 'join', user });
 });
+// Quien te sigue o comparte el directo: solo lo usa la voz del streamer virtual (live/voz.js) para agradecerlo; el juego lo ignora
+connection.on(WebcastEvent.FOLLOW, (data) => {
+  const user = who(data.user);
+  if (!user) return;
+  console.log(`➕ ${user} te siguió`);
+  send({ type: 'follow', user });
+});
+connection.on(WebcastEvent.SHARE, (data) => {
+  const user = who(data.user);
+  if (!user) return;
+  console.log(`🔁 ${user} compartió el directo`);
+  send({ type: 'share', user });
+});
 // Comentarios: comentar mete a pelear (ver ¿Cómo jugar? en el juego)
 connection.on(WebcastEvent.CHAT, (data) => {
   const user = who(data.user);
