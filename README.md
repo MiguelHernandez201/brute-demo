@@ -62,6 +62,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     acaba a los 10 segundos. El ganador sale en grande ("¡gana la ronda N!") con la cuenta atrás de la siguiente (8 s).
   - Sin botones en pantalla: la tecla **C** los muestra u oculta (los de abajo, los de agregar brutes y los
     potenciadores de cada uno, y 🗑️ para borrar el ranking).
+- **⚔️ Gustavo Petro vs Abelardo**: el modo TikTok en dos bandos, cada uno con su jefe (ver **Gustavo Petro vs
+  Abelardo**, abajo). También con `?bandos` en la dirección.
 - **🎁 Panel de regalos** (botón 🎁 o tecla **G**; en el modo TikTok): simula los regalos del directo de TikTok (los
   de verdad llegan solos con el puente: ver **Directo de TikTok**, abajo), y arriba dice cómo va la conexión con el
   directo. Justo debajo, **🚪 Los que se unen al live entran a la arena** (en verde si está activado; ver **Directo
@@ -349,22 +351,40 @@ promocional; con las rondas continuas lleva la cuenta atrás en la esquina), �
 
 ## Gustavo Petro vs Abelardo (en desarrollo)
 
-Un royale de dos bandos: Gustavo Petro y Abelardo entran como jefes y los espectadores pelean como refuerzos de uno
-de los dos. La ronda la gana el bando que derriba al jefe rival. Por ahora solo está el motor (aún no hay botón para
-jugarlo):
+El modo TikTok en dos bandos: Gustavo Petro y Abelardo entran como jefes y los demás pelean como refuerzos de uno de
+los dos. La ronda la gana el bando que derriba al jefe rival. Se entra con el botón **⚔️ Gustavo Petro vs Abelardo** de
+la pantalla de inicio, o con `?bandos` en la dirección (`?bandos=8` para elegir cuántos refuerzos salen al empezar,
+repartidos entre los dos; como en el modo TikTok, de 3 a 20). Los que entran después (un espectador que comenta, toca o
+regala, o ➕ Agregar) van al bando que tenga menos en pie. Que cada espectador elija el suyo comentando, y el reparto de
+los regalos entre el jefe y el espectador, llegan en la siguiente fase.
 
-- `createRoyale(n, { sides })` (`web/src/sim.ts`) arma la ronda con los dos jefes y `n` brutes repartidos entre los
-  bandos. Los jefes salen con las mismas estadísticas, armas y habilidades (solo cambian el nombre y el aspecto), así
-  ningún bando tiene ventaja, y con **300** de vida (`CHIEF_HP`). Cada bando empieza en su lado de la arena.
+- **En pantalla**: en lugar de la cabecera, la barra de los jefes, con la cara de cada uno, su vida, cuántos de su bando
+  siguen en pie (👥) y, en medio, las rondas que lleva ganadas cada bando (se recuerdan en este navegador). Cada bando
+  tiene su color en las etiquetas de la arena y en la lista: naranja el de Petro y celeste el de Abelardo (ninguno de
+  los de sus partidos). ¿Cómo jugar? suma "👑 Jefe rival ¡derríbalo!".
+- **Ropa del bando** (`teamLook` en `web/src/chuck.ts`): los refuerzos conservan su cara, su pelo y su piel al azar,
+  pero visten como su jefe. Los de Petro, la guayabera blanca con pantalón oscuro, sin la banda presidencial (es solo
+  suya: un atuendo nuevo, la guayabera sola); los de Abelardo, el traje de cachaco oscuro con rayas, chaleco y corbata.
+  Las piezas propias son del muñeco de hombre: las brutes llevan el top y la falda del juego en esos colores. Todos sin
+  el chaleco oscuro que trae a veces el atuendo de manga larga del juego (no se tiñe y tapaba el color del bando).
+- **Fin de la ronda**: cuando se ve caer a un jefe, su caída es como la del duelo final del royale ("FINISH HIM!", el
+  fondo que se oscurece y el letrero de la FATALITY), lo que quedaba por verse de los demás ya no cuenta y gana el otro
+  jefe: celebra todo su bando y sale "¡Gana el bando de …!", el mejor de los suyos (el que más rivales eliminó, sin
+  contar al jefe) y el marcador. Si el reloj de la ronda llega a cero, gana el jefe al que le quede más vida (en
+  proporción a la suya). Los jefes no cuentan en el ranking de los espectadores.
+- **El motor**: `createRoyale(n, { sides })` (`web/src/sim.ts`) arma la ronda con los dos jefes y `n` brutes repartidos
+  entre los bandos. Los jefes salen con las mismas estadísticas, armas y habilidades (solo cambian el nombre y el
+  aspecto), así ningún bando tiene ventaja, y con **300** de vida (`CHIEF_HP`). Cada bando empieza en su lado de la
+  arena.
 - Los de un mismo bando no se atacan: los duelos solo se arman entre bandos rivales (si un bando tiene muchos más en
   pie, varios se juntan contra el mismo rival) y las ultimates, la onda del gigante y la minigun solo alcanzan al otro
   bando. A los jefes, las ultimates y la minigun les quitan la cuarta parte.
 - Cuando cae un jefe, el motor espera a que la animación vea su caída para cerrar la ronda; si antes le llega un
-  potenciador que le salva, la pelea sigue. Mientras tanto no entra nadie más. Quien entra sin decir su bando va al que
-  tenga menos en pie.
+  potenciador que le salva, la pelea sigue. Mientras tanto no entra nadie más.
 - Al jefe le pegan de uno en uno (cada golpe se anima por separado), así que lo que tarda en caer depende sobre todo de
   su vida. Con 300 y 6 brutes más, sin regalos, el primer jefe cae a los 2 minutos de media y 1 ronda de cada 20 llega
-  a los 3 minutos del reloj (con 400, 1 de cada 6). Para volver a medirlo, desde `web/`:
+  a los 3 minutos del reloj (con 400, 1 de cada 6), pero varía mucho de una ronda a otra: en el navegador, una acabó a
+  los 34 s y otra pasó de los 2 minutos. Para volver a medirlo, desde `web/`:
 
   ```bash
   node scripts/simular.mjs bandos 200 6        # 200 rondas con 6 refuerzos

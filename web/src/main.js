@@ -260,24 +260,40 @@ const saveBandosScore = () => {
   }
 };
 // Barra de arriba (en lugar de la cabecera): cada jefe con su cara, su vida y cuántos de su bando siguen en pie, y en
-// medio el marcador de rondas. `live`: por bando, { hp, maxHp, alive } (sin ronda, vacío)
+// medio el marcador de rondas. Se arma una vez y luego solo se cambian la vida, los números y el marcador (se repinta
+// cada 150 ms: rehacerla entera volvía a decodificar las caras). `live`: por bando, { hp, maxHp, alive } (sin ronda,
+// vacío)
 function renderVersus(live = {}) {
-  const half = (side, i) => {
-    const s = live[side.id];
-    const pct = s ? Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100)) : 100;
-    const hp = s ? `${Math.max(0, Math.round(s.hp))}/${s.maxHp}` : '';
-    return `<div class="vs-side ${i ? 'right' : 'left'}" style="--c:${sideCss(side)}">
+  const box = $('ttVersus');
+  if (!box.firstChild) {
+    const half = (
+      side,
+      i,
+    ) => `<div class="vs-side ${i ? 'right' : 'left'}" data-side="${side.id}" style="--c:${sideCss(side)}">
       <img class="vs-face" src="${CHIEF_FACES[side.id]}" alt="" draggable="false" />
       <div class="vs-info">
         <b class="vs-name">${escHtml(side.name)}</b>
-        <div class="vs-bar"><i style="width:${pct}%"></i></div>
-        <small>${hp} · 👥 ${s?.alive ?? 0}</small>
+        <div class="vs-bar"><i></i></div>
+        <small></small>
       </div>
     </div>`;
-  };
-  const [a, b] = SIDES;
-  $('ttVersus').innerHTML =
-    `${half(a, 0)}<div class="vs-mid"><b>${bandos.score[a.id] ?? 0}</b><span>VS</span><b>${bandos.score[b.id] ?? 0}</b></div>${half(b, 1)}`;
+    const [a, b] = SIDES;
+    box.innerHTML = `${half(a, 0)}<div class="vs-mid"><b data-score="${a.id}"></b><span>VS</span><b data-score="${b.id}"></b></div>${half(b, 1)}`;
+  }
+  for (const side of SIDES) {
+    const s = live[side.id];
+    const el = box.querySelector(`[data-side="${side.id}"]`);
+    const pct = s ? Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100)) : 100;
+    const width = `${pct}%`;
+    const bar = el.querySelector('.vs-bar i');
+    if (bar.style.width !== width) bar.style.width = width;
+    const text = `${s ? `${Math.max(0, Math.round(s.hp))}/${s.maxHp}` : ''} · 👥 ${s?.alive ?? 0}`;
+    const small = el.querySelector('small');
+    if (small.textContent !== text) small.textContent = text;
+    const score = String(bandos.score[side.id] ?? 0);
+    const b = box.querySelector(`[data-score="${side.id}"]`);
+    if (b.textContent !== score) b.textContent = score;
+  }
 }
 // Pantalla del ganador: el bando, el mejor de la ronda (el que más rivales eliminó de los suyos, sin contar al jefe) y
 // el marcador
