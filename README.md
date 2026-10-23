@@ -378,6 +378,27 @@ Los regalos, toques y comentarios de tu directo de verdad entran solos a la pele
 - El uso gratuito del servicio con el que se conecta la librería ([Euler Stream](https://www.eulerstream.com))
   tiene un límite; si se queda corto, el puente avisa y se le puede poner una clave en la variable `EULER_API_KEY`.
 
+## Streamer virtual (voz)
+
+Una voz que agradece los regalos, saluda a los que entran y responde preguntas del chat sobre el juego. Es opcional:
+`live/voz.js` se conecta al mismo puente que el juego y no toca nada de él.
+
+- **Gracias y saludos**: plantillas fijas (sin IA, instantáneas). Las Rose seguidas de una misma persona se agradecen de
+  una sola vez, y a los que entran casi juntos se les saluda en grupo (como mucho uno cada 10 s).
+- **Preguntas**: solo los comentarios que lo parecen (llevan `?` o empiezan por cómo, qué, cuándo…) los responde un
+  modelo local con [Ollama](https://ollama.com), con la personalidad y los datos del juego de `live/prompt-streamer.txt`
+  (edítalo para cambiarle el nombre, el tono o lo que sabe). Una respuesta cada 5 s como mucho y una por espectador cada
+  30 s; los intentos de cambiarle las reglas ("ignora tus instrucciones…") no llegan al modelo.
+- **Voz**: [ElevenLabs](https://elevenlabs.io), con el modelo `eleven_flash_v2_5`. Una cola con prioridad (regalos,
+  preguntas, saludos) descarta lo que caduca, para que la voz no vaya por detrás del directo.
+- **Puesta en marcha (Windows)**: instala Ollama, abre PowerShell y ejecuta `ollama pull qwen2.5:3b`; copia
+  `live/voz.env.ejemplo` como `live/voz.env` y pon tu clave y el ID de la voz de ElevenLabs. Con `voz.env`,
+  `iniciar-directo.bat` abre también la ventana de la voz. Para probarla sin directo: `node voz.js --prueba` en `live/`.
+  Sin las claves no habla: solo escribe en su ventana lo que diría.
+- **Que se oiga en el directo**: suena por la salida de audio predeterminada de Windows. En OBS o TikTok LIVE Studio,
+  captura el audio del escritorio (o manda la salida a un cable de audio virtual y captúralo).
+- El puente ahora manda también el texto de cada comentario (`{ type: 'comment', user, text }`); el juego lo ignora.
+
 ## Estructura (`web/src`)
 
 - `engine/` — motor de peleas del servidor original, sin Prisma; `session.ts` lo juega turno a turno.

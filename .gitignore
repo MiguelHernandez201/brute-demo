@@ -10,6 +10,9 @@ Thumbs.db
 # Usuario de TikTok del directo (lo guarda iniciar-directo.bat)
 live/usuario.txt
 
+# Claves de la voz del streamer virtual (ver live/voz.env.ejemplo)
+live/voz.env
+
 # Fondos para extender con IA: plantillas y resultados de trabajo (ver fondos-ia/LEEME.txt)
 fondos-ia/plantillas/
 fondos-ia/resultados/

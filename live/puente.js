@@ -174,8 +174,10 @@ connection.on(WebcastEvent.MEMBER, (data) => {
 connection.on(WebcastEvent.CHAT, (data) => {
   const user = who(data.user);
   if (!user) return;
-  console.log(`💬 ${user}: ${data.comment ?? data.content ?? ''}`);
-  send({ type: 'comment', user });
+  const text = data.comment ?? data.content ?? '';
+  console.log(`💬 ${user}: ${text}`);
+  // (el texto lo usa la voz del streamer virtual, live/voz.js; el juego solo mira quién comentó)
+  send({ type: 'comment', user, text });
 });
 
 process.on('SIGINT', async () => {
