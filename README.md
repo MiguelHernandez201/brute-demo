@@ -383,8 +383,9 @@ los regalos entre el jefe y el espectador, llegan en la siguiente fase.
   potenciador que le salva, la pelea sigue. Mientras tanto no entra nadie más.
 - Al jefe le pegan de uno en uno (cada golpe se anima por separado), así que lo que tarda en caer depende sobre todo de
   su vida. Con 300 y 6 brutes más, sin regalos, el primer jefe cae a los 2 minutos de media y 1 ronda de cada 20 llega
-  a los 3 minutos del reloj (con 400, 1 de cada 6), pero varía mucho de una ronda a otra: en el navegador, una acabó a
-  los 34 s y otra pasó de los 2 minutos. Para volver a medirlo, desde `web/`:
+  a los 3 minutos del reloj (con 400, 1 de cada 6). Varía mucho de una ronda a otra: en el navegador, cuatro rondas
+  duraron 34 s, 2 min 14 s, 2 min 21 s y unos 2 min 25 s (con la llegada y el remate). Para volver a medirlo, desde
+  `web/`:
 
   ```bash
   node scripts/simular.mjs bandos 200 6        # 200 rondas con 6 refuerzos
