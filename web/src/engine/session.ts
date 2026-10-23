@@ -10,7 +10,7 @@ import { DetailedFight, DetailedFighter } from './generateFight';
 import { getFighters } from './getFighters';
 import { applySpy } from './applySpy';
 import {
-  Stats, activateSuper, checkDeaths, fighterArrives, orderFighters, playFighterTurn, royalePace, saboteur,
+  Stats, activateSuper, checkDeaths, fighterArrives, isChief, orderFighters, playFighterTurn, royalePace, saboteur,
 } from './fightMethods';
 import {
   BOOST_HP, BoostTier, Ultimate, boostCasts, boostGear, boostHeal, boostOnlyWeapon, boostPet, canCastUltimate,
@@ -98,13 +98,20 @@ export class FightSession {
   // Orden de eliminación (brutes) en el battle royale
   eliminated: DetailedFighter[] = [];
 
-  // startHp: vida con la que empieza cada brute (el campeón arrastra la que le quedó); undefined = llena
+  // Bandos (los dos del royale de bandos, en orden: el primero empieza a la izquierda y el segundo a la derecha)
+  #sides: string[] = [];
+
+  // startHp: vida con la que empieza cada brute (el campeón arrastra la que le quedó); undefined = llena.
+  // Royale de bandos: `sides`, el bando de cada brute (en el orden de `brutes`), y `chiefs`, el id del jefe de cada
+  // bando. Los de un mismo bando no se atacan y la pelea acaba cuando cae un jefe (ver #fallenChief)
   constructor(
     brutes: CalculatedBrute[],
-    { modifiers = {}, startHp = [], royale = false }: {
+    { modifiers = {}, startHp = [], royale = false, sides, chiefs }: {
       modifiers?: Modifiers;
       startHp?: (number | undefined)[];
       royale?: boolean;
+      sides?: string[];
+      chiefs?: Record<string, string>;
     } = {},
   ) {
     this.#brutes = brutes;
@@ -167,6 +174,13 @@ export class FightSession {
       // Royale: duelos simultáneos (cada equipo en una pareja o un trío hasta que caen sus rivales)
       ...(royale ? { royaleDuels: { group: {}, next: 1, step: {} } } : {}),
     };
+    if (royale && sides && chiefs) {
+      this.#sides = [...new Set(sides)];
+      this.fightData.royaleSides = {
+        side: Object.fromEntries(sides.map((side, i) => [`T${i + 1}`, side])),
+        chiefs: { ...chiefs },
+      };
+    }
 
     // Llegada de todos, espionaje (1 vs 1) y saboteador, como en generateFight
     fighters.forEach((fighter) => fighterArrives(this.fightData, fighter));
@@ -182,6 +196,39 @@ export class FightSession {
 
   get finished() { return !!this.fightData.loser; }
 
+  // Royale de bandos
+  get bandos() { return !!this.fightData.royaleSides; }
+
+  // Bando de un luchador (sus mascotas van con él), o undefined sin bandos
+  sideOf(index: number) {
+    const f = this.fightData.fighters.find((x) => x.index === index)
+      ?? this.fightData.initialFighters.find((x) => x.index === index);
+    return f ? this.fightData.royaleSides?.side[f.team] : undefined;
+  }
+
+  // Luchadores de los jefes, por bando
+  get chiefs() {
+    const sides = this.fightData.royaleSides;
+    if (!sides) return {};
+    return Object.fromEntries(Object.entries(sides.chiefs).flatMap(([side, id]) => {
+      const f = this.fightData.fighters.find((x) => x.id === id);
+      return f ? [[side, f]] : [];
+    })) as Record<string, DetailedFighter>;
+  }
+
+  // Royale de bandos: el primer jefe que cayó en el motor (si cayeron los dos a la vez, el que se anotó antes)
+  #fallenChief() {
+    return this.bandos ? this.eliminated.find((f) => isChief(this.fightData, f)) : undefined;
+  }
+
+  // Lado en el que empieza un equipo en la animación, que solo entiende dos ('L'/'R'): con bandos, el de su bando; si
+  // no, alternando
+  #animationSide(team: string) {
+    const side = this.fightData.royaleSides?.side[team];
+    if (side !== undefined) return this.#sides.indexOf(side) === 0 ? 'L' : 'R';
+    return parseInt(team.slice(1), 10) % 2 === 1 ? 'L' : 'R';
+  }
+
   // Battle royale: la ronda no termina sola. Con uno solo en pie el motor se queda esperando (`finished` sin ganador)
   // a que entre otro brute, y solo se cierra al acabarse el tiempo de "Finalizar", con esto. Gana quien diga la
   // animación (el que más victorias lleva de los que siguen en pie): el motor va por delante y lo que jugó y aún no
@@ -190,8 +237,12 @@ export class FightSession {
     if (!this.royale || this.winner) return false;
     const fd = this.fightData;
     const brutes = fd.fighters.filter((f) => f.type === 'brute' && !f.master);
-    const winner = brutes.find((f) => f.index === winnerIndex);
-    const loser = this.eliminated[this.eliminated.length - 1] ?? brutes.find((f) => f !== winner);
+    let winner = brutes.find((f) => f.index === winnerIndex);
+    // Con bandos gana el jefe del bando de `winnerIndex` y pierde el otro
+    if (this.bandos && winner) winner = this.chiefs[fd.royaleSides!.side[winner.team]!];
+    const loser = this.bandos
+      ? Object.values(this.chiefs).find((f) => f !== winner)
+      : this.eliminated[this.eliminated.length - 1] ?? brutes.find((f) => f !== winner);
     if (!winner || !loser) return false;
     fd.winner = winner.id;
     fd.loser = loser.id;
@@ -250,9 +301,11 @@ export class FightSession {
     if (fallen && rescuable) this.#revive(caster, rescuable);
     if (hp) boostHeal(fd, caster, tier, hp);
     if (fallen) {
-      // Vuelve a haber más de uno en pie: la pelea sigue (ver #royaleEliminations)
+      // Vuelve a haber más de uno en pie: la pelea sigue (ver #royaleEliminations). Con bandos, si ya no queda ningún
+      // jefe caído
       const alive = fd.fighters.filter((f) => f.type === 'brute' && !f.master && f.hp > 0);
-      fd.loser = alive.length > 1 ? null : (this.eliminated[this.eliminated.length - 1]?.id ?? null);
+      if (this.bandos) fd.loser = this.#fallenChief()?.id ?? null;
+      else fd.loser = alive.length > 1 ? null : (this.eliminated[this.eliminated.length - 1]?.id ?? null);
     }
     // El 4, el 5 y el 7 solo traen el arma (el 5 y el 7, tras su vida)
     if (boostOnlyWeapon(tier)) {
@@ -271,7 +324,7 @@ export class FightSession {
       // Para la animación, en el lado en el que empezó su amo (luego cambia según con quién pelee)
       const animation = toAnimationFighter(pet) as Fighter & { realTeam?: string };
       animation.realTeam = pet.team;
-      animation.team = parseInt(String(pet.team).slice(1), 10) % 2 === 1 ? 'L' : 'R';
+      animation.team = this.#animationSide(String(pet.team));
       this.steps.push({ a: 'demoSpawn', fighter: animation } as never);
       fighterArrives(fd, pet);
       // Desde que llega cuenta su minuto
@@ -316,9 +369,10 @@ export class FightSession {
   }
 
   // Si se puede agregar un brute al royale: hasta su paso End, con alguien en pie con quien pelear
-  // (si los dos últimos caen a la vez ya no entra nadie y la ronda se cierra)
+  // (si los dos últimos caen a la vez ya no entra nadie y la ronda se cierra). Con bandos, mientras no haya caído un
+  // jefe en el motor (si un potenciador le salva, se puede otra vez)
   canAddRoyaleBrute() {
-    return this.royale && !this.winner
+    return this.royale && !this.winner && !this.#fallenChief()
       && this.fightData.fighters.some((f) => f.type === 'brute' && !f.master && f.hp > 0);
   }
 
@@ -329,9 +383,8 @@ export class FightSession {
     return this.fightData.initialFighters.map((f) => {
       const out = toAnimationFighter(f) as Fighter & { realTeam?: string };
       if (this.royale) {
-        const n = parseInt(String(f.team).slice(1), 10);
         out.realTeam = f.team;
-        out.team = n % 2 === 1 ? 'L' : 'R';
+        out.team = this.#animationSide(String(f.team));
       }
       return out;
     });
@@ -339,7 +392,8 @@ export class FightSession {
 
   // Battle royale: entra un brute nuevo en plena pelea (botón "Agregar brute"). Forma su propio equipo, actúa
   // enseguida y la animación lo crea y lo hace llegar como al principio. Devuelve su luchador (o null si ya acabó).
-  addRoyaleBrute(brute: CalculatedBrute) {
+  // Con bandos, `side` es el suyo (si no se dice, o no existe, el que tenga menos en pie, ver weakerSide)
+  addRoyaleBrute(brute: CalculatedBrute, side?: string) {
     if (!this.canAddRoyaleBrute()) return null;
     const fd = this.fightData;
     // Si ya solo quedaba uno en pie (esperando retador), sigue contra el que llega
@@ -349,6 +403,9 @@ export class FightSession {
     this.#turn = 0;
     fd.overtime = false;
     const team = this.#brutes.length + 1;
+    if (fd.royaleSides) {
+      fd.royaleSides.side[`T${team}`] = side !== undefined && this.#sides.includes(side) ? side : this.weakerSide()!;
+    }
     this.#brutes.push(brute);
     this.#achievements[brute.id] = { userId: brute.userId, eventId: brute.eventId, achievements: {} };
     this.#stats[brute.id] = { userId: brute.userId };
@@ -377,11 +434,22 @@ export class FightSession {
       // Para la animación, en uno de los dos lados (como al empezar)
       const animation = toAnimationFighter(f) as Fighter & { realTeam?: string };
       animation.realTeam = f.team;
-      animation.team = team % 2 === 1 ? 'L' : 'R';
+      animation.team = this.#animationSide(`T${team}`);
       this.steps.push({ a: 'demoSpawn', fighter: animation } as never);
       fighterArrives(fd, f);
     }
     return added;
+  }
+
+  // Royale de bandos: el bando con menos brutes en pie (a igualdad, uno al azar), para quien entra sin elegir
+  weakerSide() {
+    const fd = this.fightData;
+    if (!fd.royaleSides) return undefined;
+    const count = (side: string) => fd.fighters
+      .filter((f) => f.type === 'brute' && !f.master && f.hp > 0 && fd.royaleSides?.side[f.team] === side).length;
+    const fewest = Math.min(...this.#sides.map(count));
+    const options = this.#sides.filter((s) => count(s) === fewest);
+    return options[Math.floor(Math.random() * options.length)];
   }
 
   // Pasos generados desde la última llamada
@@ -514,7 +582,13 @@ export class FightSession {
       }
     }
     const alive = brutes.filter((b) => b.hp > 0);
-    if (alive.length > 1) {
+    if (this.bandos) {
+      // Con bandos sigue hasta que cae un jefe: entonces el motor espera (como con uno solo en pie) a que la animación
+      // vea su caída y cierre la ronda (endRoyaleNow), o a que un potenciador le salve antes (ver castBoost)
+      fd.loser = null;
+      checkDeaths(fd, this.#stats);
+      fd.loser = this.#fallenChief()?.id ?? null;
+    } else if (alive.length > 1) {
       fd.loser = null;
       // Registra la caída de las mascotas de los eliminados (pasos Death)
       checkDeaths(fd, this.#stats);

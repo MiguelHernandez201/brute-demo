@@ -347,6 +347,34 @@ Los botones de la arena son solo iconos, en una fila (al pasar el ratón por enc
 promocional; con las rondas continuas lleva la cuenta atrás en la esquina), 🔁 rondas continuas y 🔍 zoom dinámico
 (dorados si están activados), ⬇️ descargar el vídeo grabado y 🏠 volver al menú.
 
+## Gustavo Petro vs Abelardo (en desarrollo)
+
+Un royale de dos bandos: Gustavo Petro y Abelardo entran como jefes y los espectadores pelean como refuerzos de uno
+de los dos. La ronda la gana el bando que derriba al jefe rival. Por ahora solo está el motor (aún no hay botón para
+jugarlo):
+
+- `createRoyale(n, { sides })` (`web/src/sim.ts`) arma la ronda con los dos jefes y `n` brutes repartidos entre los
+  bandos. Los jefes salen con las mismas estadísticas, armas y habilidades (solo cambian el nombre y el aspecto), así
+  ningún bando tiene ventaja, y con **400** de vida (`CHIEF_HP`). Cada bando empieza en su lado de la arena.
+- Los de un mismo bando no se atacan: los duelos solo se arman entre bandos rivales (si un bando tiene muchos más en
+  pie, varios se juntan contra el mismo rival) y las ultimates, la onda del gigante y la minigun solo alcanzan al otro
+  bando. A los jefes, las ultimates y la minigun les quitan la cuarta parte.
+- Cuando cae un jefe, el motor espera a que la animación vea su caída para cerrar la ronda; si antes le llega un
+  potenciador que le salva, la pelea sigue. Mientras tanto no entra nadie más. Quien entra sin decir su bando va al que
+  tenga menos en pie.
+- Al jefe le pegan de uno en uno (cada golpe se anima por separado), así que lo que tarda en caer depende sobre todo de
+  su vida. Con 400 y 6 brutes más, sin regalos, el primer jefe cae a los 2 minutos de media y 1 ronda de cada 14 llega
+  a los 3 minutos del reloj. Para volver a medirlo, desde `web/`:
+
+  ```bash
+  node scripts/simular.mjs bandos 200 6        # 200 rondas con 6 refuerzos
+  node scripts/simular.mjs bandos 200 6 1 500  # con espectadores y regalos, y jefes con 500 de vida
+  node scripts/simular.mjs royale 200 10       # el royale normal, para comparar
+  ```
+
+  Simula las rondas con el motor de verdad y estima lo que durarían en pantalla (una unidad de turno son unos 2 s,
+  medido en el navegador). El royale normal no cambia: en 400 rondas de 10, la misma duración que antes.
+
 ## Directo de TikTok
 
 Los regalos, toques y comentarios de tu directo de verdad entran solos a la pelea.

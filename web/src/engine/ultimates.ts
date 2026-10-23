@@ -13,7 +13,7 @@ import {
 import { WeaponName } from '@labrute/prisma';
 import { DetailedFight, DetailedFighter } from './generateFight';
 import { getDamage } from './getDamage';
-import { Stats, equipWeapon, registerHit } from './fightMethods';
+import { Stats, equipWeapon, registerHit, sameSide } from './fightMethods';
 
 export const ULTIMATES = ['flood', 'bombs', 'haste', 'giant'] as const;
 export type Ultimate = typeof ULTIMATES[number];
@@ -74,9 +74,9 @@ export const PET_SECONDS = 60;
 // Segundos de pelea que lleva la minigun (los cuenta la animación desde que la saca, ver endMinigun)
 export const MINIGUN_SECONDS = 20;
 
-// Rivales en pie: todos, no solo los de su duelo
+// Rivales en pie: todos, no solo los de su duelo (con bandos, solo los del otro bando)
 const rivals = (fd: DetailedFight, caster: DetailedFighter) => fd.fighters.filter((f) => f.type === 'brute'
-  && !f.master && f.hp > 0 && !f.arrivesAtInitiative && f.team !== caster.team);
+  && !f.master && f.hp > 0 && !f.arrivesAtInitiative && !sameSide(fd, f.team, caster.team));
 const shuffle = <T>(items: T[]) => items
   .map((item) => ({ item, key: Math.random() }))
   .sort((a, b) => a.key - b.key)

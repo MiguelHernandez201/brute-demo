@@ -115,18 +115,62 @@ function makeRoyaleBrute(name: string, id: string, gender?: 'male' | 'female', l
   return brute;
 }
 
-export function createRoyale(count: number) {
+// Royale de bandos (modo Gustavo Petro vs Abelardo): dos bandos, cada uno con su jefe. Cada bando: su id y el nombre
+// y el aspecto de su jefe (ver chuck.ts)
+export type RoyaleSide = { id: string; chief: string; chiefLook: BruteLook };
+// Vida con la que empieza cada jefe (un brute de nivel 5 tiene unos 60-110). Al jefe le pegan de uno en uno (cada golpe
+// se anima por separado), así que lo que tarda en caer depende sobre todo de esto: con 400 y 6 brutes más, sin
+// regalos, el primer jefe cae a los 2 minutos de media y solo 1 ronda de cada 14 llega a los 3 del reloj (con 500, 1
+// de cada 5). Ver scripts/simular.mjs
+export const CHIEF_HP = 400;
+
+// Los dos jefes, con las mismas estadísticas, armas y habilidades: solo cambian el nombre y el aspecto, así ningún
+// bando sale con ventaja
+function makeChiefs(sides: RoyaleSide[]) {
+  const [first, ...rest] = sides as [RoyaleSide, ...RoyaleSide[]];
+  const base = makeRoyaleBrute(first.chief, `chief-${first.id}-${++seq}`, first.chiefLook.gender, first.chiefLook);
+  return [
+    base,
+    ...rest.map((side) => {
+      const id = `chief-${side.id}-${++seq}`;
+      const { body, colors, gender } = side.chiefLook;
+      return { ...structuredClone(base), id, userId: id, name: side.chief, body, colors, gender };
+    }),
+  ];
+}
+
+// `sides`: royale de bandos (ver RoyaleSide): además de los `count` brutes, que se reparten entre los bandos, entran
+// sus jefes, con `chiefHp` de vida
+export function createRoyale(
+  count: number,
+  { sides, chiefHp = CHIEF_HP }: { sides?: RoyaleSide[]; chiefHp?: number } = {},
+) {
   const modifiers = {};
   const used = new Set<string>();
-  const brutes = Array.from({ length: count }, (_, i) => {
-    const name = royaleName(used);
-    used.add(name);
-    return makeRoyaleBrute(name, `royale-${i + 1}-${++seq}`);
+  const chiefs = sides ? makeChiefs(sides) : [];
+  chiefs.forEach((c) => used.add(c.name));
+  const brutes = [
+    ...chiefs,
+    ...Array.from({ length: count }, (_, i) => {
+      const name = royaleName(used);
+      used.add(name);
+      return makeRoyaleBrute(name, `royale-${i + 1}-${++seq}`);
+    }),
+  ];
+  // (los jefes, con más vida; el resto, alternando de bando)
+  const calculated = brutes.map((b, i) => {
+    const c: any = getCalculatedBrute(b, modifiers);
+    if (i < chiefs.length) c.hpValue = chiefHp;
+    return c;
   });
-  const session = new FightSession(
-    brutes.map((b) => getCalculatedBrute(b, modifiers) as any),
-    { modifiers, royale: true },
-  );
+  const session = new FightSession(calculated, {
+    modifiers,
+    royale: true,
+    ...(sides && {
+      sides: brutes.map((_, i) => sides[(i < chiefs.length ? i : i - chiefs.length) % sides.length]!.id),
+      chiefs: Object.fromEntries(sides.map((side, i) => [side.id, chiefs[i]!.id])),
+    }),
+  });
   // Ultimate de cada potenciador: cada brute la saca de su propia bolsa con las cuatro barajadas, que se rellena al
   // vaciarse. Así cambia en cada lanzamiento y no repite hasta haberlas lanzado todas (tampoco seguidas al rellenarla)
   const bags = new Map<number, Ultimate[]>();
@@ -241,19 +285,29 @@ export function createRoyale(count: number) {
     // Botón "Agregar brute": entra uno nuevo en plena pelea. Devuelve sus datos para la lista (null si ya acabó). Con
     // `wanted`, con ese nombre (un espectador que se une, ver el panel de regalos en main.js); si no, uno al azar
     canAddBrute: () => !fight.timeUp && session.canAddRoyaleBrute(),
-    addBrute: (wanted?: string, look?: BruteLook) => {
+    // Con bandos: el de cada luchador (por su índice) y sus jefes (índice de cada uno por bando)
+    sideOf: (index: number) => session.sideOf(index),
+    chiefs: () => Object.fromEntries(Object.entries(session.chiefs).map(([side, f]) => [side, f.index])),
+    // Con bandos, `side` es el bando del que entra (si no se dice, el que tenga menos en pie)
+    addBrute: (wanted?: string, look?: BruteLook, side?: string) => {
       if (!fight.canAddBrute()) return null;
       const name = wanted?.trim().slice(0, 24) || royaleName(used);
       // (el de un espectador, del sexo de su nombre si lleva uno conocido: ver genderNames; con `look`, ese aspecto)
       const gender = wanted ? genderOfName(name) : undefined;
       const brute = makeRoyaleBrute(name, `royale-${brutes.length + 1}-${++seq}`, gender, look);
-      const added = session.addRoyaleBrute(getCalculatedBrute(brute, modifiers) as any);
+      const added = session.addRoyaleBrute(getCalculatedBrute(brute, modifiers) as any, side);
       if (!added) return null;
       used.add(name);
       brutes.push(brute);
       // Sus pasos (aparecer y llegar) van solos, antes del siguiente turno
       fight.liveSteps.push(...session.takeNewSteps());
-      return { index: added.index, name: added.name, hp: added.hp, maxHp: added.maxHp };
+      return {
+        index: added.index,
+        name: added.name,
+        hp: added.hp,
+        maxHp: added.maxHp,
+        side: session.sideOf(added.index),
+      };
     },
   };
 
