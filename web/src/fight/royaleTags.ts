@@ -16,8 +16,16 @@ const hslToHex = (h: number, s: number, l: number) => {
   const channel = (n: number) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
   return (channel(0) << 16) | (channel(8) << 8) | channel(4);
 };
+// Demo bandos (modo Petro vs Abelardo): cada uno lleva el color de su bando (lo pone la interfaz para cada ronda;
+// undefined: el suyo propio)
+let sideColor: ((index: number) => number | undefined) | null = null;
+export const setSideColors = (fn: ((index: number) => number | undefined) | null) => {
+  sideColor = fn;
+};
 // Los brutes del royale se numeran desde 1. Pasada la paleta, los colores se reparten por la rueda (ángulo áureo)
 export const royaleColor = (index: number) => {
+  const own = sideColor?.(index);
+  if (own !== undefined) return own;
   const i = Math.max(0, index - 1);
   return PALETTE[i] ?? hslToHex((i * 137.508) % 360, 0.85, 0.62);
 };

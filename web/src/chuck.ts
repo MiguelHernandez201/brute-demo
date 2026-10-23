@@ -11,6 +11,7 @@
 // en x -12..0, y 18..32, y la oreja en x 20..30, y 13..30
 import * as Symbols from 'labrute-fla-parser';
 import type { FramePart, Svg, Symbol as LaBruteSymbol } from 'labrute-fla-parser';
+import { getRandomBody, getRandomColors } from '@labrute/core';
 import { ABELARDO_FACE } from './abelardoCara';
 
 // Peinados (p3) nuevos: después de los 12 del juego (0 a 11)
@@ -18,9 +19,11 @@ export const CHUCK_HEAD = 12;
 export const PETRO_HEAD = 13;
 export const ABELARDO_HEAD = 14;
 
-// Atuendos (p7) nuevos: después de los 7 del juego (0 a 6)
+// Atuendos (p7) nuevos: después de los 7 del juego (0 a 6). La guayabera es la de Petro sin la banda presidencial: la
+// llevan los de su bando en el modo Petro vs Abelardo (ver teamLook)
 export const PETRO_OUTFIT = 7;
 export const ABELARDO_OUTFIT = 8;
+export const GUAYABERA_OUTFIT = 9;
 
 // Aspectos (ver addBrute en sim.ts): cuerpo (p1, p1a, p1b, p2, p3, p4, p5, p6, p7, p7b, p8, en hexadecimal) y colores
 // (col0..col4b: piel, pelo, prenda superior, pantalón y cinturón/zapatos)
@@ -62,6 +65,29 @@ export const ABELARDO_LOOK = {
     // (traje de cachaco: saco, pantalón algo más claro, zapatos y cinturón negros)
     ...['2b2d33', '22242a', '1a1b20', '1f2024', '33353d', '141416', '111113', '1a1a1a'],
   ].join(''),
+};
+
+// Modo Petro vs Abelardo: aspecto de los refuerzos de un bando. Su cara, su pelo y su piel salen al azar, como los de
+// cualquier brute, pero visten como su jefe: la guayabera (sin la banda presidencial, que es solo de Petro) o el traje de
+// cachaco. Las piezas propias son del muñeco de hombre: las brutes llevan el atuendo 3 del juego (top y falda, que se
+// tiñen con col2) en esos colores. col3 (el cinturón de ellas, y el iris) va del color del pantalón (ver PETRO_LOOK)
+const TEAM_CLOTHES = {
+  petro: { outfit: GUAYABERA_OUTFIT, look: PETRO_LOOK },
+  abelardo: { outfit: ABELARDO_OUTFIT, look: ABELARDO_LOOK },
+};
+const FEMALE_TEAM_OUTFIT = 3;
+export const teamLook = (side: keyof typeof TEAM_CLOTHES, gender: 'male' | 'female') => {
+  const { outfit, look } = TEAM_CLOTHES[side];
+  const body = getRandomBody(gender);
+  const colors = getRandomColors(gender).match(/.{6}/g) ?? [];
+  const own = look.colors.match(/.{6}/g) ?? [];
+  // (prenda superior col2, col2a y col2b; pantalón col3 y col3b; cinturón y zapatos col4, col4a y col4b)
+  [8, 9, 10, 12, 13, 14, 15].forEach((i) => (colors[i] = own[i] ?? colors[i] ?? '000000'));
+  colors[11] = own[12] ?? colors[11] ?? '000000';
+  // (p7 es el atuendo; y p1, entre otras cosas, si el torso de ellos va con chaleco: sin él, que es oscuro y no se
+  // tiñe, la camisa lleva el color del bando)
+  const p7 = (gender === 'female' ? FEMALE_TEAM_OUTFIT : outfit).toString(16);
+  return { gender, body: `0${body.slice(1, 8)}${p7}${body.slice(9)}`, colors: colors.join('') };
 };
 
 const svg = (name: string, w: number, h: number, body: string[]): Svg => ({
@@ -298,8 +324,9 @@ const petroFullHead = svg('PetroFullHeadSvg', 160, 170, [
   ),
 ]);
 
-// Torso de Petro: cuello camisero blanco, alforzas verticales de guayabera y banda presidencial tricolor con escudo
-const petroTorso = svg('PetroTorsoSvg', 60, 50, [
+// Torso de Petro: cuello camisero blanco, alforzas verticales de guayabera y banda presidencial tricolor con escudo. La
+// guayabera sola es el torso de los de su bando
+const guayabera = [
   // Pechera y cuello camisero blanco cerrando el escote en V
   fill('M -12.5 -15.5 L -1 -16.5 L 1 -6 L -10.5 -3.5 Z', '#f7f6f0'),
   fill(
@@ -311,6 +338,10 @@ const petroTorso = svg('PetroTorsoSvg', 60, 50, [
   lines(
     'M -12.5 -8 L -13.5 14 M -11 -8 L -12 14 M -1 -8 L -2 15 M 0.5 -8 L -0.5 15 M -14.5 -3 L -9.5 -2.5 M -3.5 -2.5 L 2 -2',
   ),
+];
+const guayaberaTorso = svg('GuayaberaTorsoSvg', 60, 50, guayabera);
+const petroTorso = svg('PetroTorsoSvg', 60, 50, [
+  ...guayabera,
   // Banda presidencial de Colombia (Amarillo, Azul y Rojo, de hombro derecho a cadera izquierda)
   fill('M 5.5 -15.5 L 12 -14.2 L -10.5 15.5 L -17.5 14.2 Z', '#facc15'),
   fill('M 8.5 -15 L 11.2 -14.4 L -11.5 15.4 L -14.2 14.8 Z', '#1d4ed8'),
@@ -331,6 +362,13 @@ const petroTorso = svg('PetroTorsoSvg', 60, 50, [
 const abelardoFullHead = svg('AbelardoFullHeadSvg', 160, 170, [
   `<image href="${ABELARDO_FACE}" x="-28" y="-46" width="58.4" height="100" preserveAspectRatio="none"/>`,
 ]);
+
+// Modo Petro vs Abelardo: la cabeza de cada jefe como imagen, recortada a la cara (de x -46 a 46 y de y -59 a 57 desde
+// su centro), para la barra de arriba. El retrato que dibuja renderer.ts no sirve: usa las piezas del muñeco estático,
+// sin estas cabezas
+const faceImage = (head: Svg) =>
+  `data:image/svg+xml;charset=utf-8,${encodeURIComponent(head.svg.replace('width="160px" height="170px"', 'viewBox="34 26 92 116"'))}`;
+export const CHIEF_FACES = { petro: faceImage(petroFullHead), abelardo: faceImage(abelardoFullHead) };
 
 // Torso de Abelardo: traje de cachaco bogotano, de paño oscuro con rayas finas (diplomáticas), chaleco gris con sus
 // botones, camisa blanca, corbata oscura y pañuelo blanco en el bolsillo. El saco, las mangas y el pantalón se tiñen con
@@ -395,7 +433,11 @@ const HEAD_PARTS = [
   wrap('AbelardoFullHead', null, abelardoFullHead),
 ];
 
-const TORSO_PARTS = [wrap('PetroTorso', null, petroTorso), wrap('AbelardoTorso', null, abelardoTorso)];
+const TORSO_PARTS = [
+  wrap('PetroTorso', null, petroTorso),
+  wrap('AbelardoTorso', null, abelardoTorso),
+  wrap('GuayaberaTorso', null, guayaberaTorso),
+];
 
 // Clona una pieza de ropa cambiando su color (_col2 -> _col3b para que el pantalón tenga su propio color separado de la
 // camisa/chaqueta sin alterar _col3, que tiñe el iris de los ojos)
@@ -499,6 +541,7 @@ export function installChuck() {
       cloth.parts.push(...TORSO_PARTS);
       frames[PETRO_OUTFIT] = [{ type: 'symbol', name: 'PetroTorso' }, ...baseFrame];
       frames[ABELARDO_OUTFIT] = [{ type: 'symbol', name: 'AbelardoTorso' }, ...baseFrame];
+      frames[GUAYABERA_OUTFIT] = [{ type: 'symbol', name: 'GuayaberaTorso' }, ...baseFrame];
     } else if (cloth.name === 'Symbol102') {
       // En Symbol102 hay dos Symbol82 (el primero _col0 y el segundo _col2); le damos nombre propio al de la manga
       const sleevePart = [...cloth.parts].reverse().find((p) => p.name === 'Symbol82') as LaBruteSymbol | undefined;
@@ -507,9 +550,11 @@ export function installChuck() {
         const customFrame = baseFrame.map((fp, i) => (i === 0 ? { ...fp, name: 'SuitBackSleeve' } : fp));
         frames[PETRO_OUTFIT] = customFrame;
         frames[ABELARDO_OUTFIT] = [...customFrame];
+        frames[GUAYABERA_OUTFIT] = [...customFrame];
       } else {
         frames[PETRO_OUTFIT] = baseFrame;
         frames[ABELARDO_OUTFIT] = [...baseFrame];
+        frames[GUAYABERA_OUTFIT] = [...baseFrame];
       }
     } else if (cloth.name in PANTS_PARTS) {
       const targetName = PANTS_PARTS[cloth.name]!;
@@ -520,9 +565,11 @@ export function installChuck() {
         const customFrame = baseFrame.map((fp) => (fp.name === targetName ? { ...fp, name: pantsPartName } : fp));
         frames[PETRO_OUTFIT] = customFrame;
         frames[ABELARDO_OUTFIT] = [...customFrame];
+        frames[GUAYABERA_OUTFIT] = [...customFrame];
       } else {
         frames[PETRO_OUTFIT] = baseFrame;
         frames[ABELARDO_OUTFIT] = [...baseFrame];
+        frames[GUAYABERA_OUTFIT] = [...baseFrame];
       }
     } else if (cloth.name === 'Symbol189' || cloth.name === 'Symbol120') {
       const bootName = cloth.name === 'Symbol189' ? 'Symbol185' : 'Symbol115';
@@ -532,13 +579,16 @@ export function installChuck() {
         cloth.parts.push(shoeSym);
         frames[PETRO_OUTFIT] = [{ type: 'symbol', name: shoeSymName }];
         frames[ABELARDO_OUTFIT] = [{ type: 'symbol', name: shoeSymName }];
+        frames[GUAYABERA_OUTFIT] = [{ type: 'symbol', name: shoeSymName }];
       } else {
         frames[PETRO_OUTFIT] = baseFrame;
         frames[ABELARDO_OUTFIT] = [...baseFrame];
+        frames[GUAYABERA_OUTFIT] = [...baseFrame];
       }
     } else {
       frames[PETRO_OUTFIT] = baseFrame;
       frames[ABELARDO_OUTFIT] = [...baseFrame];
+      frames[GUAYABERA_OUTFIT] = [...baseFrame];
     }
     cloth.frames = frames;
   }

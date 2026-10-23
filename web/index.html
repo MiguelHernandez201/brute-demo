@@ -804,6 +804,10 @@
         font-size: 6cqw;
         text-transform: uppercase;
       }
+      /* (con bandos: "¡Gana el bando de …!" es más largo) */
+      #ttWinner .tt-name.bandos {
+        font-size: 8.5cqw;
+      }
       #ttWinner .tt-next {
         margin-top: 4cqw;
         font-family: system-ui, sans-serif;
@@ -1684,7 +1688,21 @@
         display: flex;
         justify-content: space-between;
       }
-      #ttHowTo .tt-cols > ul {
+      /* (modo Petro vs Abelardo: cómo se elige bando, a todo lo ancho bajo las dos listas) */
+      #ttHowTo .tt-foot {
+        margin: 0.8cqw 0 0;
+        padding-top: 0.6cqw;
+        border-top: 0.3cqw dashed #dec37f;
+        text-align: center;
+        white-space: nowrap;
+      }
+      #ttHowTo .tt-foot b {
+        font-family: LaBrute, GameFont, system-ui, sans-serif;
+        font-weight: normal;
+        text-shadow: 0 0 0.3cqw #5b3516;
+      }
+      #ttHowTo .tt-cols > ul,
+      #ttHowTo .tt-cols > .tt-right {
         padding-left: 2cqw;
         border-left: 0.3cqw dashed #dec37f;
       }
@@ -1825,6 +1843,108 @@
         background: #120000;
         opacity: 0;
       }
+      /* ===== Modo Gustavo Petro vs Abelardo (ver renderVersus en main.js): en lugar de la cabecera, la barra de los
+         dos jefes con su cara, su vida y cuántos de su bando siguen en pie, y en medio las rondas ganadas por cada
+         bando. Cada mitad lleva el color de su bando (--c) ===== */
+      .bandos-btn {
+        background: linear-gradient(90deg, #ff9f43, #4fb3ff);
+      }
+      #ttVersus {
+        display: none;
+      }
+      body.tiktok.bandos #ttHeader {
+        visibility: hidden;
+      }
+      body.tiktok.bandos #ttVersus {
+        position: absolute;
+        top: 1.5cqw;
+        left: 2.5cqw;
+        right: 2.5cqw;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        gap: 1.5cqw;
+        padding: 1cqw 1.6cqw;
+        background: var(--paper);
+        border-radius: 1cqw;
+        box-shadow: var(--box);
+        font-family: LaBrute, GameFont, system-ui, sans-serif;
+        color: #733d2c;
+        pointer-events: none;
+      }
+      #ttVersus .vs-side {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 1.4cqw;
+        min-width: 0;
+      }
+      #ttVersus .vs-side.right {
+        flex-direction: row-reverse;
+        text-align: right;
+      }
+      #ttVersus .vs-face {
+        flex: none;
+        width: 13cqw;
+        height: 13cqw;
+        object-fit: contain;
+        background: var(--c);
+        border: 0.7cqw solid #725254;
+        border-radius: 50%;
+      }
+      #ttVersus .vs-side.right .vs-face {
+        transform: scaleX(-1);
+      }
+      #ttVersus .vs-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6cqw;
+        min-width: 0;
+      }
+      #ttVersus .vs-name {
+        font-size: 4.4cqw;
+        font-weight: normal;
+        letter-spacing: 0.2cqw;
+        white-space: nowrap;
+      }
+      #ttVersus .vs-bar {
+        height: 2.8cqw;
+        overflow: hidden;
+        background: #3a2414;
+        border-radius: 99px;
+        box-shadow: inset 0 0 0 0.3cqw #725254;
+      }
+      #ttVersus .vs-bar i {
+        display: block;
+        height: 100%;
+        background: var(--c);
+        border-radius: 99px;
+        transition: width 0.3s;
+      }
+      #ttVersus .right .vs-bar i {
+        margin-left: auto;
+      }
+      #ttVersus small {
+        font-family: Handwritten, system-ui, sans-serif;
+        font-size: 2.6cqw;
+        white-space: nowrap;
+        color: #b06b4f;
+      }
+      #ttVersus .vs-mid {
+        flex: none;
+        display: flex;
+        align-items: baseline;
+        gap: 1cqw;
+      }
+      #ttVersus .vs-mid b {
+        font-size: 5.6cqw;
+        font-weight: normal;
+      }
+      #ttVersus .vs-mid span {
+        font-size: 3.6cqw;
+        color: #c0392b;
+      }
     </style>
   </head>
   <body>
@@ -1840,6 +1960,13 @@
       >
         📱 Modo TikTok (vertical)
       </button>
+      <button
+        id="bandosGo"
+        class="tiktok-btn bandos-btn"
+        title="El modo TikTok en dos bandos: Gustavo Petro y Abelardo son los jefes y gana el bando que derriba al jefe rival"
+      >
+        ⚔️ Gustavo Petro vs Abelardo
+      </button>
       <div class="divider"><span>nuevo</span></div>
       <button id="trailerGo" class="trailer-btn">🎬 Ver / Grabar Video Promocional</button>
     </div>
@@ -1850,6 +1977,7 @@
         <b id="ttSceneShade"></b>
       </div>
       <div id="ttHeader"><span>⚔️ BATTLE ROYALE</span><span id="ttRound"></span></div>
+      <div id="ttVersus"></div>
       <div id="status"></div>
       <div class="stage">
         <div class="shop roster-panel" id="roster"></div>
@@ -1950,13 +2078,13 @@
       <div class="gift-actions">
         <button
           id="giftPetro"
-          title="Entra a pelear como Gustavo Petro (con el nombre escrito o, si no hay, 'Gustavo Petro')"
+          title="Entra a pelear como Gustavo Petro (con el nombre escrito o, si no hay, 'Gustavo Petro'). En el modo Petro vs Abelardo, entra al bando de Petro (o se cambia a él desde la ronda siguiente)"
         >
           👓 Gustavo Petro
         </button>
         <button
           id="giftAbelardo"
-          title="Entra a pelear como Abelardo De La Espriella (con el nombre escrito o, si no hay, 'Abelardo')"
+          title="Entra a pelear como Abelardo De La Espriella (con el nombre escrito o, si no hay, 'Abelardo'). En el modo Petro vs Abelardo, entra al bando de Abelardo (o se cambia a él desde la ronda siguiente)"
         >
           🎩 Abelardo
         </button>

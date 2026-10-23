@@ -62,6 +62,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     acaba a los 10 segundos. El ganador sale en grande ("¡gana la ronda N!") con la cuenta atrás de la siguiente (8 s).
   - Sin botones en pantalla: la tecla **C** los muestra u oculta (los de abajo, los de agregar brutes y los
     potenciadores de cada uno, y 🗑️ para borrar el ranking).
+- **⚔️ Gustavo Petro vs Abelardo**: el modo TikTok en dos bandos, cada uno con su jefe (ver **Gustavo Petro vs
+  Abelardo**, abajo). También con `?bandos` en la dirección.
 - **🎁 Panel de regalos** (botón 🎁 o tecla **G**; en el modo TikTok): simula los regalos del directo de TikTok (los
   de verdad llegan solos con el puente: ver **Directo de TikTok**, abajo), y arriba dice cómo va la conexión con el
   directo. Justo debajo, **🚪 Los que se unen al live entran a la arena** (en verde si está activado; ver **Directo
@@ -116,7 +118,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     se captura solo la del juego.
   - Para mandar regalos desde fuera (la consola, TikFinity u otro programa): `labrute.gift('usuario', 'rose', 5)`,
     `labrute.join('usuario')`, `labrute.petro('usuario')`, `labrute.abelardo('usuario')`, `labrute.chuck('usuario')` y
-    `labrute.like('usuario', 15)` (los toques de cada aviso de "me gusta") en la ventana
+    `labrute.like('usuario', 15)` (los toques de cada aviso de "me gusta"), y en el modo Petro vs Abelardo
+    `labrute.bando('usuario', 'petro')` (o `'abelardo'`), en la ventana
     del juego (los regalos: `rose`, `quiereme`, `rosa`, `dona`, `handheart`, `corgi`, o el nombre de cualquiera del
     catálogo, como `'Heart Me'` o `'Rose'`). Con lo que vale uno como cuarto dato
     (`labrute.gift('usuario', 'Rose', 5, 1)`) solo cuenta como ese regalo si el nombre y el precio casan; si no, da
@@ -349,26 +352,73 @@ promocional; con las rondas continuas lleva la cuenta atrás en la esquina), �
 
 ## Gustavo Petro vs Abelardo (en desarrollo)
 
-Un royale de dos bandos: Gustavo Petro y Abelardo entran como jefes y los espectadores pelean como refuerzos de uno
-de los dos. La ronda la gana el bando que derriba al jefe rival. Por ahora solo está el motor (aún no hay botón para
-jugarlo):
+El modo TikTok en dos bandos: Gustavo Petro y Abelardo entran como jefes y los demás pelean como refuerzos de uno de
+los dos. La ronda la gana el bando que derriba al jefe rival. Se entra con el botón **⚔️ Gustavo Petro vs Abelardo** de
+la pantalla de inicio, o con `?bandos` en la dirección (`?bandos=8` para elegir cuántos refuerzos salen al empezar,
+repartidos entre los dos; como en el modo TikTok, de 3 a 20).
 
-- `createRoyale(n, { sides })` (`web/src/sim.ts`) arma la ronda con los dos jefes y `n` brutes repartidos entre los
-  bandos. Los jefes salen con las mismas estadísticas, armas y habilidades (solo cambian el nombre y el aspecto), así
-  ningún bando tiene ventaja, y con **300** de vida (`CHIEF_HP`). Cada bando empieza en su lado de la arena.
+- **Cada espectador elige su bando** comentando el nombre de su jefe: `petro` o `gustavo`, `abelardo` o `espriella`
+  (sin importar mayúsculas ni tildes, y aunque lleve números o signos pegados, como `#petro2026`, pero no dentro de otra
+  palabra: "petróleo" no cuenta), o solo `1` (Petro) o `2` (Abelardo). Si nombra a los dos, no elige. Quien entra sin
+  elegir (con toques, un regalo, al entrar al live o comentando otra cosa) va al bando que tenga menos en pie. El bando se
+  le queda mientras siga abierta la página, así vuelve a él en las rondas siguientes; si se cambia estando en la pelea,
+  sigue en el suyo hasta la ronda siguiente. ¿Cómo jugar? lo dice abajo: "💬 Comenta PETRO o ABELARDO para elegir tu
+  bando". En el panel de regalos, **👓 Gustavo Petro** y **🎩 Abelardo** meten al espectador del nombre escrito en ese
+  bando (sin nombre, o con el de un jefe, uno al azar), y desde la consola, `labrute.bando('usuario', 'petro')`.
+- **Los regalos van sobre todo al jefe** del bando de quien los manda (`bandosGift` en `web/src/sim.ts`): la vida del
+  jefe y, desde 30 monedas, lo de ese escalón (aura de ki, poderes, mascota y minigun). Al espectador, menos vida y un
+  arma (poderosa desde 30 monedas, sin aura ni poder: el potenciador 8, nuevo). En ¿Cómo jugar?, la columna de las
+  monedas dice lo que le dan al jefe ("Tu jefe 👑"):
+
+  | Monedas   | Al jefe de su bando                  | Al espectador              |
+  | --------- | ------------------------------------ | -------------------------- |
+  | 1 a 9     | +10                                  | +30 y arma sencilla        |
+  | 10 a 29   | +100                                 | +50 y arma sencilla        |
+  | 30 a 99   | +300, aura de ki y un poder          | +100 y arma poderosa       |
+  | 100 a 298 | +600, lo de antes y mascota 1 minuto | +200 y arma poderosa       |
+  | 299 o más | +900, 2 poderes y minigun 20 s       | +300 y arma poderosa       |
+
+  La vida del jefe va en proporción a la suya (30 monedas se la devuelven entera), no a la del royale: con esa, un Corgi
+  le daba diez veces su vida. Los regalos de más de 299 monedas (el León…) dan lo del Corgi con la vida en proporción a
+  lo que valen. Las curas seguidas al jefe (los regalos de menos de 30 monedas) se suman en una, y su cola de
+  potenciadores es más larga que la de un espectador (30): le regala todo su bando. Si el jefe ya cayó en el motor pero
+  su caída aún no se ve, un regalo de su bando le salva, como en el royale. Los toques siguen siendo solo del espectador.
+
+- **En pantalla**: en lugar de la cabecera, la barra de los jefes, con la cara de cada uno, su vida, cuántos de su bando
+  siguen en pie (👥) y, en medio, las rondas que lleva ganadas cada bando (se recuerdan en este navegador). Cada bando
+  tiene su color en las etiquetas de la arena y en la lista: naranja el de Petro y celeste el de Abelardo (ninguno de
+  los de sus partidos). ¿Cómo jugar? suma "👑 Jefe rival ¡derríbalo!".
+- **Ropa del bando** (`teamLook` en `web/src/chuck.ts`): los refuerzos conservan su cara, su pelo y su piel al azar,
+  pero visten como su jefe. Los de Petro, la guayabera blanca con pantalón oscuro, sin la banda presidencial (es solo
+  suya: un atuendo nuevo, la guayabera sola); los de Abelardo, el traje de cachaco oscuro con rayas, chaleco y corbata.
+  Las piezas propias son del muñeco de hombre: las brutes llevan el top y la falda del juego en esos colores. Todos sin
+  el chaleco oscuro que trae a veces el atuendo de manga larga del juego (no se tiñe y tapaba el color del bando).
+- **Fin de la ronda**: cuando se ve caer a un jefe, su caída es como la del duelo final del royale ("FINISH HIM!", el
+  fondo que se oscurece y el letrero de la FATALITY), lo que quedaba por verse de los demás ya no cuenta y gana el otro
+  jefe: celebra todo su bando y sale "¡Gana el bando de …!", el mejor de los suyos (el que más rivales eliminó, sin
+  contar al jefe) y el marcador. Si el reloj de la ronda llega a cero, gana el jefe al que le quede más vida (en
+  proporción a la suya). Los jefes no cuentan en el ranking de los espectadores.
+- **El motor**: `createRoyale(n, { sides })` (`web/src/sim.ts`) arma la ronda con los dos jefes y `n` brutes repartidos
+  entre los bandos. Los jefes salen con las mismas estadísticas, armas y habilidades (solo cambian el nombre y el
+  aspecto), así ningún bando tiene ventaja, y con **300** de vida (`CHIEF_HP`). Cada bando empieza en su lado de la
+  arena.
 - Los de un mismo bando no se atacan: los duelos solo se arman entre bandos rivales (si un bando tiene muchos más en
   pie, varios se juntan contra el mismo rival) y las ultimates, la onda del gigante y la minigun solo alcanzan al otro
   bando. A los jefes, las ultimates y la minigun les quitan la cuarta parte.
 - Cuando cae un jefe, el motor espera a que la animación vea su caída para cerrar la ronda; si antes le llega un
-  potenciador que le salva, la pelea sigue. Mientras tanto no entra nadie más. Quien entra sin decir su bando va al que
-  tenga menos en pie.
+  potenciador que le salva, la pelea sigue. Mientras tanto no entra nadie más.
 - Al jefe le pegan de uno en uno (cada golpe se anima por separado), así que lo que tarda en caer depende sobre todo de
   su vida. Con 300 y 6 brutes más, sin regalos, el primer jefe cae a los 2 minutos de media y 1 ronda de cada 20 llega
-  a los 3 minutos del reloj (con 400, 1 de cada 6). Para volver a medirlo, desde `web/`:
+  a los 3 minutos del reloj (con 400, 1 de cada 6). Varía mucho de una ronda a otra: en el navegador, cuatro rondas
+  duraron 34 s, 2 min 14 s, 2 min 21 s y unos 2 min 25 s (con la llegada y el remate). Los regalos acortan la ronda
+  (sus poderes y el aura pegan más de lo que curan): con uno cada 27 s, 1 min 23 s de media; con dos, 1 min 9 s. Y
+  deciden: si 3 de cada 4 regalos son del bando de Petro, gana Petro en 4 rondas de cada 5. Para volver a medirlo,
+  desde `web/`:
 
   ```bash
   node scripts/simular.mjs bandos 200 6        # 200 rondas con 6 refuerzos
   node scripts/simular.mjs bandos 200 6 1 500  # con espectadores y regalos, y jefes con 500 de vida
+  SESGO=0.75 node scripts/simular.mjs bandos 200 6 2   # 2 regalos cada 27 s, 3 de cada 4 del bando de Petro
   node scripts/simular.mjs royale 200 10       # el royale normal, para comparar
   ```
 
@@ -440,7 +490,8 @@ Una voz que agradece los regalos, saluda a los que entran y responde preguntas d
   Sin las claves no habla: solo escribe en su ventana lo que diría.
 - **Que se oiga en el directo**: suena por la salida de audio predeterminada de Windows. En OBS o TikTok LIVE Studio,
   captura el audio del escritorio (o manda la salida a un cable de audio virtual y captúralo).
-- El puente ahora manda también el texto de cada comentario (`{ type: 'comment', user, text }`); el juego lo ignora.
+- El puente ahora manda también el texto de cada comentario (`{ type: 'comment', user, text }`). El juego solo lo lee en el
+  modo Petro vs Abelardo, para saber qué bando elige (ver **Gustavo Petro vs Abelardo**, arriba).
 
 ## Estructura (`web/src`)
 
