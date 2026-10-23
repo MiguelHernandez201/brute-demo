@@ -324,11 +324,6 @@ async function startRoyale(count) {
   // (con bandos, el color de cada uno es el de su bando)
   setSideColors(bandos.on ? (index) => sideById(fight.sideOf(index))?.color : null);
   renderRoster(fight);
-  if (bandos.on)
-    narrate(
-      'bandos_inicio',
-      SIDES.map((side) => side.name),
-    );
   // (los espectadores del directo que siguen por aquí vuelven a pelear: entran en cuanto empieza)
   queueRecentViewers();
   await playFight(id, fight);
@@ -1268,6 +1263,9 @@ function renderRoster(fight) {
   const CHIEF_DANGER = 0.3;
   const CHIEF_SAFE = 0.6;
   const chiefWarned = new Set();
+  // Con bandos, si ya avisó a la voz de que empieza la ronda: en cuanto empieza a verse la pelea (no al crearla: en la
+  // primera ronda el juego aún no está conectado al puente y el aviso se perdía)
+  let startAnnounced = false;
   const tick = setInterval(() => {
     if (rosterFight !== fight) return clearInterval(tick);
     // Potenciadores en cola (con la pelea en marcha)
@@ -1313,6 +1311,13 @@ function renderRoster(fight) {
     }
     // Ya no se puede agregar (la pelea se cerró: solo queda el final por ver): botones apagados
     if (!canAdd()) document.querySelectorAll('#roster [data-add]').forEach((b) => (b.disabled = true));
+    if (bandos.on && !startAnnounced && elapsed) {
+      startAnnounced = true;
+      narrate(
+        'bandos_inicio',
+        SIDES.map((side) => side.name),
+      );
+    }
     // Con bandos: un jefe con poca vida (la voz pide a su bando que lo defienda). Una vez hasta que se recupere
     if (bandos.on && !winner && !fight.timeUp) {
       for (const side of SIDES) {
