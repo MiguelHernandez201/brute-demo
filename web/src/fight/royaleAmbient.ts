@@ -10,7 +10,7 @@ import { gsap } from 'gsap';
 import { Application, Container, Graphics, Text, Ticker } from 'pixi.js';
 import type { CameraView } from './royaleCamera';
 import { AnimationFighter } from './utils/findFighter';
-import { roomAt, royaleArena } from './utils/fightPositions';
+import { roomAt, royaleArena, royaleBounds } from './utils/fightPositions';
 import { playStepDust } from './utils/playVFX';
 import { Spritesheets } from './utils/spritesheet';
 
@@ -128,13 +128,14 @@ export const royaleAmbient = (
   const roam = (f: AnimationFighter, s: State) => {
     const { x, y } = f.animation.container;
     const others = spots(f);
+    const { minX, maxX } = royaleBounds(f);
     let best = { x, y };
     let bestRoom = -Infinity;
     for (let k = 0; k < 8; k++) {
       const angle = rand(0, Math.PI * 2);
       const distance = rand(30, 110);
       const candidate = {
-        x: clamp(x + Math.cos(angle) * distance, royaleArena.minX, royaleArena.maxX),
+        x: clamp(x + Math.cos(angle) * distance, minX, maxX),
         y: clamp(y + Math.sin(angle) * distance * 0.45, royaleArena.minY, royaleArena.maxY),
       };
       const room = roomAt(candidate.x, candidate.y, others) + rand(0, 15);
@@ -150,11 +151,12 @@ export const royaleAmbient = (
   const sprint = (f: AnimationFighter, s: State) => {
     const { x } = f.animation.container;
     const others = spots(f);
+    const { minX, maxX } = royaleBounds(f);
     let best: { x: number; y: number } | null = null;
     let bestRoom = -Infinity;
     for (let k = 0; k < 10; k++) {
       const candidate = {
-        x: royaleArena.minX + Math.random() * (royaleArena.maxX - royaleArena.minX),
+        x: minX + Math.random() * (maxX - minX),
         y: royaleArena.minY + Math.random() * (royaleArena.maxY - royaleArena.minY),
       };
       if (Math.abs(candidate.x - x) < 130) continue;
@@ -173,9 +175,10 @@ export const royaleAmbient = (
     if (!rival) return null;
     const c = f.animation.container;
     const r = rival.animation.container;
-    const side = c.x <= r.x ? -1 : 1;
+    const { minX, maxX } = royaleBounds(f);
+    const side = royaleArena.lock?.(f) || (c.x <= r.x ? -1 : 1);
     const dest = {
-      x: clamp(r.x + side * rand(55, 80), royaleArena.minX, royaleArena.maxX),
+      x: clamp(r.x + side * rand(55, 80), minX, maxX),
       y: clamp(r.y + rand(-12, 12), royaleArena.minY, royaleArena.maxY),
     };
     if (Math.hypot(dest.x - c.x, dest.y - c.y) < 15 || roomAt(dest.x, dest.y, spots(f).filter((o) => o.x !== r.x || o.y !== r.y)) < 25) {
@@ -188,7 +191,8 @@ export const royaleAmbient = (
   const hops = (f: AnimationFighter, count: number, height: number, back: number, duration: number, pose: 'evade' | null): Action => {
     const c = f.animation.container;
     const ground = { x: c.x, y: c.y };
-    const endX = clamp(ground.x - facing(f) * back, royaleArena.minX, royaleArena.maxX);
+    const { minX, maxX } = royaleBounds(f);
+    const endX = clamp(ground.x - facing(f) * back, minX, maxX);
     const giant = f.animation.giantScale || 1;
     if (pose) f.animation.setAnimation(pose);
     f.animation.setAirborn(true);
@@ -486,8 +490,9 @@ export const royaleAmbient = (
   const laps = (f: AnimationFighter, s: State): Action => {
     const c = f.animation.container;
     const home = { x: c.x, y: c.y };
+    const { minX, maxX } = royaleBounds(f);
     const far = {
-      x: c.x < 250 ? royaleArena.maxX - rand(10, 40) : royaleArena.minX + rand(10, 40),
+      x: c.x < (minX + maxX) / 2 ? maxX - rand(10, 40) : minX + rand(10, 40),
       y: clamp(c.y + rand(-15, 15), royaleArena.minY, royaleArena.maxY),
     };
     const bubble = say(f, quip('laps'), 1.8);

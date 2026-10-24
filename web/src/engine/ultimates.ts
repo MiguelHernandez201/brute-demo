@@ -45,13 +45,13 @@ const state = (f: DetailedFighter) => f as DetailedFighter & {
 //   0 → solo una ultimate (los poderes de más del 3, que salen en cola tras él, ver main.js)
 //   1 → +30 PV y nada más (el regalo pequeño: sobre todo, para entrar a pelear)
 //   2 → +1000 PV, una ultimate, un arma poderosa que equipa al momento y ya nunca pierde (ver keepsWeapon en
-//       fightMethods) y aura de ki para el resto de la pelea (daño x3, ver KI_DAMAGE)
-//   3 → lo del 2 con +3000 PV, y además una mascota que pelea con él durante un minuto (la pone session.castBoost,
+//       fightMethods) y aura de ki durante KI_SECONDS (daño x2, ver KI_DAMAGE)
+//   3 → lo del 2 con +3000 PV, y además un ayudante que pelea con él durante un minuto (la pone session.castBoost,
 //       que tiene los datos del brute para sus estadísticas) y una minigun durante MINIGUN_SECONDS (mientras, cada
 //       turno suyo es una ráfaga: ver fightMethods.minigunBurst)
 //   4 → solo un arma sencilla que equipa al momento y ya nunca pierde (lo daba el Quiéreme, que ahora da el 7)
 //   5 → +300 PV y un arma sencilla (los regalos desde 10 monedas, como la Rosa)
-//   6 → lo del 2 con +2000 PV y además la mascota del 3 (el Hand Heart, de 100 monedas: entre la Dona y el Corgi)
+//   6 → lo del 2 con +2000 PV y además el ayudante del 3 (el Hand Heart, de 100 monedas: entre la Dona y el Corgi)
 //   7 → +30 PV y un arma sencilla (los regalos de 1 a 9 monedas, como la Rose y el Quiéreme; los 100 tap tap dan el 1)
 //   8 → vida y un arma poderosa, sin aura ni poder (en el modo Petro vs Abelardo, lo que le toca al espectador de un
 //       regalo desde 30 monedas: el resto va a su jefe, ver sim.bandosGift)
@@ -62,7 +62,7 @@ export const BOOST_HP: Record<BoostTier, number> = { 0: 0, 1: 30, 2: 1000, 3: 30
 export const boostCasts = (tier: BoostTier) => tier !== 1 && !boostOnlyWeapon(tier);
 // Si solo trae un arma (y la vida de su nivel): ni ultimate ni aura. Sencilla, salvo la del 8
 export const boostOnlyWeapon = (tier: BoostTier) => tier === 4 || tier === 5 || tier === 7 || tier === 8;
-// Si trae la mascota del 3
+// Si trae el ayudante del 3 (ver ayudantes.ts)
 export const boostPet = (tier: BoostTier) => tier === 3 || tier === 6;
 // Armas sencillas (las de siempre: las traen el 4, el 5 y el 7) y poderosas (las que más pegan: el 2, el 3 y el 6), y a
 // qué nivel
@@ -71,10 +71,13 @@ const POWERFUL_WEAPONS = [
   WeaponName.axe, WeaponName.sword, WeaponName.flail, WeaponName.morningStar, WeaponName.halbard, WeaponName.bumps,
 ];
 const BOOST_WEAPON_TIER: Partial<Record<BoostTier, number>> = { 2: 2, 3: 3, 4: 1, 5: 1, 6: 2, 7: 1, 8: 2 };
-// Segundos de pelea que dura la mascota (los cuenta la animación desde que llega, ver session.endPet)
+// Segundos de pelea que dura el ayudante (los cuenta la animación desde que llega, ver session.endPet)
 export const PET_SECONDS = 60;
 // Segundos de pelea que lleva la minigun (los cuenta la animación desde que la saca, ver endMinigun)
 export const MINIGUN_SECONDS = 20;
+// Segundos de pelea que dura el aura de ki (los cuenta la animación desde que se enciende, ver endKi). Corren aunque no
+// tenga rivales: cuando duraba toda la pelea, quien la tenía se quedaba esperando retador y ya nadie podía con él
+export const KI_SECONDS = 60;
 
 // Rivales en pie: todos, no solo los de su duelo (con bandos, solo los del otro bando)
 const rivals = (fd: DetailedFight, caster: DetailedFighter) => fd.fighters.filter((f) => f.type === 'brute'
@@ -228,6 +231,15 @@ export const boostGear = (fightData: DetailedFight, caster: DetailedFighter, tie
     state(caster).demoMinigun = true;
     fightData.steps.push({ a: 'demoMinigun', f: caster.index } as never);
   }
+};
+
+// Se apaga el aura de ki del brute `index` (la animación cuenta sus segundos). False si ya no la tenía
+export const endKi = (fightData: DetailedFight, index: number) => {
+  const brute = fightData.fighters.find((f) => f.index === index && f.type === 'brute' && !f.master);
+  if (!brute || !state(brute).demoKi) return false;
+  state(brute).demoKi = false;
+  if (brute.hp > 0) fightData.steps.push({ a: 'demoKiEnd', f: brute.index } as never);
+  return true;
 };
 
 // Se acaba la minigun del brute `index` (la animación cuenta sus segundos). False si ya no la llevaba

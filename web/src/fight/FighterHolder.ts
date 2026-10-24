@@ -537,6 +537,13 @@ export class FighterHolder {
 
   readonly name: Fighter['name'];
 
+  // Ayudante de un potenciador (ver ayudantes.ts): una mascota por dentro, pero con el muñeco y las animaciones de una
+  // persona (se anima 'attack' como 'fist' y 'hit' como 'hit-0', 'hit-1' o 'hit-2')
+  readonly isHelper: boolean;
+
+  // Lo que se pidió en la última animación, que en un ayudante puede llamarse de otro modo (ver setAnimation)
+  #asked: Animation = 'arrive';
+
   readonly #colors: Record<string, string>;
 
   readonly #parts: Record<string, number>;
@@ -642,6 +649,7 @@ export class FighterHolder {
     this.type = fighter.type;
     this.#renderer = app.renderer;
     this.name = fighter.name;
+    this.isHelper = fighter.type === 'pet' && !!fighter.helper;
     this.shield = fighter.shield;
     this.weapon = null;
     this.skills = fighter.skills;
@@ -653,7 +661,7 @@ export class FighterHolder {
     this.#scale = scale;
 
     // Get animation type
-    if (this.type === 'brute') {
+    if (this.type === 'brute' || this.isHelper) {
       this.#animationType = fighter.gender || Gender.male;
     } else if (this.type === 'pet') {
       this.#animationType = (fighter.name.startsWith('dog') || fighter.name === 'panther') ? 'dog' : 'bear';
@@ -695,7 +703,7 @@ export class FighterHolder {
     // Get fighter model type
     let fighterModelType: 'brute' | 'dog' | 'bear' = 'brute';
 
-    if (this.type === 'pet') {
+    if (this.type === 'pet' && !this.isHelper) {
       if (fighter.name === PetName.panther || fighter.name.startsWith('dog')) {
         fighterModelType = 'dog';
       } else if (fighter.name === PetName.bear) {
@@ -945,6 +953,14 @@ export class FighterHolder {
   }
 
   #triggerEvents = (event: string) => {
+    this.#fireEvents(event);
+    // Un ayudante anima con otro nombre lo que se le pidió ('attack' como 'fist'): también avisa con el que esperaban
+    if (this.isHelper && this.#asked !== this.animation && event.startsWith(`${this.animation}:`)) {
+      this.#fireEvents(`${this.#asked}${event.slice(this.animation.length)}`);
+    }
+  };
+
+  #fireEvents = (event: string) => {
     // Trigger events
     if (this.events[event]) {
       for (const callback of this.events[event] ?? []) {
@@ -980,6 +996,13 @@ export class FighterHolder {
     // Demo: ya destruido (por ejemplo la mascota de un potenciador, que se va de la arena al acabarse su minuto) no se
     // anima: algo que quedó pendiente (volver al reposo tras un golpe) lo intentaba y fallaba
     if (this.container.destroyed) return;
+
+    // Un ayudante se anima como una persona: las de las mascotas no existen en su muñeco
+    this.#asked = animation;
+    if (this.isHelper) {
+      if (animation === 'attack') animation = 'fist';
+      else if (animation === 'hit') animation = `hit-${Math.floor(Math.random() * 3)}` as Animation;
+    }
 
     // Handle idle differently for monks
     if (animation === 'idle' && this.skills[SkillId.monk]) {

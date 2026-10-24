@@ -59,11 +59,11 @@ const setStatus = (state, text) => {
   return changed;
 };
 // Lo que el juego le manda a la voz del streamer virtual (live/voz.js): los ajustes de las casillas 💬 y 🥊 del panel de
-// regalos ({ type: 'config', conversacional, narrador, saludos }; el puente se los recuerda a los que se conecten después) y lo
+// regalos ({ type: 'config', conversacional, narrador, saludos, modo }; el puente se los recuerda a los que se conecten después) y lo
 // que pasa en la pelea ({ type: 'pelea', evento, nombres, pct }: un golpe crítico duro, pelea reñida, uno solo
 // esperando rival). Se reenvía a los demás clientes, con los campos revisados
 let config = null;
-const PELEA_EVENTOS = new Set(['critico', 'renida', 'solo', 'solo_fin']);
+const PELEA_EVENTOS = new Set(['critico', 'renida', 'solo', 'solo_fin', 'bandos_inicio', 'bandos_peligro', 'bandos_gana', 'bandos_bando']);
 server.on('connection', (ws) => {
   ws.send(JSON.stringify(status));
   if (config) ws.send(JSON.stringify(config));
@@ -82,10 +82,11 @@ server.on('connection', (ws) => {
         conversacional: msg.conversacional,
         narrador: msg.narrador !== false,
         saludos: msg.saludos !== false,
+        modo: msg.modo === 'bandos' ? 'bandos' : 'royale',
       };
       const on = (v) => (v ? 'activado' : 'apagado');
       console.log(
-        `⚙️ Conversacional ${on(config.conversacional)}, narrador ${on(config.narrador)}, saludos con nombre ${on(config.saludos)}`,
+        `⚙️ Conversacional ${on(config.conversacional)}, narrador ${on(config.narrador)}, saludos con nombre ${on(config.saludos)}, modo ${config.modo}`,
       );
       out = config;
     } else if (msg?.type === 'pelea' && PELEA_EVENTOS.has(msg.evento) && Array.isArray(msg.nombres)) {

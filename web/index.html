@@ -1037,6 +1037,14 @@
         padding: 9px 6px;
         font-size: 14px;
       }
+      /* (en el modo Petro vs Abelardo los espectadores no pelean: ver supportGift en main.js) */
+      /* (en Petro vs Abelardo nadie entra a pelear: solo pelean los presidentes) */
+      body.bandos #giftMembersRow {
+        display: none;
+      }
+      body.bandos #giftJoin {
+        display: none;
+      }
       #giftPopup {
         background: #3a2c22;
         color: var(--ink);
@@ -1517,6 +1525,22 @@
         padding-top: 8px;
         border-top: 1px solid #4a3a2e;
       }
+      .gift-help ul {
+        margin: 0;
+        padding-left: 18px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #cdb9a6;
+      }
+      .gift-help kbd {
+        padding: 0 5px;
+        border: 1px solid #6b5645;
+        border-radius: 4px;
+        background: #2a1d14;
+        font: inherit;
+        font-weight: 700;
+        color: #ffd479;
+      }
       .gift-round-row {
         display: flex;
         align-items: center;
@@ -1671,7 +1695,7 @@
         border-radius: 1cqw;
         box-shadow: var(--box);
         font-family: Handwritten, system-ui, sans-serif;
-        font-size: 2.8cqw;
+        font-size: 2.6cqw;
         line-height: 1.25;
         color: #b06b4f;
         pointer-events: none;
@@ -1701,6 +1725,29 @@
         font-weight: normal;
         text-shadow: 0 0 0.3cqw #5b3516;
       }
+      /* (las letras A y B, en una letra normal y gruesa: en la letra del juego se leían como dibujos, no como letras) */
+      #ttHowTo .tt-letter,
+      #ttHowTo .tt-foot b.tt-letter {
+        font-family: Arial, Helvetica, system-ui, sans-serif;
+        font-weight: 900;
+        font-size: 2.2em;
+        line-height: 0.8;
+        vertical-align: -0.12em;
+        letter-spacing: 0;
+        -webkit-text-stroke: 0.25cqw #5b3516;
+        paint-order: stroke fill;
+      }
+      /* Modo presidentes: la línea que dice qué comentar, grande, entre el marcador y los regalos */
+      #ttHowTo .tt-pick {
+        margin: 0.8cqw 0;
+        text-align: center;
+        white-space: nowrap;
+        font-size: 3cqw;
+        letter-spacing: 0;
+      }
+      #ttHowTo .tt-pick .tt-letter {
+        margin: 0 0.4cqw;
+      }
       #ttHowTo .tt-cols > ul,
       #ttHowTo .tt-cols > .tt-right {
         padding-left: 2cqw;
@@ -1729,6 +1776,95 @@
       #ttHowTo li b {
         font-weight: normal;
         color: #733d2c;
+      }
+      /* Los nombres de los ayudantes (José Manuel e Iván Cepeda), uno sobre otro y más pequeños, en lugar de un icono */
+      #ttHowTo .helpers {
+        display: inline-block;
+        font-size: 0.84em;
+        line-height: 1;
+        vertical-align: middle;
+        text-align: left;
+      }
+      /* Modo Petro vs Abelardo: el regalo con su ayudante debajo (en pequeño), en la misma casilla */
+      #ttHowTo .tt-duel .stack {
+        flex-direction: column;
+        gap: 0.2cqw;
+      }
+      #ttHowTo .tt-duel .stack > span:first-child {
+        display: flex;
+        align-items: center;
+        gap: 0.8cqw;
+      }
+      #ttHowTo .tt-duel .stack > .helpers {
+        display: block;
+        margin: 0;
+        font-size: 0.84em;
+      }
+      /* (en las tarjetas del panel de regalos, bajo sus iconos) */
+      .gift-grid .gift .helpers-card {
+        display: block;
+        font-size: 10px;
+        line-height: 1.1;
+        font-weight: 400;
+        opacity: 0.85;
+      }
+      /* Modo Petro vs Abelardo: los regalos de cada presidente en una tabla de 3 columnas (los de Petro | lo que le dan a
+         su presidente | los de Abelardo del mismo precio) y 6 filas (los nombres y los 5 escalones de monedas), con
+         rayas entre filas y columnas para que no se confundan */
+      #ttHowTo ul.tt-duel {
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.2fr) minmax(0, 1.05fr);
+        gap: 0;
+        font-size: 2.6cqw;
+        border: 0.3cqw solid #dec37f;
+        border-radius: 1cqw;
+        overflow: hidden;
+      }
+      #ttHowTo .tt-duel li > * {
+        display: flex;
+        align-self: stretch;
+        align-items: center;
+        justify-content: center;
+        gap: 0.8cqw;
+        min-height: 5.2cqw;
+        padding: 0.3cqw 1cqw;
+        border-bottom: 0.3cqw dashed #dec37f;
+        text-align: center;
+      }
+      /* La cara del ayudante de cada presidente, a los lados de la vida. Las dos miran a la izquierda: la de la izquierda
+         (Cepeda) se voltea para que mire al centro, como la otra */
+      #ttHowTo .tt-duel .hface {
+        flex: none;
+        width: 6.4cqw;
+        height: 6.4cqw;
+        object-fit: contain;
+        background: var(--c);
+        border: 0.4cqw solid #725254;
+        border-radius: 50%;
+      }
+      #ttHowTo .tt-duel li > :nth-child(2) .hface:first-child {
+        transform: scaleX(-1);
+      }
+      #ttHowTo .tt-duel li > :nth-child(2) {
+        border-left: 0.3cqw solid #dec37f;
+        border-right: 0.3cqw solid #dec37f;
+        background: rgba(222, 195, 127, 0.28);
+      }
+      #ttHowTo .tt-duel li:last-child > * {
+        border-bottom: 0;
+      }
+      #ttHowTo .tt-duel .tt-head > * {
+        border-bottom: 0.3cqw solid #dec37f;
+        background: rgba(222, 195, 127, 0.28);
+      }
+      #ttHowTo .tt-duel .tt-head .tt-title {
+        margin: 0;
+        font-size: 2.6cqw;
+        letter-spacing: 0.1cqw;
+      }
+      #ttHowTo .tt-duel .tt-head span b {
+        font-family: LaBrute, GameFont, system-ui, sans-serif;
+        font-size: 3.2cqw;
+        text-shadow: 0 0 0.3cqw #5b3516;
       }
       .coin {
         width: 1em;
@@ -1761,6 +1897,15 @@
       }
       body.tiktok:not(.tt-controls) #ttHowTo {
         top: 25.5cqw;
+      }
+      /* Modo Petro vs Abelardo: los regalos de cada presidente abajo, donde iba el ranking (aquí no hay: los
+         espectadores no pelean), y la arena entera a la vista */
+      body.tiktok.bandos:not(.tt-controls) #ttHowTo {
+        top: 1.5cqw;
+        z-index: 4;
+      }
+      body.tiktok.bandos #ttRanking {
+        display: none;
       }
       /* (sin el cuadro del chat ni sus dos imágenes: ocupaban un tercio de la pantalla, y TikTok pinta los comentarios
          encima igual) */
@@ -1855,19 +2000,13 @@
       body.tiktok.bandos #ttHeader {
         visibility: hidden;
       }
+      /* (va dentro de #ttHowTo, que es el panel de arriba: ver renderBandosHowTo) */
       body.tiktok.bandos #ttVersus {
-        position: absolute;
-        top: 1.5cqw;
-        left: 2.5cqw;
-        right: 2.5cqw;
-        z-index: 4;
         display: flex;
         align-items: center;
         gap: 1.5cqw;
-        padding: 1cqw 1.6cqw;
-        background: var(--paper);
-        border-radius: 1cqw;
-        box-shadow: var(--box);
+        padding: 0 0 1cqw;
+        border-bottom: 0.3cqw dashed #dec37f;
         font-family: LaBrute, GameFont, system-ui, sans-serif;
         color: #733d2c;
         pointer-events: none;
@@ -1903,10 +2042,20 @@
         min-width: 0;
       }
       #ttVersus .vs-name {
+        display: flex;
+        align-items: center;
+        gap: 1cqw;
         font-size: 4.4cqw;
         font-weight: normal;
         letter-spacing: 0.2cqw;
         white-space: nowrap;
+      }
+      #ttVersus .vs-side.right .vs-name {
+        flex-direction: row-reverse;
+      }
+      #ttHowTo #ttVersus .vs-name .tt-letter {
+        font-size: 1.3em;
+        color: var(--c);
       }
       #ttVersus .vs-bar {
         height: 2.8cqw;
@@ -2028,6 +2177,7 @@
       <div class="gift-live" id="giftLive" aria-live="polite"></div>
       <label
         class="gift-switch"
+        id="giftMembersRow"
         title="Marcado: quien se une al live entra a pelear aunque no comente, y en cada ronda nueva vuelven a pelear los que pasaron por el live en los últimos 10 minutos (con poca gente llena la arena; con mucha, mejor desmarcarlo)"
         ><input id="giftMembers" type="checkbox" checked /><span
           ><b>🚪 Los que se unen al live entran a la arena</b
@@ -2078,13 +2228,13 @@
       <div class="gift-actions">
         <button
           id="giftPetro"
-          title="Entra a pelear como Gustavo Petro (con el nombre escrito o, si no hay, 'Gustavo Petro'). En el modo Petro vs Abelardo, entra al bando de Petro (o se cambia a él desde la ronda siguiente)"
+          title="Entra a pelear como Gustavo Petro (con el nombre escrito o, si no hay, 'Gustavo Petro'). En el modo Petro vs Abelardo, solo elige a Petro como su jefe (sus toques y sus regalos que no son de ningún bando van a él)"
         >
           👓 Gustavo Petro
         </button>
         <button
           id="giftAbelardo"
-          title="Entra a pelear como Abelardo De La Espriella (con el nombre escrito o, si no hay, 'Abelardo'). En el modo Petro vs Abelardo, entra al bando de Abelardo (o se cambia a él desde la ronda siguiente)"
+          title="Entra a pelear como Abelardo De La Espriella (con el nombre escrito o, si no hay, 'Abelardo'). En el modo Petro vs Abelardo, solo elige a Abelardo como su jefe (sus toques y sus regalos que no son de ningún bando van a él)"
         >
           🎩 Abelardo
         </button>
@@ -2147,6 +2297,15 @@
         <div class="gift-round-row">
           <select id="giftBg" aria-label="Fondo de la arena"></select>
         </div>
+      </div>
+      <div class="gift-round gift-help">
+        <b>Distribución de la pantalla del directo</b>
+        <ul>
+          <li><kbd>E</kbd> entra y sale del modo edición (en la ventana del juego).</li>
+          <li>Arrastra un panel para moverlo y su esquina rosa para cambiar el tamaño.</li>
+          <li><kbd>+</kbd> lo pasa adelante y <kbd>-</kbd> atrás: si un panel no se ve, otro lo tapa (por ejemplo, la cabecera sobre ¿Cómo jugar?).</li>
+          <li><kbd>R</kbd> restablece todo a la distribución de fábrica.</li>
+        </ul>
       </div>
     </div>
 

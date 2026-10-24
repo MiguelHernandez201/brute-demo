@@ -55,7 +55,7 @@ export const moveTo = async (
   fighter.animation.setAnimation('run');
 
   // Play running SFX
-  if (fighter.type === 'pet') {
+  if (fighter.type === 'pet' && !fighter.helper) {
     // Remove numbers from pet name
     void sound.play('sfx', { sprite: `${fighter.name.replace(/\d/g, '')}` });
   }

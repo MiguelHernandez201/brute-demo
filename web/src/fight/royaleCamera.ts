@@ -12,6 +12,11 @@ import { setScreenLayer } from './utils/hud';
 const W = 500;
 const H = 300;
 const MAX_ZOOM = 2;
+// Arena alta con un Súper gigante (x3, ver GIANT_SCALE en setupFight): no cabe en el escenario, así que la cámara se
+// aleja hasta MIN_ZOOM y puede subir hasta ABOVE por encima de él para que se le vea la cara. Lo de fuera lo pone el
+// escenario de la pantalla (#ttScene, ver followScene en main.js), que se ve a través del lienzo
+const MIN_ZOOM = 0.6;
+const ABOVE = 0.6 * 300;
 // Con la arena alta, la franja de abajo del lienzo que se funde con el escenario de fuera (ver index.html): la cámara
 // no deja ahí a nadie
 const FADE_BOTTOM = 0.05;
@@ -20,6 +25,8 @@ const FADE_BOTTOM = 0.05;
 export const royaleZoom = { enabled: true };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+// (si no cabe, en medio)
+const fitIn = (v: number, min: number, max: number) => (min > max ? (min + max) / 2 : clamp(v, min, max));
 
 // Arena alta (modo TikTok, ver syncArenaView en main.js): el lienzo se muestra más alto que el 5:3 del juego,
 // llenando el alto y con los lados recortados, así los luchadores se ven más grandes. `frac`: la parte del ancho que
@@ -66,9 +73,11 @@ export const royaleCamera = (app: Application, getFighters: () => AnimationFight
     let x1 = -Infinity;
     let y0 = Infinity;
     let y1 = -Infinity;
+    let giants = false;
     for (const f of standing) {
       const c = f.animation.container;
       const giant = f.animation.giantScale || 1;
+      if (giant > 1) giants = true;
       const half = (f.animation.baseWidth / 2) * giant;
       x0 = Math.min(x0, c.x - half - 30);
       x1 = Math.max(x1, c.x + half + 30);
@@ -78,7 +87,8 @@ export const royaleCamera = (app: Application, getFighters: () => AnimationFight
     const bottom = frac < 1 ? FADE_BOTTOM : 0;
     const fit = Math.min((W * frac) / (x1 - x0), (H * (1 - top - bottom)) / (y1 - y0));
     const byCount = 2.2 - 0.17 * (standing.length - 1);
-    const z = royaleZoom.enabled ? clamp(Math.min(fit, byCount), 1, MAX_ZOOM) : 1;
+    const min = frac < 1 && giants ? MIN_ZOOM : 1;
+    const z = royaleZoom.enabled || min < 1 ? clamp(Math.min(fit, royaleZoom.enabled ? byCount : 1), min, MAX_ZOOM) : 1;
     return { z, x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
   };
 
@@ -88,10 +98,11 @@ export const royaleCamera = (app: Application, getFighters: () => AnimationFight
     const hh = H / 2 / camera.z;
     // (lo que se ve a lo ancho: con la arena alta, solo la parte de en medio del lienzo)
     const vw = hw * frac;
-    const px = clamp(camera.x, vw, W - vw);
-    // Lo encuadrado, en medio de lo que no tapa el letrero de arriba ni se funde abajo
+    const px = fitIn(camera.x, vw, W - vw);
+    // Lo encuadrado, en medio de lo que no tapa el letrero de arriba ni se funde abajo (con la arena alta, puede
+    // asomarse por encima del escenario: ver ABOVE)
     const bottom = frac < 1 ? FADE_BOTTOM : 0;
-    const py = clamp(camera.y - (H * (top - bottom)) / 2 / camera.z, hh, H - hh);
+    const py = fitIn(camera.y - (H * (top - bottom)) / 2 / camera.z, hh - (frac < 1 ? ABOVE : 0), H - hh);
     stage.pivot.set(px, py);
     // (la `y` la mueve después el temblor del escenario, si lo hay: ver shakeStage)
     stage.position.set(W / 2, H / 2);

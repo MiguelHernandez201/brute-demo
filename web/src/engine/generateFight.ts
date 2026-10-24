@@ -55,6 +55,8 @@ export type DetailedFighter = {
   leavesAtInitiative?: number;
   // Pet variables
   eaten?: boolean;
+  // Ayudante de un potenciador (ver ayudantes.ts): una mascota con aspecto de persona
+  helper?: string;
   // Raw stats
   maxHp: number;
   hp: number;

@@ -145,8 +145,8 @@ export const hit = async (
   } else if (typeof step.w !== 'undefined') {
     // Weapon SFX
     void sound.play('sfx', { sprite: `${WEAPONS_SFX[WeaponById[step.w]][randomBetween(0, WEAPONS_SFX[WeaponById[step.w]].length - 1)]}` });
-  } else if (fighter.type === 'pet') {
-    // Sword SFX for pets
+  } else if (fighter.type === 'pet' && !fighter.helper) {
+    // Sword SFX for pets (un ayudante pega con el puño, como una persona)
     void sound.play('sfx', { sprite: 'sword' });
   } else {
     // Fist SFX
@@ -154,7 +154,7 @@ export const hit = async (
   }
 
   // Play hit SFX
-  if (target.type === 'pet') {
+  if (target.type === 'pet' && !target.helper) {
     // Remove numbers from pet name
     void sound.play('sfx', { sprite: `${target.name.replace(/\d/g, '')}` });
   }

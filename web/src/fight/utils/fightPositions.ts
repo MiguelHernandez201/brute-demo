@@ -17,7 +17,22 @@ const maxRightXPosition = () => 500 - maxLeftXPosition();
 
 // Demo battle royale: no hay bandos, así que vale cualquier sitio de la arena (si no, todos acaban amontonados
 // en los dos bordes). Se prueban unos puntos al azar y gana el más despejado que no obligue a cruzar media arena.
-export const royaleArena = { enabled: false, minX: 36, maxX: 464, minY: minYPosition + 1, maxY: maxYPosition - 1 };
+export const royaleArena = {
+  enabled: false, minX: 36, maxX: 464, minY: minYPosition + 1, maxY: maxYPosition - 1,
+  // Modo Petro vs Abelardo: el lado de la arena de cada uno (-1 la izquierda, 1 la derecha, 0 cualquiera), el mismo que
+  // en la barra de arriba: cada jefe se queda en su mitad y, al retroceder tras atacar, de su lado del rival (ver
+  // setupFight). Antes se cruzaban y Petro acababa a la derecha
+  lock: null as ((f: AnimationFighter) => number) | null,
+};
+// Lo que puede recorrer `f` a lo ancho (con `lock`, su mitad)
+export const royaleBounds = (f: AnimationFighter) => {
+  const { minX, maxX } = royaleArena;
+  const lock = royaleArena.lock?.(f) ?? 0;
+  const mid = (minX + maxX) / 2;
+  if (lock < 0) return { minX, maxX: mid - 20 };
+  if (lock > 0) return { minX: mid + 20, maxX };
+  return { minX, maxX };
+};
 // Espacio libre alrededor de un punto: distancia al luchador más cercano (lo vertical cuenta el doble,
 // porque la arena es poco profunda), hasta un máximo
 export const roomAt = (x: number, y: number, others: { x: number; y: number }[], max = 120) => {
@@ -40,8 +55,9 @@ export const getRoyalePosition = (
   const { x: fx, y: fy } = fighter.animation.container;
   // Recién llegando (aún fuera de la arena) no cuenta lo que tenga que recorrer
   const onStage = fy >= minYPosition && fy <= maxYPosition;
-  const { minX, maxX, minY, maxY } = royaleArena;
-  let best = { x: 250, y: (minY + maxY) / 2 };
+  const { minY, maxY } = royaleArena;
+  const { minX, maxX } = royaleBounds(fighter);
+  let best = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
   let bestScore = -Infinity;
   for (let k = 0; k < 16; k++) {
     const x = minX + Math.random() * (maxX - minX);
@@ -71,13 +87,15 @@ export const getDuelPosition = (
   const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
   const fx = foe.animation.container.x;
   const fy = clamp(foe.animation.container.y, minY, maxY);
-  const side = Math.sign(fighter.animation.container.x - fx) || 1;
+  // (con `lock`, siempre de su lado del rival)
+  const lock = royaleArena.lock?.(fighter) ?? 0;
+  const side = lock || Math.sign(fighter.animation.container.x - fx) || 1;
   // Sin solaparse con el rival (los gigantes ocupan más)
   const gap = (foe.animation.baseWidth + fighter.animation.baseWidth) / 2;
   let best = { x: clamp(fx + side * (gap + 45), minX, maxX), y: fy };
   let bestScore = -Infinity;
   for (let k = 0; k < 12; k++) {
-    const s = Math.random() < 0.8 ? side : -side;
+    const s = (lock || Math.random() < 0.8) ? side : -side;
     const x = clamp(fx + s * (gap + 30 + Math.random() * 40), minX, maxX);
     const y = clamp(fy + (Math.random() - 0.5) * 30, minY, maxY);
     // Contra un borde quedaría encima del rival

@@ -14,9 +14,10 @@ import {
 } from './fightMethods';
 import {
   BOOST_HP, BoostTier, Ultimate, boostCasts, boostGear, boostHeal, boostOnlyWeapon, boostPet, canCastUltimate,
-  castUltimate as playUltimate, cleave, endGiant, endMinigun,
+  castUltimate as playUltimate, cleave, endGiant, endKi, endMinigun,
 } from './ultimates';
 import { PetName } from '@labrute/prisma';
+import { HELPERS, HELPER_LOOKS, HelperId } from '../ayudantes';
 
 // `activate`: power-ups que se activan al empezar el siguiente turno (sin depender de la probabilidad)
 export type Purchase = { weapons?: string[]; skills?: string[]; pets?: string[]; potions?: number; activate?: string[] };
@@ -29,9 +30,6 @@ const ACTIVATE_TRIES = 3;
 
 // Cada poción cura este % de la vida máxima (y quita el veneno)
 const POTION_HEAL = 0.5;
-
-// Mascota del potenciador 3 del royale (ver castBoost): perro, pantera u oso, al azar
-const BOOST_PETS = [[PetName.dog1, PetName.dog2, PetName.dog3], [PetName.panther], [PetName.bear]];
 
 const getTempo = (speed: number) => 0.10 + (20 / Math.max(1, 10 + (speed * 1.5))) * 0.90;
 
@@ -66,6 +64,7 @@ export const toAnimationFighter = (fighter: DetailedFighter): Fighter => {
     shield: fighter.shield,
   };
   if (fighter.size !== 1) object.size = fighter.size;
+  if (fighter.helper) object.helper = fighter.helper;
   return object;
 };
 
@@ -101,19 +100,25 @@ export class FightSession {
   // Bandos (los dos del royale de bandos, en orden: el primero empieza a la izquierda y el segundo a la derecha)
   #sides: string[] = [];
 
+  // Con bandos, el ayudante de cada uno (ver ayudantes.ts): el de Petro es Cepeda y el de Abelardo, Restrepo. Sin
+  // bandos, llegan por turnos
+  #helpers: Record<string, HelperId> = {};
+
   // startHp: vida con la que empieza cada brute (el campeón arrastra la que le quedó); undefined = llena.
   // Royale de bandos: `sides`, el bando de cada brute (en el orden de `brutes`), y `chiefs`, el id del jefe de cada
   // bando. Los de un mismo bando no se atacan y la pelea acaba cuando cae un jefe (ver #fallenChief)
   constructor(
     brutes: CalculatedBrute[],
-    { modifiers = {}, startHp = [], royale = false, sides, chiefs }: {
+    { modifiers = {}, startHp = [], royale = false, sides, chiefs, helpers = {} }: {
       modifiers?: Modifiers;
       startHp?: (number | undefined)[];
       royale?: boolean;
       sides?: string[];
       chiefs?: Record<string, string>;
+      helpers?: Record<string, HelperId>;
     } = {},
   ) {
+    this.#helpers = helpers;
     this.#brutes = brutes;
     this.royale = royale;
     this.background = weightedRandom(fightBackgrounds).name;
@@ -284,9 +289,8 @@ export class FightSession {
 
   // Battle royale: potenciador `tier` del brute `index` (regalos y botones de la lista, ver ultimates.BoostTier): le
   // cura (o le suma) vida y, salvo el 1, el 4 y el 5, lanza la ultimate `kind`; el 2, el 3 y el 6 le dan además un
-  // arma que ya no pierde y el aura de ki (el 4 y el 5, solo un arma sencilla), y el 3 y el 6 una mascota que pelea
-  // con él hasta que la animación
-  // la despide (ver endPet). La vida (la de su nivel, o `hp`) va lo primero y nunca espera a nada: si en el motor ya
+  // arma que ya no pierde y el aura de ki (el 4 y el 5, solo un arma sencilla), y el 3 y el 6 un ayudante que pelea
+  // con él hasta que la animación lo despide (ver endPet y summonHelper). La vida (la de su nivel, o `hp`) va lo primero y nunca espera a nada: si en el motor ya
   // había caído por golpes que en pantalla aún no se ven, le llega antes que ellos y se salva (ver #revive). Si no
   // puede (ver #boostCaster), no se hace nada
   castBoost(
@@ -316,25 +320,43 @@ export class FightSession {
     if (!casts || !kind || !this.castUltimate(index, kind) || tier < 2) return true;
     const calculated = this.#brutes.find((b) => b.id === caster.id);
     boostGear(fd, caster, tier);
-    if (boostPet(tier) && calculated) {
-      const kinds = BOOST_PETS[Math.floor(Math.random() * BOOST_PETS.length)] ?? [PetName.bear];
-      const pet = this.#newPet(caster, calculated, kinds[Math.floor(Math.random() * kinds.length)] ?? PetName.bear);
-      fd.fighters.push(pet);
-      fd.initialFighters.push(JSON.parse(JSON.stringify(pet)));
-      // Para la animación, en el lado en el que empezó su amo (luego cambia según con quién pelee)
-      const animation = toAnimationFighter(pet) as Fighter & { realTeam?: string };
-      animation.realTeam = pet.team;
-      animation.team = this.#animationSide(String(pet.team));
-      this.steps.push({ a: 'demoSpawn', fighter: animation } as never);
-      fighterArrives(fd, pet);
-      // Desde que llega cuenta su minuto
-      this.steps.push({ a: 'demoPet', f: pet.index } as never);
-    }
+    if (boostPet(tier) && calculated) this.#summonHelper(caster, calculated);
     return true;
   }
 
-  // Battle royale: se va la mascota de un potenciador (la animación avisa cuando pasa su minuto): sale de la arena
-  // corriendo y deja de pelear
+  // Battle royale: llega un ayudante de un potenciador grande (ver ayudantes.ts). Es una mascota por dentro (con las
+  // estadísticas del oso, que escalan con su amo) pero con aspecto de persona. Con bandos, cada presidente tiene el
+  // suyo (ver #helpers: así Cepeda nunca le pega a su amigo Petro ni Restrepo, a Abelardo); si no, el primero que
+  // recibe un brute es Restrepo y el segundo, Cepeda. Si el que toca ya está en la arena (o están los dos), el que
+  // llegó antes vuelve a empezar su minuto
+  #summonHelper(caster: DetailedFighter, calculated: CalculatedBrute) {
+    const fd = this.fightData;
+    const mine = fd.fighters.filter((f) => f.type === 'pet' && f.master === caster.id && f.helper && f.hp > 0);
+    const side = this.sideOf(caster.index);
+    const helper = (side ? this.#helpers[side] : undefined) ?? HELPERS.find((h) => !mine.some((f) => f.helper === h));
+    const here = helper ? mine.find((f) => f.helper === helper) : undefined;
+    if (!helper || here) {
+      // (los de índice más cercano a 0 son los que llegaron antes)
+      const renewed = here ?? mine.reduce((a, b) => (a.index > b.index ? a : b));
+      this.steps.push({ a: 'demoPet', f: renewed.index } as never);
+      return;
+    }
+    const pet = this.#newPet(caster, calculated, PetName.bear);
+    Object.assign(pet, { helper, ...HELPER_LOOKS[helper] });
+    fd.fighters.push(pet);
+    fd.initialFighters.push(JSON.parse(JSON.stringify(pet)));
+    // Para la animación, en el lado en el que empezó su amo (luego cambia según con quién pelee)
+    const animation = toAnimationFighter(pet) as Fighter & { realTeam?: string };
+    animation.realTeam = pet.team;
+    animation.team = this.#animationSide(String(pet.team));
+    this.steps.push({ a: 'demoSpawn', fighter: animation } as never);
+    fighterArrives(fd, pet);
+    // Desde que llega cuenta su minuto
+    this.steps.push({ a: 'demoPet', f: pet.index } as never);
+  }
+
+  // Battle royale: se va la mascota o el ayudante de un potenciador (la animación avisa cuando pasa su minuto): sale de
+  // la arena corriendo y deja de pelear
   endPet(index: number) {
     if (!this.royale || this.winner) return false;
     const fd = this.fightData;
@@ -361,6 +383,11 @@ export class FightSession {
   // Battle royale: se acaba el Súper gigante (ultimate) del brute `index`
   endGiant(index: number) {
     return this.royale && !this.winner && endGiant(this.fightData, index);
+  }
+
+  // Battle royale: se apaga el aura de ki (potenciadores 2, 3 y 6) del brute `index`
+  endKi(index: number) {
+    return this.royale && !this.winner && endKi(this.fightData, index);
   }
 
   // Battle royale: se acaba la minigun (potenciador 3) del brute `index`

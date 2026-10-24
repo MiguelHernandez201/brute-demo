@@ -70,7 +70,7 @@ import {
   ultimateFlood, ultimateHaste, struck,
 } from './ultimates';
 import { KiAura, kiAura } from './kiAura';
-import { MINIGUN_SECONDS, PET_SECONDS } from '../engine/ultimates';
+import { KI_SECONDS, MINIGUN_SECONDS, PET_SECONDS } from '../engine/ultimates';
 import { Minigun, minigun } from './minigun';
 import { resetBakeBudget, setCrowdLevel, updateCrowdQuality } from './crowdQuality';
 import { vampirism } from './vampirism';
@@ -865,6 +865,10 @@ export const setupFight: (
     const busy = new Set<number>();
     // Royale: auras de ki encendidas (potenciadores 2 y 3)
     const kiAuras = new Map<number, KiAura>();
+    // (y cómo cancelar la cuenta de sus segundos)
+    const kiTimers = new Map<number, () => void>();
+    // Lo mismo con el minuto de cada mascota o ayudante (si le llega otro potenciador, vuelve a empezar)
+    const petTimers = new Map<number, () => void>();
     // Royale: Súper gigantes (ultimate) y cuándo soltaron su última onda (una por ataque, aunque encadene golpes).
     // Alcanza a los más cercanos en ese momento, menos a quien ataca (ese ya se lleva su golpe), y a todos a la vez
     const stompers = new Map<number, number>();
@@ -969,6 +973,7 @@ export const setupFight: (
       cleave?: (index: number, candidates: number[]) => { t: number; d: number }[];
       endGiant?: (index: number) => boolean;
       endMinigun?: (index: number) => boolean;
+      endKi?: (index: number) => boolean;
       endPet?: (index: number) => boolean;
       wake?: () => void;
       // Royale de bandos (modo Petro vs Abelardo): el bando de cada uno y el índice del jefe de cada bando
@@ -977,6 +982,12 @@ export const setupFight: (
     };
     const chiefIndices = new Set(Object.values(demoFight.chiefs?.() ?? {}));
     const bandos = chiefIndices.size > 0;
+    // Con bandos, el primero (Petro) siempre a la izquierda y el otro a la derecha, como en la barra de arriba (ver
+    // royaleArena.lock); sus mascotas, por donde quieran
+    const [leftSide] = Object.keys(demoFight.chiefs?.() ?? {});
+    royaleArena.lock = bandos
+      ? (f) => (f.type === 'brute' && !f.master ? (demoFight.sideOf?.(f.index) === leftSide ? -1 : 1) : 0)
+      : null;
     // Con bandos, el jefe cuya caída ya se vio: la ronda se cierra y gana el otro (ver el bucle del royale)
     let chiefDown: number | undefined;
     const steps = demoFight.liveSteps ?? (JSON.parse(fight.steps) as FightStep[]);
@@ -1356,10 +1367,13 @@ export const setupFight: (
           miniguns.delete(endStep.f);
           break;
         }
-        // Demo royale: potenciador 2 o 3 → aura de ki (daño x3 en el motor) para el resto de la pelea. Si ya la tenía,
-        // vuelve a estallar (y si era la del 2 y este es el 3, pasa a la de rayos)
+        // Demo royale: potenciador 2 o 3 → aura de ki (daño x2 en el motor) durante KI_SECONDS, que corren aunque no
+        // tenga rivales (ver engine/ultimates.endKi). Si ya la tenía, su tiempo vuelve a empezar y vuelve a estallar (y
+        // si era la del 2 y este es el 3, pasa a la de rayos)
         case 'demoKi' as never: {
           const kiStep = step as unknown as { f: number; n: number };
+          kiTimers.get(kiStep.f)?.();
+          kiTimers.set(kiStep.f, fightTimer(app, speed, KI_SECONDS, () => demoFight.endKi?.(kiStep.f)));
           const brute = findFighter(fighters, kiStep.f);
           if (!brute || brute.dead || brute.animation.container.destroyed) break;
           const before = kiAuras.get(brute.index);
@@ -1371,15 +1385,29 @@ export const setupFight: (
           kiAuras.set(brute.index, kiAura(app, brute, speed, kiStep.n));
           break;
         }
-        // Demo royale: mascota del potenciador 3 → pelea un minuto desde que llega y luego se va (ver endPet)
+        // Demo royale: se apaga el aura de ki (ver engine/ultimates.endKi)
+        case 'demoKiEnd' as never: {
+          const endStep = step as unknown as { f: number };
+          kiTimers.get(endStep.f)?.();
+          kiTimers.delete(endStep.f);
+          kiAuras.get(endStep.f)?.stop();
+          kiAuras.delete(endStep.f);
+          break;
+        }
+        // Demo royale: ayudante del potenciador 3 o 6 → pelea un minuto desde que llega y luego se va (ver endPet). Si
+        // ya estaba, su minuto vuelve a empezar
         case 'demoPet' as never: {
           const petStep = step as unknown as { f: number };
-          fightTimer(
-            app,
-            speed,
-            PET_SECONDS,
-            () => demoFight.endPet?.(petStep.f),
-            () => hasRivals(petStep.f),
+          petTimers.get(petStep.f)?.();
+          petTimers.set(
+            petStep.f,
+            fightTimer(
+              app,
+              speed,
+              PET_SECONDS,
+              () => demoFight.endPet?.(petStep.f),
+              () => hasRivals(petStep.f),
+            ),
           );
           break;
         }
@@ -1820,10 +1848,11 @@ export const setupFight: (
           const score = (f: AnimationFighter) => (tags?.winsOf(f.index) ?? 0) + f.hp / f.maxHp / 2;
           const alive = standing();
           // Si no queda nadie en pie, gana el que más victorias lleve. Con bandos gana un jefe: el que no cayó o, por
-          // tiempo, al que le quede más vida (en proporción a la suya)
+          // tiempo, al que le quede más vida (la de ahora, no en proporción a su máxima: cada cura sube la máxima, y
+          // quien más regalos recibe quedaba con menos proporción aunque tuviera más vida; a igualdad, al azar)
           const chiefs = fighters.filter((f) => chiefIndices.has(f.index));
           const best = bandos
-            ? chiefs.filter((f) => f.index !== chiefDown).sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp)[0]
+            ? chiefs.filter((f) => f.index !== chiefDown).sort((a, b) => b.hp - a.hp || Math.random() - 0.5)[0]
             : (alive.length ? alive : fighters.filter((f) => f.type === 'brute' && !f.master))
               .sort((a, b) => score(b) - score(a))[0];
           if (best) demoFight.endNow?.(best.index);

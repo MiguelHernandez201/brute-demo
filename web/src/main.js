@@ -6,7 +6,7 @@ Filter.defaultOptions.resolution = 'inherit';
 // Mipmaps: las imágenes grandes que se muestran reducidas (retratos, hojas de sprites x3) se ven suaves y sin dientes.
 TextureSource.defaultOptions.autoGenerateMipmaps = true;
 import { gsap } from 'gsap';
-import { bandosGift, createRoyale } from './sim.ts';
+import { BANDOS_GIFTS, bandosGift, createRoyale } from './sim.ts';
 import { StepType } from '@labrute/core';
 import { createRenderer } from './renderer.ts';
 import { setupFight } from './fight/setupFight.ts';
@@ -21,8 +21,10 @@ import { royaleZoom, setRoyaleView } from './fight/royaleCamera.ts';
 import { sound } from '@pixi/sound';
 import { sfx, sounds } from './sfx.ts';
 import { playPromotionalTrailer } from './trailer.ts';
-import { BOOST_HP } from './engine/ultimates.ts';
+import { BOOST_HP, boostPet } from './engine/ultimates.ts';
 import { connectLive } from './live.js';
+import { HELPER_LABELS } from './ayudantes.ts';
+import { CEPEDA_FACE, RESTREPO_FACE } from './ayudantesCaras.ts';
 import { ABELARDO_LOOK, CHIEF_FACES, CHUCK_LOOK, PETRO_LOOK, installChuck, teamLook } from './chuck.ts';
 // Personajes especiales con piezas dibujadas para el muñeco además de las del juego (ver chuck.ts): se meten antes de
 // la primera pelea
@@ -182,6 +184,24 @@ const tiktok = { on: false, round: 0 };
 const TIKTOK_DELAY = 8;
 const TT_AUTO_KEY = 'brute-demo-tt-auto';
 const TT_TIMER_KEY = 'brute-demo-tt-timer';
+// El número de ronda se recuerda en este navegador, como el marcador de Petro vs Abelardo: si se recarga la página (con
+// F5, desde OBS o porque el servidor de desarrollo recarga al cambiar un archivo) no vuelve a "Ronda 1". Se borra con
+// 🗑️ Limpiar ranking
+const TT_ROUND_KEY = 'brute-demo-tt-round';
+const loadRound = () => {
+  try {
+    return Math.max(0, Math.round(+localStorage.getItem(TT_ROUND_KEY)) || 0);
+  } catch {
+    return 0;
+  }
+};
+const saveRound = () => {
+  try {
+    localStorage.setItem(TT_ROUND_KEY, String(tiktok.round));
+  } catch {
+    /* sin storage */
+  }
+};
 const RANKING_KEY = 'brute-demo-tiktok-ranking';
 const escHtml = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -221,15 +241,18 @@ function showWinner(name) {
 const hideWinner = () => $('ttWinner').classList.remove('show');
 
 // ===== Modo Gustavo Petro vs Abelardo =====
-// El royale del modo TikTok, en dos bandos (ver sim.createRoyale): Gustavo Petro y Abelardo entran como jefes y los
-// demás pelean por uno de los dos, con la ropa de su bando (ver chuck.teamLook). Gana la ronda el bando que derriba al
-// jefe rival. Cada bando, con su color en las etiquetas y la lista (naranja y celeste: ninguno de los de sus partidos)
+// El royale del modo TikTok, en dos bandos (ver sim.createRoyale): solo pelean Gustavo Petro y Abelardo, sus jefes, y
+// el chat los apoya (ver supportGift). Gana la ronda el bando cuyo jefe derriba al otro. (`dress`, la ropa del bando,
+// era la de los espectadores cuando también peleaban: ver chuck.teamLook.) Cada bando, con su color en las etiquetas y
+// la lista (naranja y celeste: ninguno de los de sus partidos)
 const SIDES = [
   {
     id: 'petro',
     name: 'Petro',
     chief: 'Gustavo Petro',
     chiefLook: PETRO_LOOK,
+    // (su ayudante: Iván Cepeda; el de Abelardo, José Manuel Restrepo, ver ayudantes.ts)
+    helper: 'cepeda',
     color: 0xff9f43,
     dress: (gender) => teamLook('petro', gender),
   },
@@ -238,10 +261,14 @@ const SIDES = [
     name: 'Abelardo',
     chief: 'Abelardo',
     chiefLook: ABELARDO_LOOK,
+    helper: 'restrepo',
     color: 0x4fb3ff,
     dress: (gender) => teamLook('abelardo', gender),
   },
 ];
+// (la letra con la que se elige a cada presidente comentando)
+const SIDE_LETTER = { petro: 'A', abelardo: 'B' };
+const HELPER_FACES = { cepeda: CEPEDA_FACE, restrepo: RESTREPO_FACE };
 const sideById = (id) => SIDES.find((s) => s.id === id);
 const sideCss = (side) => `#${side.color.toString(16).padStart(6, '0')}`;
 // `on`: en este modo; `score`: rondas ganadas por cada bando, que se recuerdan en este navegador
@@ -259,12 +286,15 @@ const saveBandosScore = () => {
     /* sin storage */
   }
 };
-// Barra de arriba (en lugar de la cabecera): cada jefe con su cara, su vida y cuántos de su bando siguen en pie, y en
+// Barra de arriba (en lugar de la cabecera): cada jefe con su cara, su vida y cuántos espectadores le apoyan, y en
 // medio el marcador de rondas. Se arma una vez y luego solo se cambian la vida, los números y el marcador (se repinta
-// cada 150 ms: rehacerla entera volvía a decodificar las caras). `live`: por bando, { hp, maxHp, alive } (sin ronda,
+// cada 150 ms: rehacerla entera volvía a decodificar las caras). `live`: por bando, { hp, maxHp, fans } (sin ronda,
 // vacío)
+// (con bandos va dentro de ¿Cómo jugar?, formando un solo panel: renderBandosHowTo lo coloca. Se guarda aquí porque al
+// repintar ese panel sale del documento)
+const versusBox = $('ttVersus');
 function renderVersus(live = {}) {
-  const box = $('ttVersus');
+  const box = versusBox;
   if (!box.firstChild) {
     const half = (
       side,
@@ -272,7 +302,7 @@ function renderVersus(live = {}) {
     ) => `<div class="vs-side ${i ? 'right' : 'left'}" data-side="${side.id}" style="--c:${sideCss(side)}">
       <img class="vs-face" src="${CHIEF_FACES[side.id]}" alt="" draggable="false" />
       <div class="vs-info">
-        <b class="vs-name">${escHtml(side.name)}</b>
+        <b class="vs-name"><span class="tt-letter">${SIDE_LETTER[side.id]}</span>${escHtml(side.name)}</b>
         <div class="vs-bar"><i></i></div>
         <small></small>
       </div>
@@ -287,7 +317,7 @@ function renderVersus(live = {}) {
     const width = `${pct}%`;
     const bar = el.querySelector('.vs-bar i');
     if (bar.style.width !== width) bar.style.width = width;
-    const text = `${s ? `${Math.max(0, Math.round(s.hp))}/${s.maxHp}` : ''} · 👥 ${s?.alive ?? 0}`;
+    const text = `${s ? `${Math.max(0, Math.round(s.hp))}/${s.maxHp}` : ''} · 👥 ${s?.fans ?? 0}`;
     const small = el.querySelector('small');
     if (small.textContent !== text) small.textContent = text;
     const score = String(bandos.score[side.id] ?? 0);
@@ -295,15 +325,14 @@ function renderVersus(live = {}) {
     if (b.textContent !== score) b.textContent = score;
   }
 }
-// Pantalla del ganador: el bando, el mejor de la ronda (el que más rivales eliminó de los suyos, sin contar al jefe) y
-// el marcador
+// Pantalla del ganador: el bando, quien más le regaló en la ronda (`mvp`: { name, coins }) y el marcador
 function showBandosWinner(sideId, mvp) {
   const side = sideById(sideId);
   if (!side) return;
   const [a, b] = SIDES;
   $('ttWinner').innerHTML = `<div class="tt-crown">🏆</div>
     <div class="tt-name bandos" style="color:${sideCss(side)}">¡Gana el bando de ${escHtml(side.name)}!</div>
-    <div class="tt-sub">${mvp ? `⭐ ${escHtml(mvp.name)} · ${mvp.wins} ☠️` : `ronda ${tiktok.round}`}</div>
+    <div class="tt-sub">${mvp ? `⭐ ${escHtml(mvp.name)} · ${COIN_ICON}${mvp.coins}` : `ronda ${tiktok.round}`}</div>
     <div class="tt-sub">${escHtml(a.name)} ${bandos.score[a.id] ?? 0} – ${bandos.score[b.id] ?? 0} ${escHtml(b.name)}</div>
     <div class="tt-next" id="ttNext"></div>`;
   $('ttWinner').classList.add('show');
@@ -316,16 +345,18 @@ async function startRoyale(count) {
   $('again').disabled = true;
   if (tiktok.on) {
     tiktok.round += 1;
+    saveRound();
     $('ttRound').textContent = `Ronda ${tiktok.round}`;
     hideWinner();
   }
-  const { fight } = bandos.on ? createRoyale(count, { sides: SIDES }) : createRoyale(count);
+  // (con bandos, solo los dos jefes: ver supportGift)
+  const { fight } = bandos.on ? createRoyale(0, { sides: SIDES }) : createRoyale(count);
   if (id !== run) return;
   // (con bandos, el color de cada uno es el de su bando)
   setSideColors(bandos.on ? (index) => sideById(fight.sideOf(index))?.color : null);
   renderRoster(fight);
   // (los espectadores del directo que siguen por aquí vuelven a pelear: entran en cuanto empieza)
-  queueRecentViewers();
+  if (!bandos.on) queueRecentViewers();
   await playFight(id, fight);
 }
 
@@ -394,9 +425,13 @@ window.addEventListener('pointerup', () => {
 // engine/ultimates.BoostTier). Valen según lo que cuesta su regalo, para que 30 Rose no rindan más que una dona: el 1
 // solo cura o suma un poco de vida; el 2 y el 3 lanzan poderes (ultimates, cada vez una de las cuatro, ver
 // sim.castBoost; el botón no dice cuál), le curan o le suman vida, le dan un arma poderosa que ya no pierde y un aura
-// de ki para el resto de la pelea (daño x3), y el 3 además una mascota que pelea con él un minuto y una minigun durante
+// de ki durante un minuto (daño x2), y el 3 además un ayudante que pelea con él un minuto y una minigun durante
 // 20 s (ver fight/minigun). `powers`: poderes que lanza, uno tras otro (ver `launched` en renderRoster). Sin recarga:
 // en cuanto se ve el anterior se pueden volver a pulsar
+// Los ayudantes de los potenciadores grandes (ver ayudantes.ts), donde antes iba la mascota 🐾: sus nombres, uno sobre
+// una palabra (`HELPERS_INLINE`, en las tarjetas del panel)
+// (genérico: los nombres solo salen en Petro vs Abelardo, donde cada presidente tiene el suyo, ver sideCard)
+const HELPERS_INLINE = 'ayudante';
 // Icono de la minigun (no hay emoji: 🔫 parecía una pistola de agua)
 const MINIGUN_ICON = `<img class="gift-img minigun-img" src="${import.meta.env.BASE_URL}images/minigun.png" alt="minigun" draggable="false" />`;
 const BOOSTS = [
@@ -412,17 +447,17 @@ const BOOSTS = [
     tier: 2,
     label: '+1000',
     perks: '⚔️🔥✨',
-    offer: '⚔️ arma poderosa · 🔥 aura de ki (daño x3) · ✨ un poder',
+    offer: '⚔️ arma poderosa · 🔥 aura de ki 1 min (daño x2) · ✨ un poder',
     powers: 1,
-    text: 'cura o suma 1000 PV, trae un arma poderosa, enciende un aura de ki para toda la pelea (daño x3) y lanza un poder (cada vez uno distinto)',
+    text: 'cura o suma 1000 PV, trae un arma poderosa, enciende un aura de ki durante un minuto (daño x2) y lanza un poder (cada vez uno distinto)',
   },
   {
     tier: 3,
     label: '+3000',
-    perks: `🔥🐾${MINIGUN_ICON}✨x2`,
-    offer: `⚔️ arma poderosa · 🔥 aura de ki (daño x3) · 🐾 mascota 1 min · ${MINIGUN_ICON} minigun 20 s · ✨ 2 poderes`,
+    perks: `🔥${MINIGUN_ICON}✨x2<small class="helpers-card">${HELPERS_INLINE}</small>`,
+    offer: `⚔️ arma poderosa · 🔥 aura de ki 1 min (daño x2) · ${HELPERS_INLINE} 1 min · ${MINIGUN_ICON} minigun 20 s · ✨ 2 poderes`,
     powers: 2,
-    text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki para toda la pelea (daño x3), una mascota que pelea con él un minuto, una minigun durante 20 s y lanza dos poderes, uno tras otro (cada vez uno distinto)',
+    text: 'cura o suma 3000 PV, trae un arma poderosa, aura de ki durante un minuto (daño x2), un ayudante que pelea con él un minuto, una minigun durante 20 s y lanza dos poderes, uno tras otro (cada vez uno distinto)',
   },
 ];
 // Vida de una fila de la lista. Nunca por encima de la máxima: la cura de un potenciador se ve antes que golpes que en
@@ -438,19 +473,29 @@ const giftButtons = (disabled) =>
 // ===== Panel de regalos =====
 // Simula los regalos del directo de TikTok (aún sin conectar con TikFinity): con el nombre del espectador y un regalo,
 // entra a la pelea con su nombre (si no está en pie) y recibe el potenciador que da ese regalo. Sin regalo ("Unirse",
-// como quien comenta para entrar), solo entra. Se abre con 🎁 o la tecla G, y también en otra ventana (?panel) que manda
-// los regalos a la del juego (BroadcastChannel): así en el directo se captura solo la del juego
+// como quien comenta para entrar), solo entra. Se abre con 🎁 o la tecla G, en otra ventana (?panel, ver
+// openGiftWindow) que manda los regalos a la del juego (BroadcastChannel): así en el directo se captura solo la del juego
 // Uno de cada escalón de monedas (ver COIN_TIERS), para probar. `boost`: el potenciador que da, si no es el que le toca
 // por sus monedas. `apart`: va aparte en ¿Cómo jugar? y en el panel aunque dé lo de sus monedas (el Quiéreme, que ayuda
 // a crecer la cuenta; antes daba solo un arma, el potenciador 4, y desde que 1 moneda da +30 y un arma daba menos)
 const GIFTS = [
   // (con los nombres de TikTok: "Rose" es la de 1 moneda y "Rosa", la de 10)
-  { id: 'rose', file: '7906db96d5.webp', icon: '🌹', name: 'Rose', coins: 1 },
+  // Modo Petro vs Abelardo: `side`, el jefe al que va el regalo (ver supportGift). Uno de cada escalón de monedas para
+  // cada jefe, del mismo precio, así ninguno tiene ventaja
+  { id: 'rose', file: '7906db96d5.webp', icon: '🌹', name: 'Rose', coins: 1, side: 'petro' },
   { id: 'quiereme', file: 'f856132638.webp', icon: '🫶', name: 'Quiéreme', coins: 1, apart: true },
-  { id: 'rosa', file: 'fc9f17a510.webp', icon: '🌹', name: 'Rosa', coins: 10 },
-  { id: 'dona', file: '993fc4dd9e.webp', icon: '🍩', name: 'Dona', coins: 30 },
-  { id: 'handheart', file: '11ab716bcf.webp', icon: '💗', name: 'Hand Heart', coins: 100 },
-  { id: 'corgi', file: 'e2865bffd3.webp', icon: '🐶', name: 'Corgi', coins: 299 },
+  { id: 'rosa', file: 'fc9f17a510.webp', icon: '🌹', name: 'Rosa', coins: 10, side: 'petro' },
+  { id: 'dona', file: '993fc4dd9e.webp', icon: '🍩', name: 'Dona', coins: 30, side: 'petro' },
+  { id: 'handheart', file: '11ab716bcf.webp', icon: '💗', name: 'Hand Heart', coins: 100, side: 'petro' },
+  // (el escalón de arriba de este modo es el de 199 monedas, ver BANDOS_GIFTS; el Corgi de 299 y cualquier otro de
+  // más van al presidente que eligió quien lo manda)
+  { id: 'nightstar', file: '9a3e9775ee.webp', icon: '🌟', name: 'Night Star', coins: 199, side: 'petro' },
+  { id: 'tiktok', file: 'f4cff84279.webp', icon: '🎵', name: 'TikTok', coins: 1, side: 'abelardo' },
+  { id: 'heart', file: '9768483c6f.webp', icon: '❤️', name: 'Corazon', coins: 10, side: 'abelardo' },
+  { id: 'capibara', file: '54a84fc725.webp', icon: '🦫', name: 'Capibara', coins: 30, side: 'abelardo' },
+  // (el Mishka Bear de TikTok; los del directo llegan con ese nombre y se reconocen por su archivo, ver findGift)
+  { id: 'mishka', file: 'ae769f4992.webp', icon: '🧸', name: 'Osito Mishka', coins: 100, side: 'abelardo' },
+  { id: 'hearts', file: '5d8a4bf214.webp', icon: '💕', name: 'Corazones', coins: 199, side: 'abelardo' },
 ];
 // Catálogo completo de regalos de TikTok (public/images/gifts/gifts.json: nombre, monedas y archivo). Se carga al abrir;
 // los regalos del catálogo se identifican como "f:<archivo>" o por su nombre (labrute.gift('usuario', 'Rose')). Si es
@@ -487,22 +532,24 @@ const giftIcon = (g) =>
     ? `<img class="gift-img" src="${giftImg(g.file)}" alt="" loading="lazy" draggable="false" onerror="this.replaceWith(document.createTextNode('${g.icon ?? '🎁'}'))" />`
     : (g.icon ?? '🎁');
 // Lo que da un potenciador, para las tarjetas del panel de regalos: cruz verde vida, ⚔️ arma poderosa, 🔥 aura de ki
-// (daño x3), 🐾 mascota, minigun (MINIGUN_ICON) y ✨ poder
+// (daño x2), 🧑‍💼 ayudante, minigun (MINIGUN_ICON) y ✨ poder
 const HEAL_ICON =
   '<svg class="heal" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>';
-const boostOffer = (b) =>
-  `<b>${b.tier === WEAPON_TIER ? '' : HEAL_ICON}${b.label}</b><em class="perks">${b.perks}</em>`;
+// (la cruz ya dice "suma": el número va sin su "+", que se repetía)
+const heal = (amount) => `${HEAL_ICON}${String(amount).replace(/^\+/, '')}`;
+const boostOffer = (b) => `<b>${b.tier === WEAPON_TIER ? b.label : heal(b.label)}</b><em class="perks">${b.perks}</em>`;
 // Moneda de TikTok (dibujada: dorada, con la nota del logo de TikTok)
 const COIN_ICON =
   '<svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11.5" fill="#f2a900"/><circle cx="12" cy="12" r="9.3" fill="#ffd335"/><path transform="translate(6.6 6.3) scale(0.46)" fill="#e08a00" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>';
 // Potenciador según lo que vale el regalo en monedas de TikTok, sea el que sea (antes cada regalo de la lista daba lo
-// suyo): desde 1 → +30 y un arma, desde 10 → +300 y un arma, desde 30 → +1000 y aura, desde 100 → +2000 y mascota, desde 299 →
+// suyo): desde 1 → +30 y un arma, desde 10 → +300 y un arma, desde 30 → +1000 y aura, desde 100 → +2000 y ayudante, desde 299 →
 // +3000 y minigun. Es lo que dice ¿Cómo jugar?, con `short` (lo que más se nota, aparte de la vida)
 const COIN_TIERS = [
   { coins: 1, tier: 7, short: '🗡️ arma' },
   { coins: 10, tier: 5, short: '🗡️ arma' },
   { coins: 30, tier: 2, short: '🔥 aura' },
-  { coins: 100, tier: 6, short: '🐾 mascota' },
+  // (sin sus nombres: son de Petro vs Abelardo; en el modo normal salen por turnos)
+  { coins: 100, tier: 6, short: '🤝 ayudante' },
   { coins: 299, tier: 3, short: `${MINIGUN_ICON} minigun` },
 ];
 const giftTier = (coins) => COIN_TIERS.findLast((t) => coins >= t.coins)?.tier ?? 1;
@@ -557,10 +604,10 @@ const GIFT_BOOSTS = {
   6: {
     tier: 6,
     label: '+2000',
-    perks: '⚔️🔥🐾✨',
-    offer: '⚔️ arma poderosa · 🔥 aura de ki (daño x3) · 🐾 mascota 1 min · ✨ un poder',
+    perks: `⚔️🔥✨<small class="helpers-card">${HELPERS_INLINE}</small>`,
+    offer: `⚔️ arma poderosa · 🔥 aura de ki 1 min (daño x2) · ${HELPERS_INLINE} 1 min · ✨ un poder`,
     powers: 1,
-    text: 'cura o suma 2000 PV, trae un arma poderosa, aura de ki para toda la pelea (daño x3), una mascota que pelea con él un minuto y lanza un poder (cada vez uno distinto)',
+    text: 'cura o suma 2000 PV, trae un arma poderosa, aura de ki durante un minuto (daño x2), un ayudante que pelea con él un minuto y lanza un poder (cada vez uno distinto)',
   },
 };
 const boostOf = (tier) => GIFT_BOOSTS[tier] ?? BOOSTS[tier - 1];
@@ -582,24 +629,25 @@ const cleanUser = (user) =>
 // 'chuck'). Se recuerda mientras sigue abierta la página, así sigue siéndolo en las rondas siguientes
 const LOOKS = { chuck: CHUCK_LOOK, petro: PETRO_LOOK, abelardo: ABELARDO_LOOK };
 const looks = new Map();
-// Modo de bandos: el bando de cada espectador. Lo elige comentando el nombre de su jefe (o 1 o 2, ver sideFromText), con
-// los botones 👓 y 🎩 del panel de regalos o con labrute.bando; si entra sin elegir, va al que tenga menos en pie y se
-// queda en ese. Se recuerda mientras siga abierta la página. Si cambia de bando estando en la pelea, sigue en el suyo
-// hasta la ronda siguiente
+// Modo de bandos: el jefe al que apoya cada espectador. Lo elige comentando su nombre (u otras, ver sideFromText), con
+// los botones 👓 y 🎩 del panel de regalos o con labrute.bando; si no eligió, se le queda el de su primer regalo o
+// toques (ver supportGift). Se recuerda mientras siga abierta la página
 const chosenSides = new Map();
-// (el nombre suelto: puede llevar números o signos pegados, como #petro2026, pero no otras letras, como "petróleo")
+// Cómo se elige: el nombre del jefe, el lado en el que está (Petro a la izquierda, ver royaleArena.lock), su color o,
+// como comentario entero, 1/2 o A/B. (Las palabras van sueltas: pueden llevar números o signos pegados, como
+// #petro2026, pero no otras letras, como "petróleo")
 const SIDE_WORDS = {
-  petro: /(^|[^a-z])(petro|gustavo)([^a-z]|$)/,
-  abelardo: /(^|[^a-z])(abelardo|espriella)([^a-z]|$)/,
+  petro: /(^|[^a-z])(petro|gustavo|izquierda|izquierdo|izq|left|naranja)([^a-z]|$)/,
+  abelardo: /(^|[^a-z])(abelardo|espriella|derecha|derecho|der|right|azul|celeste)([^a-z]|$)/,
 };
-const SIDE_NUMBERS = { petro: '1', abelardo: '2' };
+const SIDE_EXACT = { petro: ['1', 'a'], abelardo: ['2', 'b'] };
 const sideFromText = (text) => {
   const t = String(text ?? '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
-  const said = Object.keys(SIDE_WORDS).filter((id) => SIDE_WORDS[id].test(t) || t === SIDE_NUMBERS[id]);
+  const said = Object.keys(SIDE_WORDS).filter((id) => SIDE_WORDS[id].test(t) || SIDE_EXACT[id].includes(t));
   // (si nombra a los dos, no elige ninguno)
   return said.length === 1 ? said[0] : undefined;
 };
@@ -609,9 +657,9 @@ function applyGift({ user, gift, count = 1, coins, look, side }) {
   // azar: si no, se confundiría con él)
   if (bandos.on && side && (!name || SIDES.some((s) => s.chief === name))) name = randomUser();
   if (!name) return;
-  if (bandos.on && sideById(side)) chosenSides.set(name, side);
-  else if (LOOKS[look]) looks.set(name, LOOKS[look]);
   const g = findGift(gift, Math.round(+coins) || 0);
+  if (bandos.on) return supportGift(name, g, count, side);
+  if (LOOKS[look]) looks.set(name, LOOKS[look]);
   const tier = g ? tierOf(g) : 0;
   const hp = g ? giftHp(g) : undefined;
   const n = Math.max(1, Math.min(GIFT_QUEUE_MAX, Math.round(+count) || 1));
@@ -621,10 +669,69 @@ function applyGift({ user, gift, count = 1, coins, look, side }) {
       : `<b>${escHtml(name)}</b> se unió 🙋`,
     tier,
   );
-  // (con bandos, el regalo se reparte entre su jefe y él: ver sim.bandosGift)
-  const split = bandos.on && g ? bandosGift(g.coins) : undefined;
-  if (mode === 'royale' && rosterGift?.(name, tier, n, hp, split)) return;
-  if (pendingGifts.length < 50) pendingGifts.push({ user: name, tier, count: n, hp, split });
+  if (mode === 'royale' && rosterGift?.(name, tier, n, hp)) return;
+  if (pendingGifts.length < 50) pendingGifts.push({ user: name, tier, count: n, hp });
+}
+// Modo Petro vs Abelardo: solo pelean los dos jefes (antes entraban también los espectadores, como refuerzos de un
+// bando) y el chat los apoya. Cada regalo de un bando (`side` en GIFTS) va a su jefe; cualquier otro regalo y los
+// toques, al del bando que eligió quien los manda (comentando su nombre, ver sideFromText) o, si no eligió, al que va
+// perdiendo (el de menos vida), y desde entonces es de ese bando. Los regalos fuertes (desde STRONG_GIFT_COINS) de
+// quien no eligió van al más débil aunque sean del otro bando. Lo que le da al jefe, según las
+// monedas: ver sim.bandosGift. Los toques: cada CHIEF_TAPS (antes 100), TAP_CHIEF (antes +10)
+const CHIEF_TAPS = 30;
+const TAP_CHIEF = { tier: 1, hp: 30 };
+// Los pone la lista de la ronda (ver renderRoster): dar `count` veces `part` al jefe de `side` (false si no hay ronda
+// en la que dárselo: espera a la siguiente) y el bando que va perdiendo
+let rosterChief = null;
+let rosterWeaker = null;
+const pendingChief = [];
+// Monedas que lleva regaladas cada espectador a cada bando en la ronda (quien más dio al ganador sale en su pantalla).
+// (Con bandos no hay ranking abajo: ver index.html)
+const support = { petro: new Map(), abelardo: new Map() };
+// Desde cuántas monedas un regalo es "fuerte" (ver supportSide): el de 30 ya trae aura y un poder
+const STRONG_GIFT_COINS = 30;
+const supportSide = (name, g) => {
+  const anyone = () => SIDES[Math.floor(Math.random() * SIDES.length)].id;
+  // Un regalo fuerte de quien no ha elegido presidente va al más débil, sea del bando que sea, para que no lo hunda el
+  // otro (y desde entonces es de ese bando, ver supportChief)
+  if (g && g.coins >= STRONG_GIFT_COINS && !chosenSides.has(name)) return rosterWeaker?.() ?? g.side ?? anyone();
+  return g?.side ?? chosenSides.get(name) ?? rosterWeaker?.() ?? anyone();
+};
+const sideTag = (side) => `<span style="color:${sideCss(side)}">👑 ${escHtml(side.name)}</span>`;
+function supportChief(name, sideId, part, count) {
+  if (!chosenSides.has(name)) chosenSides.set(name, sideId);
+  if (rosterChief?.(sideId, part, count)) return;
+  if (pendingChief.length < 50) pendingChief.push({ side: sideId, part, count });
+}
+// Un regalo, o sin regalo (un comentario, 🙋 Unirse o los botones de los jefes del panel), elegir bando con `side`
+function supportGift(name, g, count, side) {
+  if (!g) {
+    if (!sideById(side) || chosenSides.get(name) === side) return;
+    chosenSides.set(name, side);
+    return showToast(`<b>${escHtml(name)}</b> apoya a ${sideTag(sideById(side))}`, 0);
+  }
+  const to = sideById(supportSide(name, g));
+  const n = Math.max(1, Math.min(CHIEF_QUEUE_MAX, Math.round(+count) || 1));
+  const part = bandosGift(g.coins).chief;
+  showToast(
+    `<b>${escHtml(name)}</b> envió ${giftIcon(g)} ${escHtml(g.name)}${n > 1 ? ` x${n}` : ''} → ${sideTag(to)} <span>+${part.hp}</span>`,
+    part.tier,
+  );
+  support[to.id].set(name, (support[to.id].get(name) ?? 0) + g.coins * n);
+  supportChief(name, to.id, part, n);
+}
+// Con bandos, los toques no meten a nadie a pelear: cada CHIEF_TAPS curan a su jefe
+function supportLikes(name, n) {
+  const before = likes.get(name) ?? 0;
+  likes.set(name, before + n);
+  const heals = Math.min(CHIEF_QUEUE_MAX, Math.floor((before + n) / CHIEF_TAPS) - Math.floor(before / CHIEF_TAPS));
+  if (!heals) return;
+  const to = sideById(supportSide(name));
+  showToast(
+    `<b>${escHtml(name)}</b> 👆 ${heals * CHIEF_TAPS} toques → ${sideTag(to)} <span>+${heals * TAP_CHIEF.hp}</span>`,
+    1,
+  );
+  supportChief(name, to.id, TAP_CHIEF, heals);
 }
 // Tap tap (los "me gusta" del directo: toques en la pantalla). Son gratis, así que dan poco: LIKES_TO_JOIN toques
 // meten al espectador en la pelea (antes bastaba el primero, como comentar) y cada LIKES_PER_HEAL toques suyos le dan
@@ -642,6 +749,7 @@ function applyLikes({ user, count = 1 }) {
   const name = cleanUser(user);
   if (!name) return;
   let n = Math.max(1, Math.round(+count) || 1);
+  if (bandos.on) return supportLikes(name, n);
   const who = mode === 'royale' ? rosterWho?.(name) : undefined;
   if (who === 'out') {
     const paid = (returnLikes.get(name) ?? 0) + n;
@@ -701,7 +809,7 @@ globalThis.labrute = {
   join: (user) => applyGift({ user }),
   petro: (user = 'Gustavo Petro') => applyGift({ user, look: 'petro', side: 'petro' }),
   abelardo: (user = 'Abelardo') => applyGift({ user, look: 'abelardo', side: 'abelardo' }),
-  // Modo de bandos: entra (o se cambia, desde la ronda siguiente) al bando 'petro' o 'abelardo'
+  // Modo de bandos: elige (o cambia) el jefe al que apoya, 'petro' o 'abelardo'
   bando: (user, side) => applyGift({ user, side }),
   chuck: (user = 'Chuck') => applyGift({ user, look: 'chuck' }),
   like: (user, count = 1) => applyLikes({ user, count }),
@@ -852,7 +960,10 @@ const applyLiveEvent = (e) => {
 };
 if (panelOnly) {
   if (giftChannel) {
-    giftChannel.onmessage = (e) => e.data?.liveStatus && showLiveStatus(e.data.liveStatus);
+    giftChannel.onmessage = ({ data }) => {
+      if (data?.liveStatus) showLiveStatus(data.liveStatus);
+      else if (data?.panelState) showPanelState(data.panelState, data.bandos);
+    };
     giftChannel.postMessage({ liveStatusAsk: true });
   }
 } else {
@@ -861,7 +972,8 @@ if (panelOnly) {
   if (giftChannel)
     giftChannel.onmessage = ({ data }) => {
       if (data?.liveStatusAsk) shareStatus();
-      else if (!data?.liveStatus) applyEvent(data);
+      else if (data?.control) applyControl(data);
+      else if (!data?.liveStatus && !data?.panelState) applyEvent(data);
     };
   if (liveEnabled)
     liveLink = connectLive({
@@ -890,6 +1002,8 @@ const randomUser = () =>
 let giftCount = 1;
 // ¿Cómo jugar? (lo arma setupGiftPanel; cambia con el modo de bandos)
 let renderHowTo = () => {};
+// Las tarjetas de regalos del panel G (también cambian con el modo de bandos)
+let renderGiftGrid = () => {};
 // (el catálogo sirve para reconocer los regalos del directo: ver findGift)
 fetch(`${import.meta.env.BASE_URL}images/gifts/gifts.json`)
   .then((r) => (r.ok ? r.json() : []))
@@ -910,37 +1024,78 @@ function setupGiftPanel() {
     const b = boostOf(tierOf(g));
     return `<button class="gift t${b.tier}" data-gift="${g.id}" title="${escHtml(g.name)}: ${b.label} (${b.text})"><i>${giftIcon(g)}</i><span>${escHtml(g.name)}</span><small>🪙${g.coins}</small>${boostOffer(b)}</button>`;
   };
-  $('giftGrid').innerHTML = [...COIN_TIERS.map(coinCard), ...GIFTS.filter((g) => g.apart).map(giftCard)].join('');
+  // Con bandos, los regalos de cada jefe (ver supportGift), de dos en dos: a la izquierda el de Petro y a la derecha el
+  // de Abelardo del mismo precio, con lo que le dan a él
+  const sideCard = (g) => {
+    const side = sideById(g.side);
+    const part = bandosGift(g.coins).chief;
+    const b = boostOf(part.tier);
+    // (el ayudante de este presidente, no los dos)
+    const perks = b.perks.replace(HELPERS_INLINE, HELPER_LABELS[side.helper]);
+    return `<button class="gift t${b.tier}" data-gift="${g.id}" style="--b:${sideCss(side)}" title="${escHtml(g.name)}: a ${escHtml(side.chief)} +${part.hp} (${b.text})"><i>${giftIcon(g)}</i><span>${escHtml(g.name)}</span><small>🪙${g.coins} · ${escHtml(side.name)}</small><b>${heal(part.hp)}</b><em class="perks">${part.tier === 1 ? '' : perks}</em></button>`;
+  };
+  renderGiftGrid = () => {
+    $('giftGrid').innerHTML = bandos.on
+      ? BANDOS_GIFTS.flatMap((t) => SIDES.map((s) => GIFTS.find((g) => g.side === s.id && g.coins === t.coins)))
+          .filter(Boolean)
+          .map(sideCard)
+          .join('')
+      : [...COIN_TIERS.map(coinCard), ...GIFTS.filter((g) => g.apart).map(giftCard)].join('');
+  };
+  renderGiftGrid();
   // ¿Cómo jugar? (modo TikTok, bajo la arena): a la izquierda cómo se entra a pelear con tu nombre y a la derecha qué
   // da un regalo según sus monedas. Antes ahí había un cuadro tipo chat que lo explicaba regalo a regalo, con un
   // mensaje largo cada 3,5 s
   const heartMe = GIFTS.find((g) => g.apart);
   const row = (icon, what, gives) => `<li><i>${icon}</i><span>${what}</span><b>${gives}</b></li>`;
-  const life = (tier) => `${HEAL_ICON}${boostOf(tier).label}`;
+  const life = (tier) => heal(boostOf(tier).label);
   // (la vida y lo que más se nota de un escalón de monedas; el Quiéreme, lo mismo que 1 moneda pero sin la palabra, que
   // no cabe)
   const gives = (tier) => [life(tier), COIN_TIERS.find((t) => t.tier === tier)?.short].filter(Boolean).join(' ');
-  // Con bandos, además: cómo se gana (derribando al jefe del otro bando), cómo se elige bando (comentando el nombre de
-  // su jefe, abajo) y que los regalos van sobre todo al jefe: la columna de las monedas ("Tu jefe 👑") dice lo que le
-  // dan a él (ver sim.bandosGift; al espectador le dan menos vida y un arma)
+  // Con bandos (solo pelean los jefes, ver supportGift): los regalos de cada uno, de dos en dos (el de Petro, lo que le
+  // dan a su jefe y el de Abelardo del mismo precio), cómo se elige y lo de los toques. Al jefe se le llama "tu
+  // presidente". Para elegir solo se dice A o B, la letra de cada uno junto a su nombre (antes también su nombre, 1/2 e
+  // izquierda/derecha: demasiadas opciones); lo demás se sigue entendiendo (ver sideFromText). Lo que le da cada regalo: la vida y lo que más se nota (arma, aura, ayudante o minigun)
+  const CHIEF_PERK = { 8: '⚔️', 2: '🔥', 3: MINIGUN_ICON };
   const chiefGives = (t) => {
-    const { hp } = bandosGift(t.coins).chief;
-    return [`${HEAL_ICON}+${hp}`, t.coins >= 30 ? t.short : ''].filter(Boolean).join(' ');
+    const { tier, hp } = bandosGift(t.coins).chief;
+    return [heal(hp), CHIEF_PERK[tier]].filter(Boolean).join(' ');
+  };
+  const renderBandosHowTo = () => {
+    const [a, b] = SIDES;
+    const pair = (t) => {
+      const [ga, gb] = SIDES.map((s) => GIFTS.find((g) => g.side === s.id && g.coins === t.coins));
+      if (!ga || !gb) return '';
+      // (los regalos que traen un ayudante lo dicen bajo su nombre: el de cada presidente)
+      const hasHelper = boostPet(bandosGift(t.coins).chief.tier);
+      const [ha, hb] = hasHelper
+        ? SIDES.map((s) => `<span class="helpers">+ ${HELPER_LABELS[s.helper]}</span>`)
+        : ['', ''];
+      // (en el centro, a cada lado de la vida, la cara del ayudante del presidente de ese lado)
+      const [fa, fb] = hasHelper
+        ? SIDES.map((s) => `<img class="hface" src="${HELPER_FACES[s.helper]}" style="--c:${sideCss(s)}" alt="" draggable="false" />`)
+        : ['', ''];
+      return `<li><span class="stack"><span><i>${giftIcon(ga)}</i>${escHtml(ga.name)}</span>${ha}</span><b>${fa}${chiefGives(t)}${fb}</b><span class="stack"><span>${escHtml(gb.name)}<i>${giftIcon(gb)}</i></span>${hb}</span></li>`;
+    };
+    // (un solo panel: el marcador de los dos presidentes, cómo elegir y los regalos de cada uno)
+    $('ttHowTo').innerHTML = `<div id="ttVersusSlot"></div>
+  <p class="tt-pick">Comenta <b class="tt-letter" style="color:${sideCss(a)}">A</b> por ${escHtml(a.name)} o <b class="tt-letter" style="color:${sideCss(b)}">B</b> por ${escHtml(b.name)}</p>
+  <ul class="tt-duel">
+    ${BANDOS_GIFTS.map(pair).join('')}
+  </ul>
+  <p class="tt-foot">Cada ${CHIEF_TAPS} tap tap: ${heal(TAP_CHIEF.hp)} a tu presidente</p>`;
+    $('ttVersusSlot').replaceWith(versusBox);
   };
   renderHowTo = () => {
-    const [a, b] = SIDES;
-    const choose = bandos.on
-      ? `<p class="tt-foot">💬 Comenta <b style="color:${sideCss(a)}">${escHtml(a.name.toUpperCase())}</b> o <b style="color:${sideCss(b)}">${escHtml(b.name.toUpperCase())}</b> para elegir tu bando</p>`
-      : '';
+    if (bandos.on) return renderBandosHowTo();
     $('ttHowTo').innerHTML = `<div class="tt-cols"><div><div class="tt-title">¿Cómo jugar?</div><ul>
-    ${bandos.on ? row('👑', 'Jefe rival', '¡derríbalo!') : ''}
-    ${row('👆', `${LIKES_TO_JOIN} tap tap`, '¡a pelear!')}
-    ${row('💬', 'Comenta', '¡a pelear!')}
+    ${row('👆', `${LIKES_TO_JOIN} tap tap`, '¡entras!')}
+    ${row('💬', 'Comenta entrar', 'o iniciar')}
     ${row('👆', `${LIKES_PER_HEAL} tap tap`, life(1))}
     ${heartMe ? row(giftIcon(heartMe), escHtml(heartMe.name), `${life(tierOf(heartMe))} ${boostOf(tierOf(heartMe)).perks}`) : ''}
-  </ul></div>${bandos.on ? '<div class="tt-right"><div class="tt-title">Tu jefe 👑</div>' : ''}<ul>
-    ${COIN_TIERS.map((t) => row(COIN_ICON, t.coins, bandos.on ? chiefGives(t) : gives(t.tier))).join('')}
-  </ul>${bandos.on ? '</div>' : ''}</div>${choose}`;
+  </ul></div><ul>
+    ${COIN_TIERS.map((t) => row(COIN_ICON, t.coins, gives(t.tier))).join('')}
+  </ul></div>`;
   };
   renderHowTo();
   const user = () => {
@@ -970,15 +1125,13 @@ function setupGiftPanel() {
   $('giftAbelardo').onclick = () =>
     sendGift({ user: $('giftUser').value.trim() || 'Abelardo', look: 'abelardo', side: 'abelardo' });
   // Toques: LIKES_TO_JOIN por cantidad elegida (x1: lo que cuesta entrar)
-  $('giftTap').onclick = () => sendGift({ user: user(), likes: true, count: LIKES_TO_JOIN * giftCount });
+  // (con bandos, CHIEF_TAPS: lo que cura a su jefe)
+  $('giftTap').onclick = () =>
+    sendGift({ user: user(), likes: true, count: (bandos.on ? CHIEF_TAPS : LIKES_TO_JOIN) * giftCount });
   $('giftRandom').onclick = () => {
     $('giftUser').value = randomUser();
   };
-  $('giftPopup').onclick = () => {
-    const url = new URL(location.href);
-    url.search = '?panel';
-    window.open(url.toString(), 'brute-demo-regalos', 'width=380,height=640');
-  };
+  $('giftPopup').onclick = openGiftWindow;
   $('giftClose').onclick = () => document.body.classList.remove('gifts-open');
   if (panelOnly) document.body.classList.add('panel-only', 'gifts-open');
 }
@@ -1064,13 +1217,13 @@ function renderRoster(fight) {
     const extra = (boostOf(s.tier)?.powers ?? 1) - 1;
     if (extra > 0) s.more = [...Array.from({ length: extra }, () => ({ tier: 0 })), ...(s.more ?? [])];
   };
-  // Barra de arriba (con bandos): vida de cada jefe y cuántos de su bando siguen en pie
+  // Barra de arriba (con bandos): vida de cada jefe y cuántos espectadores le apoyan (ver chosenSides)
   const versusLive = () =>
     Object.fromEntries(
       SIDES.map((side) => {
         const chief = state.get(chiefOf[side.id]);
-        const alive = [...state.entries()].filter(([index, s]) => !s.out && fight.sideOf?.(index) === side.id).length;
-        return [side.id, { hp: chief?.hp ?? 0, maxHp: chief?.maxHp || 1, alive }];
+        const fans = [...chosenSides.values()].filter((id) => id === side.id).length;
+        return [side.id, { hp: chief?.hp ?? 0, maxHp: chief?.maxHp || 1, fans }];
       }),
     );
   const draw = () => {
@@ -1142,25 +1295,17 @@ function renderRoster(fight) {
   };
   // Regalo del panel (ver applyGift): si no está en pie, entra con su nombre; cada regalo le da su potenciador, y los
   // de un combo quedan en cola (`more`: { tier, hp }) y salen uno tras otro. `hp`: su vida, si no es la de su nivel
-  // (regalos grandes, ver giftHp). False si la ronda ya no admite a nadie, y 'joined' si acaba de entrar
-  // Con bandos, `split`: cómo se reparte el regalo (ver sim.bandosGift). Él recibe su parte (`split.viewer`) y la del
-  // jefe de su bando va a la cola del jefe (ver chiefGift). Entra en el bando que eligió o, si no eligió, en el que
-  // tenga menos en pie, y se le queda ese
-  const gift = (user, tier, count, hp, split) => {
+  // (regalos grandes, ver giftHp). False si la ronda ya no admite a nadie, y 'joined' si acaba de entrar. (Con bandos
+  // no se usa: los espectadores no pelean, ver supportGift)
+  const gift = (user, tier, count, hp) => {
     if (winner || fight.timeUp) return false;
-    const own = split?.viewer ?? { tier, hp };
-    const queue = own.tier ? Array.from({ length: count }, () => ({ tier: own.tier, hp: own.hp })) : [];
-    let index = [...state].find(([i, s]) => !s.out && s.name === user && !isChief(i))?.[0];
+    const queue = tier ? Array.from({ length: count }, () => ({ tier, hp })) : [];
+    const index = [...state].find(([i, s]) => !s.out && s.name === user && !isChief(i))?.[0];
     const joined = index === undefined;
     if (joined) {
       if (!canAdd()) return false;
-      // (con bandos, con la ropa de su bando: los aspectos de Petro y Abelardo son de los jefes)
-      const brute = bandos.on
-        ? fight.addBrute?.(user, undefined, chosenSides.get(user))
-        : fight.addBrute?.(user, looks.get(user));
+      const brute = fight.addBrute?.(user, looks.get(user));
       if (!brute) return false;
-      if (bandos.on && brute.side && !chosenSides.has(user)) chosenSides.set(user, brute.side);
-      index = brute.index;
       const first = queue.shift();
       state.set(brute.index, {
         name: brute.name,
@@ -1175,13 +1320,12 @@ function renderRoster(fight) {
       const s = state.get(index);
       s.more = [...(s.more ?? []), ...queue].slice(0, GIFT_QUEUE_MAX);
     }
-    // (al jefe del bando en el que pelea ahora, aunque ya haya elegido otro para la ronda siguiente)
-    if (split?.chief) chiefGift(fight.sideOf?.(index), split.chief, count);
     draw();
     return joined ? 'joined' : true;
   };
-  // Lo del jefe de un regalo (con bandos): a su cola, como los de un combo. Las curas seguidas (regalos de menos de 30
-  // monedas) se suman en una sola, y la cola es más larga que la de un espectador: le regala todo su bando
+  // Lo del jefe de un regalo o de los toques (con bandos, ver supportGift): a su cola, como los de un combo. Las curas
+  // seguidas (regalos de menos de 30 monedas y toques) se suman en una sola, y la cola es más larga que la de un
+  // espectador: le regala todo su bando
   const chiefGift = (side, part, count) => {
     const index = chiefOf[side];
     const s = state.get(index);
@@ -1194,6 +1338,20 @@ function renderRoster(fight) {
     }
   };
   rosterGift = gift;
+  rosterChief = (side, part, count) => {
+    if (!bandos.on || winner || fight.timeUp) return false;
+    chiefGift(side, part, count);
+    draw();
+    return true;
+  };
+  // El presidente con menos vida (la de ahora, no en proporción a su máxima: con cada cura la máxima sube y los dos
+  // quedan siempre "llenos"); si empatan, uno al azar
+  rosterWeaker = () =>
+    winner !== undefined || fight.timeUp
+      ? undefined
+      : SIDES.map((side) => [side.id, state.get(chiefOf[side.id])])
+          .filter(([, s]) => s && !s.out)
+          .sort(([, a], [, b]) => a.hp - b.hp || Math.random() - 0.5)[0]?.[0];
   rosterWho = (user) => {
     let out;
     for (const [index, s] of state) {
@@ -1275,7 +1433,11 @@ function renderRoster(fight) {
     let fired = false;
     // Regalos que esperaban una ronda (llegaron entre rondas): entran en cuanto empieza
     if (pendingGifts.length && elapsed && !winner && canAdd()) {
-      pendingGifts.splice(0).forEach((g) => gift(g.user, g.tier, g.count, g.hp, g.split));
+      pendingGifts.splice(0).forEach((g) => gift(g.user, g.tier, g.count, g.hp));
+    }
+    // (con bandos, lo de los jefes)
+    if (bandos.on && pendingChief.length && elapsed && !winner) {
+      pendingChief.splice(0).forEach((c) => chiefGift(c.side, c.part, c.count));
     }
     for (const [index, s] of state) {
       // Regalos de un combo: el siguiente, en cuanto se ve el poder del anterior
@@ -1341,7 +1503,8 @@ function renderRoster(fight) {
         );
       }
     }
-    if (left.length === 1) {
+    // (con bandos no hay "solo esperando rival": si queda uno es que el otro presidente cayó y la ronda se cierra)
+    if (left.length === 1 && !bandos.on) {
       aloneSince ??= now;
       if (now - aloneSince >= ALONE_MS && now - aloneSent >= ALONE_REPEAT_MS) {
         aloneSent = now;
@@ -1407,17 +1570,16 @@ function renderRoster(fight) {
         fallen -= 1;
       }
       // Modo TikTok: el ganador sale en grande y suma una ronda en el ranking (una vez por ronda). Con bandos, la ronda
-      // es para su bando, y sale el mejor de los suyos
+      // es para su bando, y sale quien más le regaló
       if (tiktok.on && w && winner === undefined) {
         const side = bandos.on ? fight.sideOf?.(step.w) : undefined;
         if (side) {
           bandos.score[side] = (bandos.score[side] ?? 0) + 1;
           saveBandosScore();
-          const mvp = [...state.entries()]
-            .filter(([index, s]) => !isChief(index) && s.wins && fight.sideOf?.(index) === side)
-            .map(([, s]) => s)
-            .sort((a, b) => b.wins - a.wins)[0];
-          showBandosWinner(side, mvp);
+          const [name, coins] = [...(support[side] ?? [])].sort((a, b) => b[1] - a[1])[0] ?? [];
+          showBandosWinner(side, name && { name, coins });
+          // (lo que llegue desde ahora es para la ronda siguiente)
+          Object.values(support).forEach((m) => m.clear());
           const fallen = SIDES.find((x) => x.id !== side);
           narrate('bandos_gana', [sideById(side)?.name, fallen?.chief]);
         } else if (!bandos.on) {
@@ -1455,7 +1617,16 @@ async function playFight(id, fight) {
   const quality = Math.min(4, pixelRatio * (displayWidth / 500));
   // Royale con zoom dinámico: los luchadores se dibujan con más detalle, para que de cerca no se vean borrosos
   renderQuality.value = mode === 'royale' && royaleZoom.enabled ? Math.min(4, quality * 1.6) : quality;
-  await a.init({ backgroundColor: 0xfbf7c0, width: 500, height: 300, resolution: quality, antialias: true });
+  // (modo TikTok: transparente, por si la cámara se asoma fuera del escenario con un Súper gigante; ahí se ve el de la
+  // pantalla, ver royaleCamera y followScene. En negro: el color con alpha 0 no se multiplica y aclaraba lo de detrás)
+  await a.init({
+    backgroundColor: tiktok.on ? 0x000000 : 0xfbf7c0,
+    backgroundAlpha: tiktok.on ? 0 : 1,
+    width: 500,
+    height: 300,
+    resolution: quality,
+    antialias: true,
+  });
   if (id !== run) {
     a.destroy({ removeView: true });
     return;
@@ -1609,13 +1780,16 @@ $('trailerGo').onclick = () => {
   beginTrailer();
 };
 // Modo TikTok: el battle royale en vertical, para el directo (el único royale: el normal, en horizontal, se quitó). Con
-// `withBandos`, el modo Gustavo Petro vs Abelardo (los brutes de la barra son los refuerzos, repartidos entre los dos)
+// `withBandos`, el modo Gustavo Petro vs Abelardo (solo pelean los dos jefes; el chat los apoya, ver supportGift)
 const enterTiktok = (withBandos = false) => {
   bandos.on = withBandos;
   document.body.classList.toggle('bandos', withBandos);
   pushConfig();
   if (withBandos) renderVersus();
+  pendingChief.length = 0;
+  Object.values(support).forEach((m) => m.clear());
   renderHowTo();
+  renderGiftGrid();
   royaleCount = Math.max(3, Math.min(20, +$('royaleCount').value || 6));
   try {
     localStorage.setItem('brute-demo-royale-count', String(royaleCount));
@@ -1623,7 +1797,7 @@ const enterTiktok = (withBandos = false) => {
     /* sin storage */
   }
   tiktok.on = true;
-  tiktok.round = 0;
+  tiktok.round = loadRound();
   document.body.classList.add('tiktok');
   applyLayout();
   // Rondas continuas: solo si se activan en el panel de administración (se recuerda aparte de las del modo normal)
@@ -1732,7 +1906,7 @@ function followScene(stage) {
   if (dark !== scene.dark) $('ttSceneShade').style.opacity = String((scene.dark = dark));
 }
 // Tecla C: muestra u oculta los botones (para manejarlo durante el directo sin que salgan en pantalla)
-// Tecla G: panel de regalos
+// Tecla G: panel de regalos (en otra ventana, ver openGiftWindow)
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea')) return;
   const key = e.key.toLowerCase();
@@ -1743,15 +1917,34 @@ document.addEventListener('keydown', (e) => {
   // Tecla E: modo edición de los paneles (mover y cambiar tamaño); R, ya en edición, los restablece
   if (key === 'e' && tiktok.on) toggleEdit();
   if (key === 'r' && tiktok.on && document.body.classList.contains('tt-edit')) resetLayout();
-  if (key === 'g' && !panelOnly) document.body.classList.toggle('gifts-open');
+  if (key === 'g' && !panelOnly) openGiftWindow();
 });
-$('gifts').onclick = () => document.body.classList.toggle('gifts-open');
+// El panel de regalos en su propia ventana (?panel): la tecla G y el botón 🎁 la abren (o la traen delante, si ya está
+// abierta). Antes abrían el panel dentro de esta, que salía en la captura del directo; si el navegador bloquea la
+// ventana, se abre ese como antes
+function openGiftWindow() {
+  const url = new URL(location.href);
+  url.search = '?panel';
+  const win = window.open(url.toString(), 'brute-demo-regalos', 'width=400,height=900');
+  if (win) win.focus();
+  else document.body.classList.toggle('gifts-open');
+}
+$('gifts').onclick = openGiftWindow;
 setupGiftPanel();
-const clearRanking = () => {
-  if (!confirm('¿Borrar el ranking?')) return;
+// (`ask`: false cuando ya lo preguntó la otra ventana del panel, ver applyControl)
+const clearRanking = (ask = true) => {
+  if (ask && !confirm(bandos.on ? '¿Borrar el marcador y el número de ronda?' : '¿Borrar el ranking?')) return;
   ranking = {};
   saveRanking();
   renderRanking();
+  // (la siguiente ronda vuelve a ser la 1; con Petro vs Abelardo, además, el marcador de rondas ganadas)
+  tiktok.round = 0;
+  saveRound();
+  if (bandos.on) {
+    bandos.score = {};
+    saveBandosScore();
+    renderVersus();
+  }
 };
 $('ttReset').onclick = clearRanking;
 $('giftClearRank').onclick = clearRanking;
@@ -1810,6 +2003,7 @@ $('back').onclick = async () => {
   if (tiktok.on) {
     tiktok.on = false;
     bandos.on = false;
+    renderGiftGrid();
     pushConfig();
     setSideColors(null);
     document.body.classList.remove('tiktok', 'tt-controls', 'tt-edit', 'bandos');
@@ -1921,8 +2115,8 @@ const qualityParam = new URLSearchParams(location.search).get('calidad');
 if (qualityParam !== null && ['0', '1', '2'].includes(qualityParam)) crowdQuality.forced = +qualityParam;
 globalThis.__crowdQuality = crowdQuality; // depuración
 
-// ?tiktok (o ?tiktok=8 para elegir cuántos brutes): entra directo al modo TikTok. ?bandos (o ?bandos=4), al de
-// Gustavo Petro vs Abelardo
+// ?tiktok (o ?tiktok=8 para elegir cuántos brutes): entra directo al modo TikTok. ?bandos, al de Gustavo Petro vs
+// Abelardo (solo los dos jefes)
 const tiktokParam = new URLSearchParams(location.search).get('tiktok');
 const bandosParam = new URLSearchParams(location.search).get('bandos');
 const startParam = bandosParam ?? tiktokParam;
@@ -1972,12 +2166,14 @@ $('giftNewRound').onclick = () => {
   if (!$('again').disabled) $('again').click();
 };
 setInterval(() => {
+  if (panelOnly) return;
   $('giftAuto').checked = autoChallenge;
   const running = !!rosterFight?.finishing && !rosterFight.timeUp;
   const text = running ? '⏹ Parar reloj' : '▶️ Iniciar reloj';
   if ($('ttTimerBtn').textContent.trim() !== text) $('ttTimerBtn').textContent = text;
   $('ttTimerBtn').disabled = !rosterFight || rosterFight.timeUp;
   $('giftNewRound').disabled = $('again').disabled;
+  sharePanelState();
 }, 400);
 
 // Fondo de la arena: "auto" (el que toque en cada ronda) o uno fijo; se cambia al instante y se recuerda
@@ -2001,3 +2197,81 @@ $('giftBg').onchange = (e) => {
     /* sin storage */
   }
 };
+
+// Panel G en otra ventana (?panel, botón ↗): los regalos ya iban a la ventana del juego (ver sendGift), pero el resto
+// (reloj, ronda, ranking, sonido y fondo) se hacía en la del panel, que no tiene juego, y no pasaba nada. Ahora el
+// panel le pasa cada cambio por el mismo canal y la del juego lo hace como si se hubiera tocado en ella; a su vez, le
+// manda cada 400 ms cómo están esos controles (y los fps) y si se juega Petro vs Abelardo, para que el panel los
+// muestre igual
+const RELAYED = {
+  ttTimerMin: 'input',
+  ttTimerSec: 'input',
+  ttTimerBtn: 'click',
+  giftAuto: 'change',
+  giftNewRound: 'click',
+  giftClearRank: 'click',
+  giftMusic: 'click',
+  giftTrack: 'change',
+  giftMusicVol: 'input',
+  giftSfx: 'click',
+  giftSfxVol: 'input',
+  giftBg: 'change',
+};
+const SHARED = [...Object.keys(RELAYED), 'giftFps'];
+if (panelOnly)
+  for (const type of ['click', 'input', 'change'])
+    $('giftPanel').addEventListener(
+      type,
+      (e) => {
+        const el = e.target.closest?.('[id]');
+        if (!el || RELAYED[el.id] !== type) return;
+        // (antes de que le llegue a su manejador de aquí)
+        e.stopPropagation();
+        if (el.id === 'giftClearRank' && !confirm('¿Borrar el ranking?')) return;
+        giftChannel?.postMessage({ control: el.id, value: el.value, checked: el.checked });
+      },
+      true,
+    );
+function applyControl({ control, value, checked }) {
+  const el = $(control);
+  const type = RELAYED[control];
+  if (!el || !type) return;
+  if (control === 'giftClearRank') return clearRanking(false);
+  if (type === 'click') return el.click();
+  if (typeof value === 'string') el.value = value;
+  if (typeof checked === 'boolean') el.checked = checked;
+  el.dispatchEvent(new Event(type));
+}
+function sharePanelState() {
+  if (!giftChannel) return;
+  const state = {};
+  for (const id of SHARED) {
+    const el = $(id);
+    state[id] = {
+      value: el.value,
+      checked: el.checked,
+      disabled: el.disabled,
+      text: el.matches('button, b') ? el.textContent : null,
+      cls: el.className,
+    };
+  }
+  giftChannel.postMessage({ panelState: state, bandos: bandos.on });
+}
+// (lo que se está escribiendo o arrastrando en el panel no se pisa). Con `withBandos`, las tarjetas de los regalos de
+// cada jefe (ver renderGiftGrid)
+function showPanelState(state, withBandos) {
+  if (typeof withBandos === 'boolean' && withBandos !== bandos.on) {
+    bandos.on = withBandos;
+    document.body.classList.toggle('bandos', withBandos);
+    renderGiftGrid();
+  }
+  for (const [id, s] of Object.entries(state)) {
+    const el = $(id);
+    if (!el || (el === document.activeElement && el.matches('input, select'))) continue;
+    if (s.text !== null && el.textContent !== s.text) el.textContent = s.text;
+    el.className = s.cls;
+    el.disabled = s.disabled;
+    if (el.type === 'checkbox') el.checked = s.checked;
+    else if (el.matches('input, select')) el.value = s.value;
+  }
+}

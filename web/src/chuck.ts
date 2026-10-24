@@ -4,6 +4,8 @@
 //   alforzas, banda presidencial tricolor y pantalón oscuro de vestir.
 // - Abelardo: la caricatura de referencia como cabeza (ver abelardoCara.ts) y traje de cachaco: paño oscuro con rayas
 //   finas, chaleco, camisa blanca, corbata y zapatos negros.
+// - Los ayudantes (ver ayudantes.ts): José Manuel Restrepo (saco azul oscuro, camisa blanca abierta y un pin con la
+//   bandera) e Iván Cepeda (saco gris y camisa blanca de cuello mao), con la cara de su caricatura.
 //
 // Las piezas siguen el estilo de las del juego: relleno blanco que se tiñe con el color del pelo o la ropa, sombra
 // #d6baba y líneas finas negras semitransparentes (el contorno grueso lo pone el filtro de toda la figura). Las de la
@@ -13,6 +15,8 @@ import * as Symbols from 'labrute-fla-parser';
 import type { FramePart, Svg, Symbol as LaBruteSymbol } from 'labrute-fla-parser';
 import { getRandomBody, getRandomColors } from '@labrute/core';
 import { ABELARDO_FACE } from './abelardoCara';
+import { CEPEDA_OUTFIT, HELPER_HEAD, RESTREPO_OUTFIT } from './ayudantes';
+import { CEPEDA_FACE, RESTREPO_FACE } from './ayudantesCaras';
 
 // Peinados (p3) nuevos: después de los 12 del juego (0 a 11)
 export const CHUCK_HEAD = 12;
@@ -404,6 +408,55 @@ const abelardoTorso = svg('AbelardoTorsoSvg', 60, 50, [
 ]);
 
 // ===========================================================================
+// 4. AYUDANTES: José Manuel Restrepo e Iván Cepeda
+// ===========================================================================
+
+// Sus caricaturas (ver ayudantesCaras.ts), en las coordenadas de la cabeza como la de Abelardo: el pelo arriba en y -46
+// y la barbilla en y 41, y la cara centrada. Sin cuello: debajo de la barbilla ya está el cuello del saco
+const restrepoFullHead = svg('RestrepoFullHeadSvg', 160, 170, [
+  `<image href="${RESTREPO_FACE}" x="-32.2" y="-46.4" width="73.4" height="88.7" preserveAspectRatio="none"/>`,
+]);
+const cepedaFullHead = svg('CepedaFullHeadSvg', 160, 170, [
+  `<image href="${CEPEDA_FACE}" x="-35.3" y="-46.4" width="66.2" height="88.6" preserveAspectRatio="none"/>`,
+]);
+
+// Torso de Restrepo: saco azul oscuro (las solapas, del color del saco: 23283a), camisa blanca abierta (sin corbata ni
+// chaleco), botón y, en la solapa, un pin con la bandera de Colombia (amarillo, azul y rojo)
+const restrepoTorso = svg('RestrepoTorsoSvg', 60, 50, [
+  fill('M -12 -16 L -1 -16.5 L -4.4 -3 L -6.8 5 L -9.6 -3 Z', '#ffffff'),
+  fill(
+    'M -12.5 -16 L -7.6 -9.2 L -5.2 -13 L -9.8 -16.6 Z M -0.5 -16.5 L -5.2 -13 L -2.8 -8.6 L 2.2 -14.6 Z',
+    '#ffffff',
+  ),
+  stroke('M -12.5 -16 L -7.6 -9.2 L -5.2 -13 M -0.5 -16.5 L -5.2 -13 L -2.8 -8.6', '#5b5e68', 0.8),
+  fill(
+    'M -12.5 -16 L -16 -8.5 L -12.5 -8 L -13.5 -5.5 L -6.8 6 L -9.6 -6 Z M -0.5 -16.5 L 5 -8.5 L 1 -8 L 2 -5.5 L -6.8 6 L -3.8 -6 Z',
+    '#23283a',
+  ),
+  stroke(
+    'M -12.5 -16 L -16 -8.5 L -12.5 -8 L -13.5 -5.5 L -6.8 6 L 2 -5.5 L 1 -8 L 5 -8.5 L -0.5 -16.5 M -6.8 6 L -7.5 15',
+    '#0c0e16',
+    0.9,
+  ),
+  '<circle cx="-7.2" cy="9.5" r="0.75" fill="#0c0e16"/>',
+  '<rect x="-14.6" y="-9.6" width="2.6" height="0.9" fill="#fcd116"/><rect x="-14.6" y="-8.7" width="2.6" height="0.5" fill="#003893"/><rect x="-14.6" y="-8.2" width="2.6" height="0.5" fill="#ce1126"/>',
+]);
+
+// Torso de Cepeda: camisa blanca de cuello mao con su tira de botones y, encima, un saco gris sin solapas (del color del
+// saco: 5d6065) con su borde
+const cepedaTorso = svg('CepedaTorsoSvg', 60, 50, [
+  fill('M -12 -16 L -1 -16.5 L -2.2 -3 L -6.8 3.4 L -10.8 -3 Z', '#ffffff'),
+  fill('M -12.4 -16.2 L -0.6 -16.7 L -0.8 -13.6 L -12.2 -13.2 Z', '#eceef3'),
+  stroke('M -12.2 -13.2 L -0.8 -13.6 M -6.8 -13.4 L -6.8 3.4', '#8a8f9e', 0.6),
+  '<circle cx="-6.8" cy="-10.6" r="0.65" fill="#8a8f9e"/><circle cx="-6.8" cy="-6.6" r="0.65" fill="#8a8f9e"/><circle cx="-6.8" cy="-2.6" r="0.65" fill="#8a8f9e"/>',
+  fill(
+    'M -12.5 -16 L -15.6 -8 L -14.2 -4 L -9.6 6.4 L -10.2 -6 Z M -0.5 -16.5 L 3.6 -8 L 2 -4 L -4 6.4 L -3.4 -6 Z',
+    '#5d6065',
+  ),
+  stroke('M -12.5 -16 L -15.6 -8 L -14.2 -4 L -9.6 6.4 M -0.5 -16.5 L 3.6 -8 L 2 -4 L -4 6.4', '#2e3033', 0.9),
+]);
+
+// ===========================================================================
 // REGISTRO E INSTALACIÓN EN LOS SÍMBOLOS DEL MUÑECO
 // ===========================================================================
 
@@ -431,12 +484,22 @@ const HEAD_PARTS = [
   // Petro y Abelardo (cabezas caricaturescas completas estilo "cabezón")
   wrap('PetroFullHead', null, petroFullHead),
   wrap('AbelardoFullHead', null, abelardoFullHead),
+  // Los dos ayudantes en una pieza: p4 elige la cara (0, Restrepo; 1, Cepeda)
+  {
+    type: 'symbol',
+    name: 'HelperFace',
+    partIdx: '_p4',
+    parts: [restrepoFullHead, cepedaFullHead],
+    frames: [[{ type: 'svg', name: restrepoFullHead.name }], [{ type: 'svg', name: cepedaFullHead.name }]],
+  } as LaBruteSymbol,
 ];
 
 const TORSO_PARTS = [
   wrap('PetroTorso', null, petroTorso),
   wrap('AbelardoTorso', null, abelardoTorso),
   wrap('GuayaberaTorso', null, guayaberaTorso),
+  wrap('RestrepoTorso', null, restrepoTorso),
+  wrap('CepedaTorso', null, cepedaTorso),
 ];
 
 // Clona una pieza de ropa cambiando su color (_col2 -> _col3b para que el pantalón tenga su propio color separado de la
@@ -463,7 +526,7 @@ const makeShoeSymbol = (footSym: LaBruteSymbol, bootSymName: string, newName: st
   return wrap(newName, '_col4a', recoloredSvg);
 };
 
-const CUSTOM_PREFIXES = ['Chuck', 'Petro', 'Abelardo', 'Suit'];
+const CUSTOM_PREFIXES = ['Chuck', 'Petro', 'Abelardo', 'Suit', 'Restrepo', 'Cepeda', 'Helper'];
 
 // Mete los peinados en la cabeza del muñeco (Symbol410) y los atuendos en las piezas de ropa (_p7).
 let installed = false;
@@ -519,6 +582,8 @@ export function installChuck() {
     const cabezon = { a: 1.25, d: 1.25, tx: 0, ty: -4 };
     frames[PETRO_HEAD] = [{ type: 'symbol', name: 'PetroFullHead', transform: cabezon }];
     frames[ABELARDO_HEAD] = [{ type: 'symbol', name: 'AbelardoFullHead', transform: cabezon }];
+    // Los ayudantes comparten cabeza; la cara la elige p4 (ver HelperFace)
+    frames[HELPER_HEAD] = [{ type: 'symbol', name: 'HelperFace', transform: cabezon }];
     head.frames = frames;
   }
 
@@ -589,6 +654,18 @@ export function installChuck() {
       frames[PETRO_OUTFIT] = baseFrame;
       frames[ABELARDO_OUTFIT] = [...baseFrame];
       frames[GUAYABERA_OUTFIT] = [...baseFrame];
+    }
+    // Los atuendos de los ayudantes son el traje de Abelardo (mismas mangas, pantalón y zapatos, teñidos con sus colores);
+    // solo cambia el pecho (ver restrepoTorso y cepedaTorso)
+    const suit = frames[ABELARDO_OUTFIT] ?? baseFrame;
+    for (const [outfit, torso] of [
+      [RESTREPO_OUTFIT, 'RestrepoTorso'],
+      [CEPEDA_OUTFIT, 'CepedaTorso'],
+    ] as const) {
+      frames[outfit] =
+        cloth.name === 'Symbol339'
+          ? [{ type: 'symbol', name: torso }, ...baseFrame]
+          : suit.map((part) => ({ ...part }));
     }
     cloth.frames = frames;
   }
