@@ -1073,7 +1073,10 @@ function setupGiftPanel() {
         : ['', ''];
       // (en el centro, a cada lado de la vida, la cara del ayudante del presidente de ese lado)
       const [fa, fb] = hasHelper
-        ? SIDES.map((s) => `<img class="hface" src="${HELPER_FACES[s.helper]}" style="--c:${sideCss(s)}" alt="" draggable="false" />`)
+        ? SIDES.map(
+            (s) =>
+              `<img class="hface" src="${HELPER_FACES[s.helper]}" style="--c:${sideCss(s)}" alt="" draggable="false" />`,
+          )
         : ['', ''];
       return `<li><span class="stack"><span><i>${giftIcon(ga)}</i>${escHtml(ga.name)}</span>${ha}</span><b>${fa}${chiefGives(t)}${fb}</b><span class="stack"><span>${escHtml(gb.name)}<i>${giftIcon(gb)}</i></span>${hb}</span></li>`;
     };
