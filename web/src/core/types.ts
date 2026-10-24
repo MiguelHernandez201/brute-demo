@@ -57,6 +57,8 @@ export type Fighter = {
   speed: number,
   type: 'brute' | 'pet' | 'boss';
   master?: string;
+  // Ayudante de un potenciador (ver ayudantes.ts): una mascota con aspecto de persona
+  helper?: string;
   maxHp: number;
   hp: number,
   size?: number;

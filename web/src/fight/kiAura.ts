@@ -1,8 +1,8 @@
 // Demo battle royale: aura de ki al estilo Dragon Ball (potenciadores 2 y 3, ver engine/ultimates.boost). Llamas
 // doradas y translúcidas que envuelven al brute y suben parpadeando, chispas que suben y, en el nivel 3, rayos (como el
 // Súper Saiyajin 2). Va dentro del luchador, detrás de su cuerpo: le sigue a todas partes y crece con el Súper gigante.
-// Al encenderse (y con cada potenciador más, ver `pulse`), un estallido de luz y un grito de los que suben de nivel. Ya
-// no se apaga en toda la pelea; solo si cae, y al momento (así no sale en las fotos de la fatality).
+// Al encenderse (y con cada potenciador más, ver `pulse`), un estallido de luz y un grito de los que suben de nivel. Se
+// apaga al pasar sus segundos (ver KI_SECONDS) y, si cae, al momento (así no sale en las fotos de la fatality).
 import { sound } from '@pixi/sound';
 import { Application, Container, Graphics, Rectangle, Ticker } from 'pixi.js';
 import { AnimationFighter } from './utils/findFighter';

@@ -35,7 +35,7 @@ const KEEP_WEAPON_DECAY = 0.85;
 // cada turno saca una con probabilidad (peso de sus armas) / (peso de sus armas + esto)
 const ROYALE_NO_WEAPON_TOSS = 50;
 // Demo battle royale: el aura de ki (potenciadores 2 y 3, ver ultimates.boost) multiplica por tanto el daño que hace
-export const KI_DAMAGE = 3;
+export const KI_DAMAGE = 2;
 // Demo battle royale: quien ha usado un potenciador (ver ultimates.boost) no pierde nunca el arma que lleva: ni se la
 // quitan (desarmes, Martillo, robo), ni la lanza (sola o con el Diluvio), ni la cambia por otra
 const keepsWeapon = (f: DetailedFighter) => !!(f as { demoKeepWeapon?: boolean }).demoKeepWeapon && !!f.activeWeapon;
@@ -636,7 +636,7 @@ export const registerHit = ({
       : damage,
   }), {});
 
-  // Demo: Súper gigante → hace el doble de daño y recibe la mitad. Con el aura de ki, el triple (se suma: x6 de gigante)
+  // Demo: Súper gigante → hace el doble de daño y recibe la mitad. Con el aura de ki, el doble (se suma: x4 de gigante)
   opponents.forEach((opponent) => {
     let giantDamage = actualDamage[opponent.index] ?? damage;
     if ((fighter as { demoGiant?: boolean }).demoGiant) giantDamage *= 2;
@@ -2339,7 +2339,7 @@ const startAttack = (
 
 // Demo battle royale: ráfaga de la minigun (ver ultimates.boostGear) a los rivales de su duelo, hasta MINIGUN_TARGETS
 // empezando por `opponent`. No se esquiva, ni se bloquea, ni se contraataca, y a cada uno le quita MINIGUN_FACTOR veces
-// un golpe suyo (con su arma, y x3 con el aura de ki, ver registerHit): antes 1, apenas más que sus turnos normales
+// un golpe suyo (con su arma, y x2 con el aura de ki, ver registerHit): antes 1, apenas más que sus turnos normales
 const MINIGUN_TARGETS = 3;
 const MINIGUN_FACTOR = 3;
 const minigunBurst = (

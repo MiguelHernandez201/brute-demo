@@ -48,9 +48,11 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     ganadas 👑 y rivales eliminados ☠️), que se recuerda en el navegador. Lo de abajo queda libre, porque ahí TikTok
     pone los comentarios.
   - Bajo la arena, **¿Cómo jugar?** lo dice todo en una lista corta: a la izquierda, cómo se entra a pelear (👆 30
-    tap tap o 💬 comentar), que 100 tap tap dan +30 de vida y lo que da el 🫶 Quiéreme; a la derecha, qué da
+    tap tap, "¡entras!", o "💬 Comenta entrar o iniciar": antes decía "Comenta ¡a pelear!" y luego "Comenta algo
+    ¡entras!", y la gente escribía literalmente "¡A PELEAR!" o "algo ¡entras!"; vale cualquier comentario, pero así
+    lo que copian es corto), que 100 tap tap dan +30 de vida y lo que da el 🫶 Quiéreme; a la derecha, qué da
     un regalo según sus monedas, con la moneda de TikTok (1 → +30 y arma, 10 → +300 y arma, 30 → +1000 y aura, 100 →
-    +2000 y mascota, 299 → +3000 y minigun). Antes ahí había un cuadro tipo chat que lo explicaba regalo a regalo,
+    +2000 y los ayudantes, 299 → +3000 y minigun). Antes ahí había un cuadro tipo chat que lo explicaba regalo a regalo,
     con un mensaje largo cada 3,5 s, y ¿Cómo jugar? iba aparte, abajo a la derecha.
   - Los paneles se mueven y cambian de tamaño con la tecla **E** (R, en edición, los restablece). La distribución de
     fábrica es la que se dejó puesta así para el directo: la arena arriba, ¿Cómo jugar? debajo, el chat con las dos
@@ -64,7 +66,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     potenciadores de cada uno, y 🗑️ para borrar el ranking).
 - **⚔️ Gustavo Petro vs Abelardo**: el modo TikTok en dos bandos, cada uno con su jefe (ver **Gustavo Petro vs
   Abelardo**, abajo). También con `?bandos` en la dirección.
-- **🎁 Panel de regalos** (botón 🎁 o tecla **G**; en el modo TikTok): simula los regalos del directo de TikTok (los
+- **🎁 Panel de regalos** (botón 🎁 o tecla **G**, que lo abren en su propia ventana; en el modo TikTok): simula los regalos del directo de TikTok (los
   de verdad llegan solos con el puente: ver **Directo de TikTok**, abajo), y arriba dice cómo va la conexión con el
   directo. Justo debajo, **🚪 Los que se unen al live entran a la arena** (en verde si está activado; ver **Directo
   de TikTok**). Se escribe el nombre del espectador (vacío o 🎲: uno al azar), se elige la cantidad (x1, x5, x10) y se
@@ -79,8 +81,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     | --------- | --------------------------------------------------------- | ------------------- |
     | 1 a 9     | **+30** y un arma sencilla para toda la pelea             | 🌹 Rose (1)         |
     | 10 a 29   | **+300** y un arma sencilla para toda la pelea            | 🌹 Rosa (10)        |
-    | 30 a 99   | **+1000**, arma poderosa, aura de ki (daño x3) y un poder | 🍩 Dona (30)        |
-    | 100 a 298 | **+2000**, lo de la Dona y una mascota durante 1 minuto   | 💗 Hand Heart (100) |
+    | 30 a 99   | **+1000**, arma poderosa, aura de ki (daño x2) y un poder | 🍩 Dona (30)        |
+    | 100 a 298 | **+2000**, lo de la Dona y un ayudante durante 1 minuto   | 💗 Hand Heart (100) |
     | 299 o más | **+3000**, lo de antes, una minigun 20 s y 2 poderes      | 🐶 Corgi (299)      |
 
     Valen según lo que cuestan, para que muchos regalos pequeños no rindan más que uno grande: 30 Rose dan +900 de
@@ -115,13 +117,16 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     los oculta, y era el royale normal el que los mostraba arriba a la izquierda de la arena: ahora no se ven. Los
     regalos que llegan entre rondas entran al empezar la siguiente.
   - **↗️ Otra ventana** abre el panel solo (`?panel`), que manda los regalos a la ventana del juego: así en el directo
-    se captura solo la del juego.
+    se captura solo la del juego. El resto del panel también va a la del juego: el reloj, las rondas continuas, nueva
+    ronda, limpiar el ranking, la música, los efectos y el fondo (antes, desde esa ventana no hacían nada), y muestra
+    cómo están allí (y sus fps). La tecla G y el botón 🎁 abren directamente esta ventana (o la traen delante); antes
+    abrían el panel dentro de la del juego, y solo si el navegador bloquea la ventana se abre ese.
   - Para mandar regalos desde fuera (la consola, TikFinity u otro programa): `labrute.gift('usuario', 'rose', 5)`,
     `labrute.join('usuario')`, `labrute.petro('usuario')`, `labrute.abelardo('usuario')`, `labrute.chuck('usuario')` y
     `labrute.like('usuario', 15)` (los toques de cada aviso de "me gusta"), y en el modo Petro vs Abelardo
     `labrute.bando('usuario', 'petro')` (o `'abelardo'`), en la ventana
-    del juego (los regalos: `rose`, `quiereme`, `rosa`, `dona`, `handheart`, `corgi`, o el nombre de cualquiera del
-    catálogo, como `'Heart Me'` o `'Rose'`). Con lo que vale uno como cuarto dato
+    del juego (los regalos: `rose`, `quiereme`, `rosa`, `dona`, `handheart`, `nightstar` y los de Abelardo, `tiktok`,
+    `heart`, `capibara`, `mishka` y `hearts`, o el nombre de cualquiera del catálogo, como `'Heart Me'` o `'Rose'`). Con lo que vale uno como cuarto dato
     (`labrute.gift('usuario', 'Rose', 5, 1)`) solo cuenta como ese regalo si el nombre y el precio casan; si no, da
     lo que le toca por sus monedas.
 
@@ -182,8 +187,8 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       16 simulados, hasta 19 ataques seguidos; así, como antes, no pasan de 12).
   - Tras atacar, cada uno retrocede frente a su rival (no a otra punta de la arena), así cada pareja pelea en
     su zona. Las llegadas del principio van escalonadas, sin esperar a que aterrice el anterior.
-  - Carroñero y Golosina están en desuso en el royale: aquí no hay mascotas (salvo la del potenciador +3000, que solo
-    dura un minuto), así que casi nunca podrían usarse. Los brutes del royale reciben otra mejora en su lugar.
+  - Carroñero y Golosina están en desuso en el royale: aquí no hay mascotas (salvo el ayudante del potenciador +3000, que
+    solo dura un minuto), así que casi nunca podrían usarse. Los brutes del royale reciben otra mejora en su lugar.
   - Cada brute lleva encima su nombre y su vida, con un color propio que también marca su fila en la
     lista. Al pasar el ratón por una fila se resalta en la arena; con un clic se queda fijo. En el móvil, tocar la
     fila no hace nada (así no se resalta sin querer al ir a pulsar su ultimate).
@@ -215,11 +220,12 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     - **+30**: solo le cura o le suma 30 PV (el del regalo pequeño, la Rose: sobre todo, para entrar a pelear). Antes
       daba 300 PV, un arma sencilla y un poder.
     - **+1000**: 1000 PV, un poder, un arma poderosa (hacha, espada, mayal, lucero del alba, alabarda o maza, de
-      nivel 2) y un **aura de ki** al estilo Dragon Ball para el resto de la pelea: llamas doradas y translúcidas que
-      le envuelven y suben, con chispas, y hace el triple de daño (con el Súper gigante, x6).
+      nivel 2) y un **aura de ki** al estilo Dragon Ball durante un minuto: llamas doradas y translúcidas que
+      le envuelven y suben, con chispas, y hace el doble de daño (con el Súper gigante, x4; antes el triple).
     - **+3000**: 3000 PV, **2 poderes** uno tras otro (antes, uno), un arma poderosa de nivel 3, el aura de ki (esta
       con rayos, como el Súper Saiyajin 2), una
-      **mascota** (perro, pantera u oso) que pelea con él durante un minuto y luego se va, y una **minigun** durante
+      **ayudante** (ver **Ayudantes**, abajo) que pelea con él durante un minuto y luego se va (antes, una mascota: perro,
+      pantera u oso), y una **minigun** durante
       20 s de pelea. La agarra por el asa de arriba con la mano con la que coge las armas (se ve su propio puño encima
       del asa) y, mientras la lleva, en vez de la guardia de reposo se planta con el brazo adelantado y el arma a la
       cadera (antes flotaba delante de él sin que nadie la sujetara). Su arma se guarda mientras tanto, y cada turno
@@ -227,7 +233,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       cada uno (antes apuntaba siempre recto y las balas salían en diagonal), los cañones dan vueltas y sale un chorro
       de 80 balas por segundo, destellos que vuelan hasta el rival (antes eran 24 por segundo y cada una, una raya fija:
       se veían dos o tres), con fogonazos, chispas donde dan, casquillos y su propio sonido. No se esquiva, ni se
-      bloquea, ni se contraataca, y a cada uno le quita lo de tres golpes suyos (x9 con el aura; antes, lo de uno): en
+      bloquea, ni se contraataca, y a cada uno le quita lo de tres golpes suyos (x6 con el aura; antes, lo de uno): en
       120 royales simulados, unos 1.250 PV por turno frente a unos 250 de sus turnos normales (antes, unos 400). Al
       acabarse la suelta (cae al suelo y se desvanece) y vuelve a su arma; otro +3000 con ella en las manos vuelve a
       empezar sus 20 s. Quien cae por ella tiene su propia fatality, la **balacera** (ver el royale, abajo).
@@ -246,10 +252,12 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
       en cola y caía igual: en un duelo, si uno lanzaba su ultimate, el otro ya no podía curarse a tiempo.
     - Sin recarga: en cuanto se ve su poder (o su vida, el +30), los botones se pueden volver a pulsar (antes se
       recargaban 30, 60 o 90 s). Cada pulsación lanza otros poderes y le suma la vida; si ya tenía el aura, estalla otra vez (y la del
-      +1000 pasa a la de rayos con un +3000), y cada +3000 trae otra mascota.
-    - El aura no se apaga en toda la pelea (antes duraba un minuto); solo si cae, y al momento. La mascota cuenta su
+      +1000 pasa a la de rayos con un +3000), y cada +3000 trae otro ayudante.
+    - El aura dura un minuto desde que se enciende (otro potenciador con aura lo vuelve a empezar) y se apaga poco a
+      poco; si cae, al momento. Su minuto corre aunque esté solo esperando retador: cuando duraba toda la pelea, quien
+      la tenía se quedaba esperando con daño x3 y ya nadie de los que entraban podía con él. El ayudante cuenta su
       minuto desde que llega (se para con la pausa y va al doble a x2).
-    - **Lo que dura un tiempo solo cuenta mientras tiene rivales**: la minigun (20 s), la mascota (1 min) y el Súper
+    - **Lo que dura un tiempo solo cuenta mientras tiene rivales**: la minigun (20 s), el ayudante (1 min) y el Súper
       gigante (15 s) se paran mientras está solo en la arena esperando retador, y siguen en cuanto aparece otro.
       Antes corrían igual, y quien quería entrar esperaba a que se le acabaran para no comerse la minigun.
     - **Quien usa un potenciador ya no pierde nunca el arma que lleva**: no se la quitan (desarmes al golpearle o al
@@ -266,7 +274,9 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     - 💣 **Lluvia de bombas**: caen 7 bombas, cada una sobre uno o dos rivales.
     - ⚡ **Prisa en cadena**: 8 embestidas seguidas, cada una a un rival (si hay menos, vuelve a por los primeros).
     - 💪 **Súper gigante**: crece 15 s (daño x2 y recibe la mitad) y tras cada ataque da un pisotón cuya onda
-      golpea a la vez a los 3 rivales más cercanos.
+      golpea a la vez a los 3 rivales más cercanos. En el modo TikTok la cámara se aleja (hasta x0,6) y sube por
+      encima del escenario, donde sigue el fondo alto, para que se le vea entero; antes no podía alejarse ni salirse
+      del escenario y al gigante se le cortaba la cabeza.
 
     Están equilibradas: en 300 royales de 10 simulados, cada una quita de media unos 470-490 PV en total (el
     gigante, contando lo que pega de más y lo que deja de recibir) y elimina a unos 2 rivales. El aura de ki de los
@@ -306,7 +316,7 @@ y en `main` además publica `web/dist` en GitHub Pages. Las carpetas copiadas de
     que llega entra en un duelo desde su primer turno (si todos están en pareja, forma un trío), así que ataca y
     recibe golpes enseguida; con +5 cada uno aparece y llega por su cuenta, sin esperar al anterior.
     - **➕ con regalo** (**+30** / **+1000** / **+3000**, debajo): agrega un brute que entra con ese potenciador. En
-      cuanto aparece en la arena recibe todo lo del potenciador (vida, arma, aura de ki, mascota y sus poderes), como si
+      cuanto aparece en la arena recibe todo lo del potenciador (vida, arma, aura de ki, ayudante y sus poderes), como si
       se pulsara en su fila; hasta entonces su botón de la lista lleva el ⏳ de los que esperan en cola.
     - El motor no va por delante de la animación (ver arriba), así que el recién llegado entra en cuanto aparece.
       Antes se adelantaba al menos 16 turnos: con pocos en pie, todos esos turnos eran del mismo duelo y el recién
@@ -350,78 +360,116 @@ Los botones de la arena son solo iconos, en una fila (al pasar el ratón por enc
 promocional; con las rondas continuas lleva la cuenta atrás en la esquina), 🔁 rondas continuas y 🔍 zoom dinámico
 (dorados si están activados), ⬇️ descargar el vídeo grabado y 🏠 volver al menú.
 
+## Ayudantes
+
+Los potenciadores de **100 y de 299 monedas** ya no traen una mascota (perro, pantera u oso): traen un **ayudante**, una
+persona con la cara de su caricatura que pelea con su presidente durante un minuto (`PET_SECONDS`) y se va corriendo.
+Sirve en el modo TikTok normal y en Petro vs Abelardo.
+
+- **José Manuel Restrepo** (saco azul oscuro, camisa blanca abierta y un pin con la bandera de Colombia) e **Iván
+  Cepeda** (saco gris y camisa blanca de cuello mao). **En Petro vs Abelardo, cada presidente tiene el suyo: Iván
+  Cepeda ayuda a Petro y José Manuel Restrepo, a Abelardo** (`helper` en cada bando de `SIDES`, `web/src/main.js`; antes
+  llegaban por turnos y a Petro le podía tocar Restrepo, que le pegaba a su amigo Abelardo). Un segundo regalo con
+  ayudante no trae otro: le vuelve a empezar el minuto al que ya está. En el modo normal, sin bandos, llegan por turnos:
+  el primero que recibe un brute es Restrepo y el segundo, Cepeda; con los dos presentes, el que llegó antes vuelve a
+  empezar su minuto. Si uno cae, el siguiente regalo trae otra vez al que falte.
+- **Por dentro sigue siendo una mascota** (con las estadísticas del oso, que escalan con las de su amo y se juegan en el
+  motor igual que antes: `FightSession.castBoost` y `#summonHelper` en `web/src/engine/session.ts`), pero se dibuja y se
+  anima como una persona: el muñeco del juego con la cara de la caricatura y el atuendo de cada uno (`FighterHolder`:
+  `isHelper`, que anima `attack` como `fist` y `hit` como `hit-0/1/2`). Pega con el puño, suena como una persona y cae
+  como una persona.
+- **Los dibujos** (`web/src/chuck.ts`, `web/src/ayudantes.ts` y `web/src/ayudantesCaras.ts`): las dos caricaturas
+  están recortadas del fondo blanco y por debajo de la mandíbula, la de Cepeda volteada para que las dos miren a la
+  izquierda, en base64 como la de Abelardo. El muñeco solo admite 16 peinados (una cifra hexadecimal) y ya estaban
+  usados 15, así que los dos comparten el 15 y la cara la elige `p4` (0, Restrepo; 1, Cepeda), que solo cuenta dentro
+  de la cabeza. Sus atuendos son los números 10 y 11 (el traje de Abelardo con otro pecho).
+- En ¿Cómo jugar? (los dos modos) y en las tarjetas del panel de regalos, donde antes iba el icono de la mascota 🐾
+  ahora salen sus nombres, **Jose Manuel / Ivan Cepeda** (uno sobre otro y más pequeños en ¿Cómo jugar?; sin acentos:
+  la letra de ese cuadro dibuja los acentos en minúscula). En Petro vs Abelardo, bajo el regalo de 100 monedas de cada
+  uno sale su ayudante: "+ Ivan Cepeda" bajo el Hand Heart de Petro y "+ Jose Manuel" bajo el Osito Mishka de
+  Abelardo. Las reglas de Brutus también dicen ayudante.
+
 ## Gustavo Petro vs Abelardo
 
-El modo TikTok en dos bandos: Gustavo Petro y Abelardo entran como jefes y los demás pelean como refuerzos de uno de
-los dos. La ronda la gana el bando que derriba al jefe rival. Se entra con el botón **⚔️ Gustavo Petro vs Abelardo** de
-la pantalla de inicio, o con `?bandos` en la dirección (`?bandos=8` para elegir cuántos refuerzos salen al empezar,
-repartidos entre los dos; como en el modo TikTok, de 3 a 20).
+El modo TikTok en dos bandos: **solo pelean Gustavo Petro y Abelardo**, uno contra uno, y el chat los apoya con
+comentarios, toques y regalos. En pantalla a cada jefe se le llama "tu presidente". La ronda la gana el bando cuyo jefe
+derriba al otro. Antes los espectadores entraban a
+pelear como refuerzos de un bando; ya no entra nadie más que los jefes. Se entra con el botón **⚔️ Gustavo Petro vs
+Abelardo** de la pantalla de inicio, o con `?bandos` en la dirección.
 
-- **Cada espectador elige su bando** comentando el nombre de su jefe: `petro` o `gustavo`, `abelardo` o `espriella`
-  (sin importar mayúsculas ni tildes, y aunque lleve números o signos pegados, como `#petro2026`, pero no dentro de otra
-  palabra: "petróleo" no cuenta), o solo `1` (Petro) o `2` (Abelardo). Si nombra a los dos, no elige. Quien entra sin
-  elegir (con toques, un regalo, al entrar al live o comentando otra cosa) va al bando que tenga menos en pie. El bando se
-  le queda mientras siga abierta la página, así vuelve a él en las rondas siguientes; si se cambia estando en la pelea,
-  sigue en el suyo hasta la ronda siguiente. ¿Cómo jugar? lo dice abajo: "💬 Comenta PETRO o ABELARDO para elegir tu
-  bando". En el panel de regalos, **👓 Gustavo Petro** y **🎩 Abelardo** meten al espectador del nombre escrito en ese
-  bando (sin nombre, o con el de un jefe, uno al azar), y desde la consola, `labrute.bando('usuario', 'petro')`.
-- **Los regalos van sobre todo al jefe** del bando de quien los manda (`bandosGift` en `web/src/sim.ts`): la vida del
-  jefe y, desde 30 monedas, lo de ese escalón (aura de ki, poderes, mascota y minigun). Al espectador, menos vida y un
-  arma (poderosa desde 30 monedas, sin aura ni poder: el potenciador 8, nuevo). En ¿Cómo jugar?, la columna de las
-  monedas dice lo que le dan al jefe ("Tu jefe 👑"):
+- **Cada jefe tiene sus regalos**, uno por escalón de monedas y del mismo precio que el del otro, así ninguno tiene
+  ventaja (`side` en `GIFTS`, `web/src/main.js`): el regalo va a su jefe, lo mande quien lo mande.
 
-  | Monedas   | Al jefe de su bando                  | Al espectador              |
-  | --------- | ------------------------------------ | -------------------------- |
-  | 1 a 9     | +10                                  | +30 y arma sencilla        |
-  | 10 a 29   | +100                                 | +50 y arma sencilla        |
-  | 30 a 99   | +300, aura de ki y un poder          | +100 y arma poderosa       |
-  | 100 a 298 | +600, lo de antes y mascota 1 minuto | +200 y arma poderosa       |
-  | 299 o más | +900, 2 poderes y minigun 20 s       | +300 y arma poderosa       |
+  | Monedas | Para Petro    | Para Abelardo     | Al jefe (`bandosGift` en `web/src/sim.ts`) |
+  | ------- | ------------- | ----------------- | ------------------------------------------ |
+  | 1       | 🌹 Rose       | TikTok            | +100 (antes +10)                           |
+  | 10      | 🌹 Rosa       | ❤️ Corazon        | +100 y arma poderosa (antes, solo vida)    |
+  | 30      | 🍩 Dona       | 🦫 Capibara       | +300, aura de ki y un poder                |
+  | 100     | 💗 Hand Heart | 🧸 Osito Mishka   | +600, lo de antes y su ayudante 1 minuto   |
+  | 199     | 🌟 Night Star | 💕 Corazones      | +900, 2 poderes, su ayudante y minigun 20 s |
 
-  La vida del jefe va en proporción a la suya (30 monedas se la devuelven entera), no a la del royale: con esa, un Corgi
-  le daba diez veces su vida. Los regalos de más de 299 monedas (el León…) dan lo del Corgi con la vida en proporción a
-  lo que valen. Las curas seguidas al jefe (los regalos de menos de 30 monedas) se suman en una, y su cola de
-  potenciadores es más larga que la de un espectador (30): le regala todo su bando. Si el jefe ya cayó en el motor pero
-  su caída aún no se ve, un regalo de su bando le salva, como en el royale. Los toques siguen siendo solo del espectador.
-
-- **En pantalla**: en lugar de la cabecera, la barra de los jefes, con la cara de cada uno, su vida, cuántos de su bando
-  siguen en pie (👥) y, en medio, las rondas que lleva ganadas cada bando (se recuerdan en este navegador). Cada bando
-  tiene su color en las etiquetas de la arena y en la lista: naranja el de Petro y celeste el de Abelardo (ninguno de
-  los de sus partidos). ¿Cómo jugar? suma "👑 Jefe rival ¡derríbalo!".
-- **Ropa del bando** (`teamLook` en `web/src/chuck.ts`): los refuerzos conservan su cara, su pelo y su piel al azar,
-  pero visten como su jefe. Los de Petro, la guayabera blanca con pantalón oscuro, sin la banda presidencial (es solo
-  suya: un atuendo nuevo, la guayabera sola); los de Abelardo, el traje de cachaco oscuro con rayas, chaleco y corbata.
-  Las piezas propias son del muñeco de hombre: las brutes llevan el top y la falda del juego en esos colores. Todos sin
-  el chaleco oscuro que trae a veces el atuendo de manga larga del juego (no se tiñe y tapaba el color del bando).
+  Cualquier otro regalo (el Quiéreme, un León…) va al jefe que eligió quien lo manda, con lo de su escalón de monedas;
+  si no eligió, al que va perdiendo (el de menos vida ahora, no en proporción a su máxima: con cada cura la máxima sube y
+  los dos quedan siempre "llenos"; si empatan, al azar). **Un regalo fuerte (desde 30 monedas) de quien no ha elegido va
+  siempre al más débil, aunque sea del otro presidente**, para que no lo hunda el que ya va ganando; desde entonces es de
+  ese bando. Quien ya eligió (comentando A o B, o con un regalo anterior) manda sus regalos a su presidente, y los
+  pequeños (1 y 10 monedas) de quien no eligió van al presidente de ese regalo (`STRONG_GIFT_COINS` en `web/src/main.js`).
+  El escalón de arriba de este modo es el de **199 monedas** (antes 299, con el Corgi y los Boxing Gloves): los de 199
+  o más dan +900, 2 poderes, ayudante y minigun, y los de más de 199 (el Corgi de 299, el León…) lo mismo con la vida en
+  proporción a lo que valen; como no son de ningún presidente, van al que eligió quien los manda (o al más débil). Las curas seguidas (regalos de menos de 30 monedas y toques) se suman en una, y su cola de potenciadores es
+  larga (30): le regala todo su bando. Si el jefe ya cayó en el motor pero su caída aún no se ve, un regalo le salva,
+  como en el royale. Los regalos que llegan entre rondas son para el jefe en la siguiente.
+- **Elegir jefe**: en pantalla solo se pide **A** (Petro) o **B** (Abelardo), la letra que sale junto a cada nombre
+  (antes se listaban también su nombre, 1/2 e izquierda/derecha, y eran demasiadas opciones). Por debajo se sigue
+  entendiendo todo: `A`/`B` o `1`/`2` como comentario entero, su nombre (`petro` o `gustavo`, `abelardo` o
+  `espriella`), su lado (`izquierda`, `izq`, `left` / `derecha`, `der`, `right`) y su color (`naranja` / `azul`,
+  `celeste`). Sin importar mayúsculas ni tildes, y aunque lleve números
+  o signos pegados, como `#petro2026`, pero no dentro de otra palabra: "petróleo" no cuenta. Si nombra a los dos, no
+  elige. Sale un aviso ("maria apoya a 👑
+  Abelardo") y Brutus lo dice. Quien manda un regalo de un jefe sin haber elegido queda con ese. Se le queda mientras
+  siga abierta la página.
+- **Toques**: cada 30 tap tap (antes 100) le dan +30 a su jefe (antes +10); quien no eligió, al que va perdiendo.
+- **¿Cómo jugar?** va abajo, donde en el modo TikTok va el ranking (aquí no hay ranking: no hay eliminaciones de
+  espectadores; antes estuvo "Top apoyos", que se quitó). Lo dice todo en una tabla de **3 columnas y 6 filas** con rayas
+  entre ellas: los regalos de Petro a la izquierda, lo que le dan a "tu presidente" en medio y los de Abelardo a la
+  derecha (la primera fila lleva los nombres, con su letra: "A · PETRO", "ABELARDO · B"; las otras cinco, un escalón de
+  monedas cada una), y abajo "💬 Comenta A o B para elegir tu presidente" y "👆 Cada 30 tap tap: +30 a tu
+  presidente".
+- **Panel de regalos** (G, o en otra ventana): las tarjetas son los regalos de cada jefe, de dos en dos (Petro a la
+  izquierda, en naranja, y Abelardo a la derecha, en celeste). **👓 Gustavo Petro** y **🎩 Abelardo** eligen ese jefe
+  para el nombre escrito (sin nombre, uno al azar), **👆 Tap tap** manda 30 toques por cantidad elegida y 🙋 Unirse no
+  sale. Desde la consola, `labrute.bando('usuario', 'petro')` y `labrute.gift('usuario', 'hearts')`.
+- **En pantalla**: en lugar de la cabecera, la barra de los jefes, con la cara de cada uno, su vida, cuántos
+  espectadores le apoyan (👥; antes, cuántos de su bando seguían en pie) y, en medio, las rondas que lleva ganadas cada
+  bando (se recuerdan en este navegador). Cada bando tiene su color: naranja el de Petro y celeste el de Abelardo
+  (ninguno de los de sus partidos). **En la arena, Petro siempre a la izquierda y Abelardo a la derecha**, como en la
+  barra (`royaleArena.lock`: cada uno se mueve por su mitad y retrocede de su lado del rival; antes se cruzaban).
+- **El número de ronda se recuerda** en este navegador (como el marcador de rondas ganadas): si se recarga la página
+  (F5, OBS, o el servidor de desarrollo cuando se cambia un archivo) sigue en la que iba en vez de volver a "Ronda 1".
+  **🗑️ Limpiar ranking** lo pone a cero, y en este modo también el marcador (pregunta "¿Borrar el marcador y el número
+  de ronda?").
 - **Fin de la ronda**: cuando se ve caer a un jefe, su caída es como la del duelo final del royale ("FINISH HIM!", el
-  fondo que se oscurece y el letrero de la FATALITY), lo que quedaba por verse de los demás ya no cuenta y gana el otro
-  jefe: celebra todo su bando y sale "¡Gana el bando de …!", el mejor de los suyos (el que más rivales eliminó, sin
-  contar al jefe) y el marcador. Si el reloj de la ronda llega a cero, gana el jefe al que le quede más vida (en
-  proporción a la suya). Los jefes no cuentan en el ranking de los espectadores.
+  fondo que se oscurece y el letrero de la FATALITY) y gana el otro: sale "¡Gana el bando de …!", quien más le regaló en
+  la ronda (⭐ nombre y monedas) y el marcador. Si el reloj de la ronda llega a cero, gana el jefe al que le quede más
+  vida (en proporción a la suya).
 - **Brutus** (la voz del directo, ver **Streamer virtual (voz)**, abajo) anuncia el inicio de cada ronda, avisa cuando un
-  jefe está en peligro, canta el bando ganador, dice quién se une a cada bando y saluda y agradece con las reglas del
+  jefe está en peligro, canta el bando ganador, dice quién elige a cada jefe y saluda y agradece con las reglas del
   modo, sin opinar nunca de política.
-- **El motor**: `createRoyale(n, { sides })` (`web/src/sim.ts`) arma la ronda con los dos jefes y `n` brutes repartidos
-  entre los bandos. Los jefes salen con las mismas estadísticas, armas y habilidades (solo cambian el nombre y el
-  aspecto), así ningún bando tiene ventaja, y con **300** de vida (`CHIEF_HP`). Cada bando empieza en su lado de la
-  arena.
-- Los de un mismo bando no se atacan: los duelos solo se arman entre bandos rivales (si un bando tiene muchos más en
-  pie, varios se juntan contra el mismo rival) y las ultimates, la onda del gigante y la minigun solo alcanzan al otro
-  bando. A los jefes, las ultimates y la minigun les quitan la cuarta parte.
-- Cuando cae un jefe, el motor espera a que la animación vea su caída para cerrar la ronda; si antes le llega un
-  potenciador que le salva, la pelea sigue. Mientras tanto no entra nadie más.
-- Al jefe le pegan de uno en uno (cada golpe se anima por separado), así que lo que tarda en caer depende sobre todo de
-  su vida. Con 300 y 6 brutes más, sin regalos, el primer jefe cae a los 2 minutos de media y 1 ronda de cada 20 llega
-  a los 3 minutos del reloj (con 400, 1 de cada 6). Varía mucho de una ronda a otra: en el navegador, cuatro rondas
-  duraron 34 s, 2 min 14 s, 2 min 21 s y unos 2 min 25 s (con la llegada y el remate). Los regalos acortan la ronda
-  (sus poderes y el aura pegan más de lo que curan): con uno cada 27 s, 1 min 23 s de media; con dos, 1 min 9 s. Y
-  deciden: si 3 de cada 4 regalos son del bando de Petro, gana Petro en 4 rondas de cada 5. Para volver a medirlo,
-  desde `web/`:
+- **El motor**: `createRoyale(0, { sides })` (`web/src/sim.ts`) arma la ronda con los dos jefes. Salen con las mismas
+  estadísticas, armas y habilidades (solo cambian el nombre y el aspecto), así ningún bando tiene ventaja, y con **600**
+  de vida (`CHIEF_HP`; antes 300). Cada uno empieza en su lado de la arena. El motor sigue admitiendo refuerzos (`createRoyale(n,
+  …)`, con la ropa de su bando: `teamLook` en `web/src/chuck.ts`), pero el juego ya no los mete.
+- A los jefes, las ultimates y la minigun les quitan la cuarta parte. Cuando cae uno, el motor espera a que la animación
+  vea su caída para cerrar la ronda; si antes le llega un potenciador que le salva, la pelea sigue.
+- **Lo que dura una ronda**, en 100 simuladas con el motor de verdad, con 600 de vida: sin regalos, casi 3 minutos (8
+  de cada 10 llegarían a los 3 del reloj, si está activado); con un regalo cada 27 s, 1 min 36 s de media (con 300,
+  2 min y 1 min 21 s). Los regalos la acortan porque sus poderes y el aura pegan más de lo que curan. Con regalos de
+  los dos bandos por igual, cada uno gana más o menos la mitad. Para volver a medirlo, desde `web/`:
 
   ```bash
-  node scripts/simular.mjs bandos 200 6        # 200 rondas con 6 refuerzos
-  node scripts/simular.mjs bandos 200 6 1 500  # con espectadores y regalos, y jefes con 500 de vida
-  SESGO=0.75 node scripts/simular.mjs bandos 200 6 2   # 2 regalos cada 27 s, 3 de cada 4 del bando de Petro
+  node scripts/simular.mjs bandos 200 0        # 200 rondas, solo los jefes
+  node scripts/simular.mjs bandos 200 0 1 500  # con regalos, y jefes con 500 de vida
+  SESGO=0.75 node scripts/simular.mjs bandos 200 0 2   # 2 regalos cada 27 s, 3 de cada 4 de Petro
   node scripts/simular.mjs royale 200 10       # el royale normal, para comparar
   ```
 
@@ -435,6 +483,8 @@ Los regalos, toques y comentarios de tu directo de verdad entran solos a la pele
 - `iniciar-directo.bat` pregunta tu usuario de TikTok la primera vez (lo guarda en `live/usuario.txt`; para cambiarlo,
   `iniciar-directo.bat otro_usuario`), abre el **puente** en otra ventana y el juego en modo TikTok
   (http://localhost:3100/?tiktok). Para el directo se captura esa página (con TikTok LIVE Studio u OBS).
+  Para el modo **Petro vs Abelardo** usa `iniciar-directo-versus.bat`: hace lo mismo pero abre
+  http://localhost:3100/?bandos (comparte el usuario guardado y se le puede pasar otro igual).
 - El puente (`live/puente.js`, con [tiktok-live-connector](https://www.npmjs.com/package/tiktok-live-connector))
   lee el directo como un espectador más, solo con tu usuario: no hay API oficial de TikTok para esto, así que si
   TikTok cambia algo puede dejar de funcionar hasta que se actualice la librería (`npm install
@@ -486,11 +536,14 @@ Una voz que agradece los regalos, saluda a los que entran y responde preguntas d
   Límites para no hablar sin parar: 8 s entre comentarios de la pelea, un mínimo por tipo (críticos 20 s, reñida 90 s,
   solo 40 s) y 60 por hora (`NARRADOR_MAX_HORA` en `voz.env`). Lo que tarda en tocarle y ya no tiene sentido se descarta.
 - **⚔️ En el modo Petro vs Abelardo** (el juego se lo dice a la voz por el puente): los saludos invitan a comentar
-  "petro o abelardo" para elegir bando, los gracias por regalos dicen que van al jefe ("eso es vida para tu jefe") y el
-  modelo recibe las reglas del modo para responder preguntas (cómo se elige bando, qué da cada regalo). El narrador suma
-  cuatro avisos, con frases fijas y sin IA:
-  - **Empieza la ronda**: "¡Arranca la ronda! Comenten Petro o Abelardo para elegir su bando…", como mucho una vez cada
-    5 minutos.
+  "A por Petro o B por Abelardo" para elegir presidente y apoyarle con toques y regalos (ya no para entrar a pelear:
+  solo pelean los jefes), los gracias por regalos dicen que van a su presidente y cambian con el escalón de monedas
+  (hasta 99: "eso es vida para tu presidente"; 30: el aura; 100: llega su ayudante; 199 o más: la minigun y el ayudante,
+  antes el cambio era a las 299) y el modelo recibe las reglas del modo para responder preguntas (cómo se elige, qué
+  regalos son de cada uno y qué dan). El narrador suma cuatro avisos, con frases fijas y sin IA (el aviso de "queda solo
+  esperando rival" no se dice en este modo: aquí siempre son los dos presidentes):
+  - **Empieza la ronda**: "¡Arranca la ronda! Comenten A por Petro o B por Abelardo y apoyen a su presidente con
+    toques y regalos…", como mucho una vez cada 5 minutos.
   - **Un jefe en peligro**: por debajo del 30 % de su vida, "¡Gustavo Petro está en las últimas! ¡Bando de Petro, a
     defenderlo!". Una vez, y otra si sus regalos lo suben por encima del 60 %; como mucho una cada 20 s.
   - **Gana un bando**: "¡Cayó Abelardo! ¡Gana la ronda el bando de Petro!". Se dice aunque haya hablado hace poco y va

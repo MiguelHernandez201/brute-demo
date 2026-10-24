@@ -4,9 +4,10 @@
 // Desde web/:
 //   node scripts/simular.mjs royale [rondas] [brutes]
 //   node scripts/simular.mjs bandos [rondas] [refuerzos] [regalos: 0, 1, 2…] [vida de los jefes]
+// (el juego ya no mete refuerzos: solo pelean los jefes, así que lo que vale es `bandos [rondas] 0 …`)
 //
 // Con regalos, cada 10 unidades (unos 27 s) llegan tantos como diga, de un espectador de un bando al azar, repartidos
-// como en el juego (ver sim.bandosGift): casi todos de 1 o 10 monedas, y de vez en cuando uno de 30, 100 o 299
+// como en el juego (ver sim.bandosGift): casi todos de 1 o 10 monedas, y de vez en cuando uno de 30, 100 o 199
 //
 // La duración sale de un modelo de la animación: cada turno ocupa a todos los que salen en él una "unidad" y el motor
 // no juega el turno de quien sigue ocupado (como session.playTurn con `hold`). Medido en el navegador (con un reloj
@@ -60,16 +61,17 @@ try {
       // recibe su parte, y su jefe la suya
       if (bandos && gifts) {
         const side = () => (Math.random() < +(process.env.SESGO ?? 0.5) ? 'petro' : 'abelardo');
-        if (now - lastJoin >= 6 && fight.canAddBrute()) {
+        // (con 0 refuerzos, como el juego ahora: solo los jefes, y los regalos solo a ellos)
+        if (count && now - lastJoin >= 6 && fight.canAddBrute()) {
           lastJoin = now;
           fight.addBrute(`espectador${r}-${now}`, undefined, side());
         }
         if (now - lastGift >= 10 / gifts) {
           lastGift = now;
-          const coins = [1, 1, 1, 1, 10, 10, 30, 100, 299][Math.floor(Math.random() * 9)];
+          const coins = [1, 1, 1, 1, 10, 10, 30, 100, 199][Math.floor(Math.random() * 9)];
           const { chief, viewer } = sim.bandosGift(coins);
           const own = side();
-          const giver = fight.canAddBrute() ? fight.addBrute(`regalo${r}-${now}`, undefined, own) : null;
+          const giver = count && fight.canAddBrute() ? fight.addBrute(`regalo${r}-${now}`, undefined, own) : null;
           if (giver) fight.castBoost(giver.index, viewer.tier, viewer.hp);
           fight.castBoost(fight.chiefs()[own], chief.tier, chief.hp);
         }
